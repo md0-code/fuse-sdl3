@@ -154,7 +154,7 @@ my %ui_data = (
 	      function => sub ($) { "GDK_KEY_$_[0]" },
     	    },
 
-    sdl  => { headers => [ 'SDL.h' ],
+    sdl  => { headers => [ 'sdlcompat.h' ],
 	      max_length => 18,
 	      skips => { map { $_ => 1 } ( 'Hyper_L','Hyper_R','Caps_Lock',
                          'A' .. 'Z', 'asciitilde', 'bar', 'dead_circumflex',

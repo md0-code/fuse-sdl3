@@ -26,6 +26,8 @@
 #ifndef FUSE_SDLJOYSTICK_H
 #define FUSE_SDLJOYSTICK_H
 
+#include "sdlcompat.h"
+
 void sdljoystick_buttonpress( SDL_JoyButtonEvent *buttonevent );
 void sdljoystick_buttonrelease( SDL_JoyButtonEvent *buttonevent );
 void sdljoystick_axismove( SDL_JoyAxisEvent *axisevent );

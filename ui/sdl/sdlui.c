@@ -25,7 +25,8 @@
 #include <config.h>
 
 #include <stdio.h>
-#include <SDL.h>
+
+#include "sdlcompat.h"
 
 #include "display.h"
 #include "fuse.h"
@@ -78,20 +79,20 @@ ui_event( void )
 
   while ( SDL_PollEvent( &event ) ) {
     switch ( event.type ) {
-    case SDL_KEYDOWN:
+    case SDL_EVENT_KEY_DOWN:
       sdlkeyboard_keypress( &(event.key) );
       break;
-    case SDL_KEYUP:
+    case SDL_EVENT_KEY_UP:
       sdlkeyboard_keyrelease( &(event.key) );
       break;
 
-    case SDL_MOUSEBUTTONDOWN:
+    case SDL_EVENT_MOUSE_BUTTON_DOWN:
       ui_mouse_button( event.button.button, 1 );
       break;
-    case SDL_MOUSEBUTTONUP:
+    case SDL_EVENT_MOUSE_BUTTON_UP:
       ui_mouse_button( event.button.button, 0 );
       break;
-    case SDL_MOUSEMOTION:
+    case SDL_EVENT_MOUSE_MOTION:
       if( ui_mouse_grabbed ) {
         ui_mouse_motion( event.motion.x - 128, event.motion.y - 128 );
         if( event.motion.x != 128 || event.motion.y != 128 )
@@ -101,33 +102,34 @@ ui_event( void )
 
 #if defined USE_JOYSTICK && !defined HAVE_JSW_H
 
-    case SDL_JOYBUTTONDOWN:
+    case SDL_EVENT_JOYSTICK_BUTTON_DOWN:
       sdljoystick_buttonpress( &(event.jbutton) );
       break;
-    case SDL_JOYBUTTONUP:
+    case SDL_EVENT_JOYSTICK_BUTTON_UP:
       sdljoystick_buttonrelease( &(event.jbutton) );
       break;
-    case SDL_JOYAXISMOTION:
+    case SDL_EVENT_JOYSTICK_AXIS_MOTION:
       sdljoystick_axismove( &(event.jaxis) );
       break;
-    case SDL_JOYHATMOTION:
+    case SDL_EVENT_JOYSTICK_HAT_MOTION:
       sdljoystick_hatmove( &(event.jhat) );
       break;
 
 #endif			/* if defined USE_JOYSTICK && !defined HAVE_JSW_H */
 
-    case SDL_QUIT:
+    case SDL_EVENT_QUIT:
       fuse_emulation_pause();
       menu_file_exit(0);
       fuse_emulation_unpause();
       break;
-    case SDL_VIDEOEXPOSE:
+    case SDL_EVENT_WINDOW_EXPOSED:
       display_refresh_all();
       break;
-    case SDL_ACTIVEEVENT:
-      if( event.active.state & SDL_APPINPUTFOCUS ) {
-	if( event.active.gain ) ui_mouse_resume(); else ui_mouse_suspend();
-      }
+    case SDL_EVENT_WINDOW_FOCUS_GAINED:
+      ui_mouse_resume();
+      break;
+    case SDL_EVENT_WINDOW_FOCUS_LOST:
+      ui_mouse_suspend();
       break;
     default:
       break;

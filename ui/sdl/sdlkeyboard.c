@@ -25,7 +25,8 @@
 
 #include <stdio.h>
 #include <stdlib.h>
-#include <SDL.h>
+
+#include "sdlcompat.h"
 
 #include "display.h"
 #include "fuse.h"
@@ -44,6 +45,14 @@
 extern const keysyms_map_t unicode_keysyms_map[];
 
 static GHashTable *unicode_keysyms_hash;
+
+static libspectrum_dword
+sdlkeyboard_unicode_value( const SDL_KeyboardEvent *keyevent )
+{
+  SDL_Keycode key = keyevent->key;
+
+  return key >= 0 && key <= 0x7f ? (libspectrum_dword)key : 0;
+}
 
 static input_key
 unicode_keysyms_remap( libspectrum_dword ui_keysym )
@@ -80,12 +89,14 @@ sdlkeyboard_keypress( SDL_KeyboardEvent *keyevent )
 {
   input_key fuse_keysym, unicode_keysym;
   input_event_t fuse_event;
+  libspectrum_dword unicode_value;
 
-  fuse_keysym = keysyms_remap( keyevent->keysym.sym );
+  fuse_keysym = keysyms_remap( keyevent->key );
 
   /* Currently unicode_keysyms_map contains ASCII character keys */
-  if( ( keyevent->keysym.unicode & 0xFF80 ) == 0 ) 
-    unicode_keysym = unicode_keysyms_remap( keyevent->keysym.unicode );
+  unicode_value = sdlkeyboard_unicode_value( keyevent );
+  if( ( unicode_value & 0xFF80 ) == 0 )
+    unicode_keysym = unicode_keysyms_remap( unicode_value );
   else
     unicode_keysym = INPUT_KEY_NONE;
 
@@ -108,7 +119,7 @@ sdlkeyboard_keyrelease( SDL_KeyboardEvent *keyevent )
   input_key fuse_keysym;
   input_event_t fuse_event;
 
-  fuse_keysym = keysyms_remap( keyevent->keysym.sym );
+  fuse_keysym = keysyms_remap( keyevent->key );
 
   if( fuse_keysym == INPUT_KEY_NONE ) return;
 

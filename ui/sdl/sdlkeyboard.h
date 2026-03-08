@@ -25,6 +25,8 @@
 #ifndef FUSE_SDLKEYBOARD_H
 #define FUSE_SDLKEYBOARD_H
 
+#include "sdlcompat.h"
+
 void sdlkeyboard_init(void);
 void sdlkeyboard_end(void);
 void sdlkeyboard_keypress(SDL_KeyboardEvent *keyevent);
