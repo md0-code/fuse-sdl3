@@ -32,7 +32,7 @@
 
 #else			/* #if !defined USE_JOYSTICK || defined HAVE_JSW_H */
 
-#include <SDL.h>
+#include "sdlcompat.h"
 
 #include "compat.h"
 #include "input.h"
@@ -76,8 +76,8 @@ ui_joystick_init( void )
       return 0;
     }
 
-    if( SDL_JoystickNumAxes( joystick2 ) < 2    ||
-        SDL_JoystickNumButtons( joystick2 ) < 1    ) {
+    if( SDL_GetNumJoystickAxes( joystick2 ) < 2    ||
+        SDL_GetNumJoystickButtons( joystick2 ) < 1    ) {
       ui_error( UI_ERROR_ERROR, "sorry, joystick 2 is inadequate!" );
       return 0;
     }
@@ -91,8 +91,8 @@ ui_joystick_init( void )
       return 0;
     }
  
-    if( SDL_JoystickNumAxes( joystick1 ) < 2    ||
-        SDL_JoystickNumButtons( joystick1 ) < 1    ) {
+    if( SDL_GetNumJoystickAxes( joystick1 ) < 2    ||
+        SDL_GetNumJoystickButtons( joystick1 ) < 1    ) {
       ui_error( UI_ERROR_ERROR, "sorry, joystick 1 is inadequate!" );
       return 0;
     }
@@ -114,16 +114,16 @@ ui_joystick_poll( void )
 
   while( SDL_PollEvent( &event ) ) {
     switch( event.type ) {
-    case SDL_JOYBUTTONDOWN:
+    case SDL_EVENT_JOYSTICK_BUTTON_DOWN:
       sdljoystick_buttonpress( &(event.jbutton) );
       break;
-    case SDL_JOYBUTTONUP:
+    case SDL_EVENT_JOYSTICK_BUTTON_UP:
       sdljoystick_buttonrelease( &(event.jbutton) );
       break;
-    case SDL_JOYAXISMOTION:
+    case SDL_EVENT_JOYSTICK_AXIS_MOTION:
       sdljoystick_axismove( &(event.jaxis) );
       break;
-    case SDL_JOYHATMOTION:
+    case SDL_EVENT_JOYSTICK_HAT_MOTION:
       sdljoystick_hatmove( &(event.jhat) );
       break;
     default:
