@@ -25,6 +25,7 @@
 #include <config.h>
 
 #include <limits.h>
+#include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
 
@@ -45,7 +46,8 @@
 
 SDL_Surface *sdldisplay_gc = NULL;   /* Scaled 16-bit backbuffer */
 static SDL_Window *sdldisplay_window = NULL;
-static SDL_Surface *sdldisplay_window_surface = NULL;
+static SDL_Renderer *sdldisplay_renderer = NULL;
+static SDL_Texture *sdldisplay_texture = NULL;
 static SDL_Surface *tmp_screen=NULL; /* Temporary screen for scalers */
 
 static SDL_Surface *red_cassette[2], *green_cassette[2];
@@ -105,6 +107,8 @@ static int timex;
 
 static void init_scalers( void );
 static void sdldisplay_free_window( void );
+static SDL_ScaleMode sdldisplay_get_scale_mode( void );
+static void sdldisplay_get_render_rect( SDL_FRect *rect );
 static int sdldisplay_allocate_colours( int numColours, Uint32 *colour_values,
                                         Uint32 *bw_values );
 
@@ -113,16 +117,67 @@ static int sdldisplay_load_gfx_mode( void );
 static void
 sdldisplay_free_window( void )
 {
+  if( sdldisplay_texture ) {
+    SDL_DestroyTexture( sdldisplay_texture );
+    sdldisplay_texture = NULL;
+  }
+
+  if( sdldisplay_renderer ) {
+    SDL_DestroyRenderer( sdldisplay_renderer );
+    sdldisplay_renderer = NULL;
+  }
+
   if( sdldisplay_window ) {
     SDL_DestroyWindow( sdldisplay_window );
     sdldisplay_window = NULL;
-    sdldisplay_window_surface = NULL;
   }
 
   if( sdldisplay_gc ) {
     SDL_FreeSurface( sdldisplay_gc );
     sdldisplay_gc = NULL;
   }
+}
+
+static SDL_ScaleMode
+sdldisplay_get_scale_mode( void )
+{
+  const char *mode = getenv( "FUSE_SDL_SCALE_MODE" );
+
+  if( !mode || !*mode ) return SDL_SCALEMODE_NEAREST;
+
+  if( !strcmp( mode, "linear" ) ) return SDL_SCALEMODE_LINEAR;
+  if( !strcmp( mode, "pixelart" ) ) return SDL_SCALEMODE_PIXELART;
+
+  return SDL_SCALEMODE_NEAREST;
+}
+
+static void
+sdldisplay_get_render_rect( SDL_FRect *rect )
+{
+  int output_width = sdldisplay_gc ? sdldisplay_gc->w : 0;
+  int output_height = sdldisplay_gc ? sdldisplay_gc->h : 0;
+  float scale;
+
+  if( sdldisplay_renderer &&
+      !SDL_GetCurrentRenderOutputSize( sdldisplay_renderer, &output_width,
+                                       &output_height ) ) {
+    output_width = sdldisplay_gc ? sdldisplay_gc->w : 0;
+    output_height = sdldisplay_gc ? sdldisplay_gc->h : 0;
+  }
+
+  if( !sdldisplay_gc || output_width <= 0 || output_height <= 0 ) {
+    rect->x = rect->y = 0.0f;
+    rect->w = rect->h = 0.0f;
+    return;
+  }
+
+  scale = SDL_min( output_width / (float)sdldisplay_gc->w,
+                   output_height / (float)sdldisplay_gc->h );
+
+  rect->w = sdldisplay_gc->w * scale;
+  rect->h = sdldisplay_gc->h * scale;
+  rect->x = ( output_width - rect->w ) / 2.0f;
+  rect->y = ( output_height - rect->h ) / 2.0f;
 }
 
 static void
@@ -427,9 +482,9 @@ sdldisplay_load_gfx_mode( void )
 {
   SDL_DisplayMode closest_mode;
   SDL_PixelFormat pixel_format;
-  const SDL_PixelFormatDetails *format_details;
+  SDL_FRect render_rect;
   Uint16 *tmp_screen_pixels;
-  int window_width, window_height;
+  int logical_width, logical_height, window_width, window_height;
 
   sdldisplay_force_full_refresh = 1;
 
@@ -481,32 +536,36 @@ sdldisplay_load_gfx_mode( void )
     }
   }
 
-  sdldisplay_window_surface = SDL_GetWindowSurface( sdldisplay_window );
-  if( !sdldisplay_window_surface ) {
-    fprintf( stderr, "%s: couldn't get SDL window surface\n", fuse_progname );
+  sdldisplay_renderer = SDL_CreateRenderer( sdldisplay_window, NULL );
+  if( !sdldisplay_renderer ) {
+    fprintf( stderr, "%s: couldn't create SDL renderer\n", fuse_progname );
     fuse_abort();
   }
 
-  pixel_format = SDL_GetWindowPixelFormat( sdldisplay_window );
-  format_details = SDL_GetPixelFormatDetails( pixel_format );
-  if( !format_details ) {
-    fprintf( stderr, "%s: couldn't get SDL pixel format details\n", fuse_progname );
-    fuse_abort();
-  }
+  pixel_format = SDL_PIXELFORMAT_RGB565;
+  scaler_select_bitformat( 565 );
 
-  if( format_details->Gmask >> format_details->Gshift == 0x1f ) {
-    pixel_format = SDL_PIXELFORMAT_XRGB1555;
-    scaler_select_bitformat( 555 );
-  } else {
-    pixel_format = SDL_PIXELFORMAT_RGB565;
-    scaler_select_bitformat( 565 );
-  }
+  logical_width = image_width * sdldisplay_current_size + 0.5f;
+  logical_height = image_height * sdldisplay_current_size + 0.5f;
 
-  sdldisplay_gc = SDL_CreateSurface( sdldisplay_window_surface->w,
-                                     sdldisplay_window_surface->h,
+  sdldisplay_gc = SDL_CreateSurface( logical_width, logical_height,
                                      pixel_format );
   if( !sdldisplay_gc ) {
     fprintf( stderr, "%s: couldn't create SDL backbuffer\n", fuse_progname );
+    fuse_abort();
+  }
+
+  sdldisplay_texture = SDL_CreateTexture( sdldisplay_renderer, pixel_format,
+                                          SDL_TEXTUREACCESS_STREAMING,
+                                          logical_width, logical_height );
+  if( !sdldisplay_texture ) {
+    fprintf( stderr, "%s: couldn't create SDL texture\n", fuse_progname );
+    fuse_abort();
+  }
+
+  if( !SDL_SetTextureScaleMode( sdldisplay_texture,
+                                sdldisplay_get_scale_mode() ) ) {
+    fprintf( stderr, "%s: couldn't set SDL texture scale mode\n", fuse_progname );
     fuse_abort();
   }
 
@@ -527,10 +586,19 @@ sdldisplay_load_gfx_mode( void )
     fuse_abort();
   }
 
-  fullscreen_x_off = ( sdldisplay_gc->w - image_width * sdldisplay_current_size ) *
-                     sdldisplay_is_full_screen  / 2;
-  fullscreen_y_off = ( sdldisplay_gc->h - image_height * sdldisplay_current_size ) *
-                     sdldisplay_is_full_screen / 2;
+  fullscreen_x_off = 0;
+  fullscreen_y_off = 0;
+
+  sdldisplay_get_render_rect( &render_rect );
+  if( sdldisplay_renderer ) {
+    SDL_SetRenderDrawColor( sdldisplay_renderer, 0, 0, 0, SDL_ALPHA_OPAQUE );
+    SDL_RenderClear( sdldisplay_renderer );
+    if( render_rect.w > 0.0f && render_rect.h > 0.0f ) {
+      SDL_RenderTexture( sdldisplay_renderer, sdldisplay_texture, NULL,
+                         &render_rect );
+    }
+    SDL_RenderPresent( sdldisplay_renderer );
+  }
 
   sdldisplay_allocate_colours( 16, colour_values, bw_values );
 
@@ -843,6 +911,7 @@ uidisplay_plot16( int x, int y, libspectrum_word data,
 void
 uidisplay_frame_end( void )
 {
+  SDL_FRect render_rect;
   SDL_Rect *r;
   Uint32 tmp_screen_pitch, dstPitch;
   SDL_Rect *last_rect;
@@ -906,12 +975,23 @@ uidisplay_frame_end( void )
 
   if( SDL_MUSTLOCK( sdldisplay_gc ) ) SDL_UnlockSurface( sdldisplay_gc );
 
-  for( r = updated_rects; r != updated_rects + num_rects; r++ ) {
-    SDL_BlitSurface( sdldisplay_gc, r, sdldisplay_window_surface, r );
+  if( !SDL_UpdateTexture( sdldisplay_texture, NULL, sdldisplay_gc->pixels,
+                          sdldisplay_gc->pitch ) ) {
+    fprintf( stderr, "%s: couldn't update SDL texture\n", fuse_progname );
+    fuse_abort();
   }
 
-  /* Finally, blit all our changes to the screen */
-  SDL_UpdateWindowSurfaceRects( sdldisplay_window, updated_rects, num_rects );
+  sdldisplay_get_render_rect( &render_rect );
+  SDL_SetRenderDrawColor( sdldisplay_renderer, 0, 0, 0, SDL_ALPHA_OPAQUE );
+  SDL_RenderClear( sdldisplay_renderer );
+  if( render_rect.w > 0.0f && render_rect.h > 0.0f ) {
+    if( !SDL_RenderTexture( sdldisplay_renderer, sdldisplay_texture, NULL,
+                            &render_rect ) ) {
+      fprintf( stderr, "%s: couldn't render SDL texture\n", fuse_progname );
+      fuse_abort();
+    }
+  }
+  SDL_RenderPresent( sdldisplay_renderer );
 
   num_rects = 0;
   sdldisplay_force_full_refresh = 0;
