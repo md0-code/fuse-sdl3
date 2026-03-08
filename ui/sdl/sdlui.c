@@ -49,17 +49,17 @@ atexit_proc( void )
 int 
 ui_init( int *argc, char ***argv )
 {
-  int error;
-
   if( ui_widget_init() ) return 1;
 
 /* Comment out to Work around a bug in OS X 10.1 related to OpenGL in windowed
    mode */
   atexit(atexit_proc);
 
-  error = SDL_Init( SDL_INIT_VIDEO );
-  if ( error )
-    return error;
+  if( !SDL_Init( SDL_INIT_VIDEO ) ) {
+    ui_error( UI_ERROR_ERROR, "failed to initialise SDL video subsystem: %s",
+              SDL_GetError() );
+    return 1;
+  }
 
 #ifndef __MORPHOS__
   SDL_EnableUNICODE( 1 );
