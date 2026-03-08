@@ -1,0 +1,56 @@
+From fea2c5df7d4d93c54b312735b0b27828c96e0fc2 Mon Sep 17 00:00:00 2001
+From: GitHub Copilot <copilot@local>
+Date: Sun, 8 Mar 2026 19:21:33 +0200
+Subject: [PATCH 6/8] 0006: fix SDL3 startup checks
+
+---
+ ui/sdl/sdljoystick.c |  5 +++--
+ ui/sdl/sdlui.c       | 10 +++++-----
+ 2 files changed, 8 insertions(+), 7 deletions(-)
+
+diff --git a/ui/sdl/sdljoystick.c b/ui/sdl/sdljoystick.c
+index 2623df39..a2c8d110 100644
+--- a/ui/sdl/sdljoystick.c
++++ b/ui/sdl/sdljoystick.c
+@@ -60,8 +60,9 @@ ui_joystick_init( void )
+   error = SDL_Init( SDL_INIT_JOYSTICK );
+ #endif
+ 
+-  if ( error ) {
+-    ui_error( UI_ERROR_ERROR, "failed to initialise joystick subsystem" );
++  if( !error ) {
++    ui_error( UI_ERROR_ERROR, "failed to initialise joystick subsystem: %s",
++              SDL_GetError() );
+     return 0;
+   }
+ 
+diff --git a/ui/sdl/sdlui.c b/ui/sdl/sdlui.c
+index 88cc5bac..fd2ea65b 100644
+--- a/ui/sdl/sdlui.c
++++ b/ui/sdl/sdlui.c
+@@ -49,17 +49,17 @@ atexit_proc( void )
+ int 
+ ui_init( int *argc, char ***argv )
+ {
+-  int error;
+-
+   if( ui_widget_init() ) return 1;
+ 
+ /* Comment out to Work around a bug in OS X 10.1 related to OpenGL in windowed
+    mode */
+   atexit(atexit_proc);
+ 
+-  error = SDL_Init( SDL_INIT_VIDEO );
+-  if ( error )
+-    return error;
++  if( !SDL_Init( SDL_INIT_VIDEO ) ) {
++    ui_error( UI_ERROR_ERROR, "failed to initialise SDL video subsystem: %s",
++              SDL_GetError() );
++    return 1;
++  }
+ 
+ #ifndef __MORPHOS__
+   SDL_EnableUNICODE( 1 );
+-- 
+2.39.5
+
