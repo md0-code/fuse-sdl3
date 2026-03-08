@@ -27,7 +27,8 @@
 #include <limits.h>
 #include <stdio.h>
 #include <string.h>
-#include <SDL.h>
+
+#include "sdlcompat.h"
 
 #include <libspectrum.h>
 
@@ -42,7 +43,9 @@
 #include "ui/uidisplay.h"
 #include "utils.h"
 
-SDL_Surface *sdldisplay_gc = NULL;   /* Hardware screen */
+SDL_Surface *sdldisplay_gc = NULL;   /* Scaled 16-bit backbuffer */
+static SDL_Window *sdldisplay_window = NULL;
+static SDL_Surface *sdldisplay_window_surface = NULL;
 static SDL_Surface *tmp_screen=NULL; /* Temporary screen for scalers */
 
 static SDL_Surface *red_cassette[2], *green_cassette[2];
@@ -101,10 +104,26 @@ static int image_height;
 static int timex;
 
 static void init_scalers( void );
+static void sdldisplay_free_window( void );
 static int sdldisplay_allocate_colours( int numColours, Uint32 *colour_values,
                                         Uint32 *bw_values );
 
 static int sdldisplay_load_gfx_mode( void );
+
+static void
+sdldisplay_free_window( void )
+{
+  if( sdldisplay_window ) {
+    SDL_DestroyWindow( sdldisplay_window );
+    sdldisplay_window = NULL;
+    sdldisplay_window_surface = NULL;
+  }
+
+  if( sdldisplay_gc ) {
+    SDL_FreeSurface( sdldisplay_gc );
+    sdldisplay_gc = NULL;
+  }
+}
 
 static void
 init_scalers( void )
@@ -151,32 +170,43 @@ static int
 sdl_convert_icon( SDL_Surface *source, SDL_Surface **icon, int red )
 {
   SDL_Surface *copy;   /* Copy with altered palette */
+  SDL_Palette *palette;
   int i;
 
-  SDL_Color colors[ source->format->palette->ncolors ];
+  palette = SDL_GetSurfacePalette( source );
+  if( !palette ) return -1;
 
-  copy = SDL_ConvertSurface( source, source->format, SDL_SWSURFACE );
+  SDL_Color colors[ palette->ncolors ];
 
-  for( i = 0; i < copy->format->palette->ncolors; i++ ) {
-    colors[i].r = red ? copy->format->palette->colors[i].r : 0;
-    colors[i].g = red ? 0 : copy->format->palette->colors[i].g;
-    colors[i].b = 0;
+  copy = SDL_ConvertSurface( source, source->format );
+  if( !copy ) return -1;
+
+  palette = SDL_GetSurfacePalette( copy );
+  if( !palette ) {
+    SDL_FreeSurface( copy );
+    return -1;
   }
 
-  SDL_SetPalette( copy, SDL_LOGPAL, colors, 0, i );
+  for( i = 0; i < palette->ncolors; i++ ) {
+    colors[i].r = red ? palette->colors[i].r : 0;
+    colors[i].g = red ? 0 : palette->colors[i].g;
+    colors[i].b = 0;
+    colors[i].a = palette->colors[i].a;
+  }
 
-  icon[0] = SDL_ConvertSurface( copy, tmp_screen->format, SDL_SWSURFACE );
+  if( !SDL_SetPaletteColors( palette, colors, 0, i ) ) {
+    SDL_FreeSurface( copy );
+    return -1;
+  }
+
+  icon[0] = SDL_ConvertSurface( copy, tmp_screen->format );
 
   SDL_FreeSurface( copy );
+  if( !icon[0] ) return -1;
 
-  icon[1] = SDL_CreateRGBSurface( SDL_SWSURFACE,
-                                  (icon[0]->w)<<1, (icon[0]->h)<<1,
-                                  icon[0]->format->BitsPerPixel,
-                                  icon[0]->format->Rmask,
-                                  icon[0]->format->Gmask,
-                                  icon[0]->format->Bmask,
-                                  icon[0]->format->Amask
-                                );
+  icon[1] = SDL_CreateSurface( (icon[0]->w)<<1, (icon[0]->h)<<1,
+                               icon[0]->format );
+  if( !icon[1] ) return -1;
 
   ( scaler_get_proc16( SCALER_DOUBLESIZE ) )(
         (libspectrum_byte*)icon[0]->pixels,
@@ -205,13 +235,16 @@ sdl_load_status_icon( const char*filename, SDL_Surface **red, SDL_Surface **gree
     return -1;
   }
 
-  if(temp->format->palette == NULL) {
+  if( SDL_GetSurfacePalette( temp ) == NULL ) {
     fprintf( stderr, "%s: Icon \"%s\" is not paletted\n", fuse_progname, path );
+    SDL_FreeSurface( temp );
     return -1;
   }
 
-  sdl_convert_icon( temp, red, 1 );
-  sdl_convert_icon( temp, green, 0 );
+  if( sdl_convert_icon( temp, red, 1 ) || sdl_convert_icon( temp, green, 0 ) ) {
+    SDL_FreeSurface( temp );
+    return -1;
+  }
 
   SDL_FreeSurface( temp );
 
@@ -221,14 +254,15 @@ sdl_load_status_icon( const char*filename, SDL_Surface **red, SDL_Surface **gree
 int
 uidisplay_init( int width, int height )
 {
-  SDL_Rect **modes;
+  SDL_DisplayMode **modes;
+  SDL_DisplayID display;
   int no_modes;
-  int i = 0, mw = 0, mh = 0, mn = 0;
+  int i = 0, mode_count = 0, mw = 0, mh = 0, mn = 0;
 
-  /* Get available fullscreen/software modes */
-  modes=SDL_ListModes(NULL, SDL_FULLSCREEN|SDL_SWSURFACE);
+  display = SDL_GetPrimaryDisplay();
+  modes = SDL_GetFullscreenDisplayModes( display, &mode_count );
 
-  no_modes = ( modes == (SDL_Rect **) 0 || modes == (SDL_Rect **) -1 ) ? 1 : 0;
+  no_modes = modes == NULL || mode_count == 0;
 
   if( settings_current.sdl_fullscreen_mode &&
       strcmp( settings_current.sdl_fullscreen_mode, "list" ) == 0 ) {
@@ -241,21 +275,21 @@ uidisplay_init( int width, int height )
     "---------------------------------------------------------------------\n"
     );
     if( no_modes ) {
-      fprintf( stderr, "  ** The modes list is empty%s...\n",
-               modes == (SDL_Rect **) -1 ? ", all resolutions allowed" : "" );
+      fprintf( stderr, "  ** The modes list is empty...\n" );
     } else {
-      for( i = 0; modes[i]; i++ ) {
+      for( i = 0; i < mode_count; i++ ) {
         fprintf( stderr, "% 3d  % 5d % 5d\n", i + 1, modes[i]->w, modes[i]->h );
       }
     }
     fprintf( stderr,
     "=====================================================================\n");
+    if( modes ) SDL_free( modes );
     fuse_exiting = 1;
     return 0;
   }
 
   if( !no_modes ) {
-    for( i=0; modes[i]; ++i ); /* count modes */
+    i = mode_count;
   }
 
   if( settings_current.sdl_fullscreen_mode ) {
@@ -298,9 +332,10 @@ uidisplay_init( int width, int height )
   if ( scaler_select_scaler( current_scaler ) )
     scaler_select_scaler( SCALER_NORMAL );
 
-  if( sdldisplay_load_gfx_mode() ) return 1;
-
-  SDL_WM_SetCaption( "Fuse", "Fuse" );
+  if( sdldisplay_load_gfx_mode() ) {
+    if( modes ) SDL_free( modes );
+    return 1;
+  }
 
   /* We can now output error messages to our output device */
   display_ui_initialised = 1;
@@ -308,6 +343,8 @@ uidisplay_init( int width, int height )
   sdl_load_status_icon( "cassette.bmp", red_cassette, green_cassette );
   sdl_load_status_icon( "microdrive.bmp", red_mdr, green_mdr );
   sdl_load_status_icon( "plus3disk.bmp", red_disk, green_disk );
+
+  if( modes ) SDL_free( modes );
 
   return 0;
 }
@@ -377,7 +414,11 @@ sdldisplay_find_best_fullscreen_scaler( void )
 static int
 sdldisplay_load_gfx_mode( void )
 {
+  SDL_DisplayMode closest_mode;
+  SDL_PixelFormat pixel_format;
+  const SDL_PixelFormatDetails *format_details;
   Uint16 *tmp_screen_pixels;
+  int window_width, window_height;
 
   sdldisplay_force_full_refresh = 1;
 
@@ -394,43 +435,80 @@ sdldisplay_load_gfx_mode( void )
 
   sdldisplay_find_best_fullscreen_scaler();
 
-  /* Create the surface that contains the scaled graphics in 16 bit mode */
-  sdldisplay_gc = SDL_SetVideoMode(
-    settings_current.full_screen && fullscreen_width ? fullscreen_width :
-      image_width * sdldisplay_current_size,
-    settings_current.full_screen && fullscreen_width ? max_fullscreen_height :
-      image_height * sdldisplay_current_size,
-    16,
-    settings_current.full_screen ? (SDL_FULLSCREEN|SDL_SWSURFACE)
-                                 : SDL_SWSURFACE
-  );
-  if( !sdldisplay_gc ) {
+  window_width = settings_current.full_screen && fullscreen_width ?
+                 fullscreen_width : image_width * sdldisplay_current_size;
+  window_height = settings_current.full_screen && fullscreen_width ?
+                  max_fullscreen_height : image_height * sdldisplay_current_size;
+
+  sdldisplay_free_window();
+
+  sdldisplay_window = SDL_CreateWindow( "Fuse", window_width, window_height, 0 );
+  if( !sdldisplay_window ) {
     fprintf( stderr, "%s: couldn't create SDL graphics context\n", fuse_progname );
     fuse_abort();
   }
 
-  settings_current.full_screen =
-      !!( sdldisplay_gc->flags & ( SDL_FULLSCREEN | SDL_NOFRAME ) );
-  sdldisplay_is_full_screen = settings_current.full_screen;
+  SDL_WM_SetCaption( "Fuse", "Fuse" );
 
-  /* Distinguish 555 and 565 mode */
-  if( sdldisplay_gc->format->Gmask >> sdldisplay_gc->format->Gshift == 0x1f )
+  if( settings_current.full_screen ) {
+    if( fullscreen_width && SDL_GetClosestFullscreenDisplayMode(
+          SDL_GetPrimaryDisplay(), window_width, window_height, 0.0f, false,
+          &closest_mode ) ) {
+      if( !SDL_SetWindowFullscreenMode( sdldisplay_window, &closest_mode ) ) {
+        fprintf( stderr, "%s: couldn't select SDL fullscreen mode\n", fuse_progname );
+        fuse_abort();
+      }
+    } else {
+      SDL_SetWindowFullscreenMode( sdldisplay_window, NULL );
+    }
+
+    if( !SDL_SetWindowFullscreen( sdldisplay_window, true ) ||
+        !SDL_SyncWindow( sdldisplay_window ) ) {
+      fprintf( stderr, "%s: couldn't enable SDL fullscreen mode\n", fuse_progname );
+      fuse_abort();
+    }
+  }
+
+  sdldisplay_window_surface = SDL_GetWindowSurface( sdldisplay_window );
+  if( !sdldisplay_window_surface ) {
+    fprintf( stderr, "%s: couldn't get SDL window surface\n", fuse_progname );
+    fuse_abort();
+  }
+
+  pixel_format = SDL_GetWindowPixelFormat( sdldisplay_window );
+  format_details = SDL_GetPixelFormatDetails( pixel_format );
+  if( !format_details ) {
+    fprintf( stderr, "%s: couldn't get SDL pixel format details\n", fuse_progname );
+    fuse_abort();
+  }
+
+  if( format_details->Gmask >> format_details->Gshift == 0x1f ) {
+    pixel_format = SDL_PIXELFORMAT_XRGB1555;
     scaler_select_bitformat( 555 );
-  else
+  } else {
+    pixel_format = SDL_PIXELFORMAT_RGB565;
     scaler_select_bitformat( 565 );
+  }
+
+  sdldisplay_gc = SDL_CreateSurface( sdldisplay_window_surface->w,
+                                     sdldisplay_window_surface->h,
+                                     pixel_format );
+  if( !sdldisplay_gc ) {
+    fprintf( stderr, "%s: couldn't create SDL backbuffer\n", fuse_progname );
+    fuse_abort();
+  }
+
+  sdldisplay_is_full_screen = settings_current.full_screen;
 
   /* Create the surface used for the graphics in 16 bit before scaling */
 
   /* Need some extra bytes around when using 2xSaI */
   tmp_screen_pixels = (Uint16*)calloc(tmp_screen_width*(image_height+3), sizeof(Uint16));
-  tmp_screen = SDL_CreateRGBSurfaceFrom(tmp_screen_pixels,
-                                        tmp_screen_width,
-                                        image_height + 3,
-                                        16, tmp_screen_width*2,
-                                        sdldisplay_gc->format->Rmask,
-                                        sdldisplay_gc->format->Gmask,
-                                        sdldisplay_gc->format->Bmask,
-                                        sdldisplay_gc->format->Amask );
+  tmp_screen = SDL_CreateSurfaceFrom( tmp_screen_width,
+                                      image_height + 3,
+                                      sdldisplay_gc->format,
+                                      tmp_screen_pixels,
+                                      tmp_screen_width * 2 );
 
   if( !tmp_screen ) {
     fprintf( stderr, "%s: couldn't create tmp_screen\n", fuse_progname );
@@ -464,9 +542,6 @@ uidisplay_hotswap_gfx_mode( void )
   /* Setup the new GFX mode */
   if( sdldisplay_load_gfx_mode() ) return 1;
 
-  /* reset palette */
-  SDL_SetColors( sdldisplay_gc, colour_palette, 0, 16 );
-
   /* Mac OS X resets the state of the cursor after a switch to full screen
      mode */
   if ( settings_current.full_screen || ui_mouse_grabbed ) {
@@ -492,7 +567,7 @@ uidisplay_frame_save( void )
   }
 
   saved = SDL_ConvertSurface( tmp_screen, tmp_screen->format,
-                              SDL_SWSURFACE );
+                              );
 }
 
 void
@@ -538,11 +613,11 @@ sdl_blit_icon( SDL_Surface **icon,
 
   scaler_proc16(
 	(libspectrum_byte*)tmp_screen->pixels +
-			(x+1) * tmp_screen->format->BytesPerPixel +
+      (x+1) * SDL_BYTESPERPIXEL( tmp_screen->format ) +
 	                (y+1) * tmp_screen_pitch,
 	tmp_screen_pitch,
 	(libspectrum_byte*)sdldisplay_gc->pixels +
-			dst_x * sdldisplay_gc->format->BytesPerPixel +
+      dst_x * SDL_BYTESPERPIXEL( sdldisplay_gc->format ) +
 			dst_y * dstPitch,
 	dstPitch, w, dst_h
   );
@@ -625,7 +700,7 @@ uidisplay_putpixel( int x, int y, int colour )
     x <<= 1; y <<= 1;
     dest_base = dest =
       (libspectrum_word*)( (libspectrum_byte*)tmp_screen->pixels +
-                           (x+1) * tmp_screen->format->BytesPerPixel +
+                           (x+1) * SDL_BYTESPERPIXEL( tmp_screen->format ) +
                            (y+1) * tmp_screen->pitch);
 
     *(dest++) = palette_colour;
@@ -637,7 +712,7 @@ uidisplay_putpixel( int x, int y, int colour )
   } else {
     dest =
       (libspectrum_word*)( (libspectrum_byte*)tmp_screen->pixels +
-                           (x+1) * tmp_screen->format->BytesPerPixel +
+                           (x+1) * SDL_BYTESPERPIXEL( tmp_screen->format ) +
                            (y+1) * tmp_screen->pitch);
 
     *dest = palette_colour;
@@ -665,7 +740,7 @@ uidisplay_plot8( int x, int y, libspectrum_byte data,
 
     dest_base =
       (libspectrum_word*)( (libspectrum_byte*)tmp_screen->pixels +
-                           (x+1) * tmp_screen->format->BytesPerPixel +
+                           (x+1) * SDL_BYTESPERPIXEL( tmp_screen->format ) +
                            (y+1) * tmp_screen->pitch);
 
     for( i=0; i<2; i++ ) {
@@ -696,7 +771,7 @@ uidisplay_plot8( int x, int y, libspectrum_byte data,
 
     dest =
       (libspectrum_word*)( (libspectrum_byte*)tmp_screen->pixels +
-                           (x+1) * tmp_screen->format->BytesPerPixel +
+                           (x+1) * SDL_BYTESPERPIXEL( tmp_screen->format ) +
                            (y+1) * tmp_screen->pitch);
 
     *(dest++) = ( data & 0x80 ) ? palette_ink : palette_paper;
@@ -726,7 +801,7 @@ uidisplay_plot16( int x, int y, libspectrum_word data,
 
   dest_base =
     (libspectrum_word*)( (libspectrum_byte*)tmp_screen->pixels +
-                         (x+1) * tmp_screen->format->BytesPerPixel +
+                         (x+1) * SDL_BYTESPERPIXEL( tmp_screen->format ) +
                          (y+1) * tmp_screen->pitch);
 
   for( i=0; i<2; i++ ) {
@@ -799,11 +874,11 @@ uidisplay_frame_end( void )
 
     scaler_proc16(
       (libspectrum_byte*)tmp_screen->pixels +
-                        (r->x+1) * tmp_screen->format->BytesPerPixel +
+	                (r->x+1) * SDL_BYTESPERPIXEL( tmp_screen->format ) +
 	                (r->y+1)*tmp_screen_pitch,
       tmp_screen_pitch,
       (libspectrum_byte*)sdldisplay_gc->pixels +
-	                 dst_x * sdldisplay_gc->format->BytesPerPixel +
+	                 dst_x * SDL_BYTESPERPIXEL( sdldisplay_gc->format ) +
 			 dst_y*dstPitch,
       dstPitch, r->w, dst_h
     );
@@ -820,8 +895,12 @@ uidisplay_frame_end( void )
 
   if( SDL_MUSTLOCK( sdldisplay_gc ) ) SDL_UnlockSurface( sdldisplay_gc );
 
+  for( r = updated_rects; r != updated_rects + num_rects; r++ ) {
+    SDL_BlitSurface( sdldisplay_gc, r, sdldisplay_window_surface, r );
+  }
+
   /* Finally, blit all our changes to the screen */
-  SDL_UpdateRects( sdldisplay_gc, num_rects, updated_rects );
+  SDL_UpdateWindowSurfaceRects( sdldisplay_window, updated_rects, num_rects );
 
   num_rects = 0;
   sdldisplay_force_full_refresh = 0;
@@ -862,6 +941,8 @@ uidisplay_end( void )
     free( tmp_screen->pixels );
     SDL_FreeSurface( tmp_screen ); tmp_screen = NULL;
   }
+
+  sdldisplay_free_window();
 
   if( saved ) {
     SDL_FreeSurface( saved ); saved = NULL;
