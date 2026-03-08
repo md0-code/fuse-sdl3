@@ -353,8 +353,13 @@ static int
 sdldisplay_allocate_colours( int numColours, Uint32 *colour_values,
                              Uint32 *bw_values )
 {
+  const SDL_PixelFormatDetails *format_details;
+  const SDL_Palette *palette;
   int i;
   Uint8 red, green, blue, grey;
+
+  format_details = SDL_GetPixelFormatDetails( tmp_screen->format );
+  palette = SDL_GetSurfacePalette( tmp_screen );
 
   for( i = 0; i < numColours; i++ ) {
 
@@ -365,8 +370,8 @@ sdldisplay_allocate_colours( int numColours, Uint32 *colour_values,
     /* Addition of 0.5 is to avoid rounding errors */
     grey = ( 0.299 * red + 0.587 * green + 0.114 * blue ) + 0.5;
 
-    colour_values[i] = SDL_MapRGB( tmp_screen->format,  red, green, blue );
-    bw_values[i]     = SDL_MapRGB( tmp_screen->format, grey,  grey, grey );
+    colour_values[i] = SDL_MapRGB( format_details, palette, red, green, blue );
+    bw_values[i]     = SDL_MapRGB( format_details, palette, grey, grey, grey );
   }
 
   return 0;
@@ -566,8 +571,7 @@ uidisplay_frame_save( void )
     saved = NULL;
   }
 
-  saved = SDL_ConvertSurface( tmp_screen, tmp_screen->format,
-                              );
+  saved = SDL_ConvertSurface( tmp_screen, tmp_screen->format );
 }
 
 void

@@ -92,6 +92,12 @@ sound_lowlevel_end( void )
   AUDIO_StopDMA();
 }
 
+int
+sound_lowlevel_buffer_space( void )
+{
+  return sfifo_space( &sound_fifo );
+}
+
 void
 sound_lowlevel_frame(libspectrum_signed_word *data, int len)
 {

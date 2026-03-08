@@ -42,7 +42,7 @@
    used in the GTK and Xlib UIs we need to also do the magic when that code is
    in use, feel free to look away for the next line */
 #if defined UI_SDL || (defined USE_JOYSTICK && !defined HAVE_JSW_H && (defined UI_X || defined UI_GTK) )
-#include <SDL.h>		/* Needed on MacOS X and Windows */
+#include "sdlcompat.h"		/* Needed on MacOS X and Windows */
 #endif /* #if defined UI_SDL || (defined USE_JOYSTICK && !defined HAVE_JSW_H && (defined UI_X || defined UI_GTK) ) */
 
 #ifdef GEKKO

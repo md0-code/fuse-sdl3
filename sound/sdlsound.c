@@ -90,11 +90,6 @@ sound_lowlevel_init( const char *device, int *freqptr, int *stereoptr )
      speed to about 2000% on my Mac, 100Hz allows up to 5000% for me) */
   if( hz > 100.0 ) hz = 100.0;
   sound_framesiz = *freqptr / hz;
-#ifdef __FreeBSD__
-  requested.samples = pow( 2.0, floor( log2( sound_framesiz ) ) );
-#else			/* #ifdef __FreeBSD__ */
-  requested.samples = sound_framesiz;
-#endif			/* #ifdef __FreeBSD__ */
 
   audio_stream = SDL_OpenAudioDeviceStream( SDL_AUDIO_DEVICE_DEFAULT_PLAYBACK,
                                             &requested, NULL, NULL );
@@ -126,6 +121,23 @@ sound_lowlevel_end( void )
   }
 
   SDL_QuitSubSystem( SDL_INIT_AUDIO );
+}
+
+int
+sound_lowlevel_buffer_space( void )
+{
+  int queued;
+
+  if( !audio_stream ) return 0;
+
+  queued = SDL_GetAudioStreamQueued( audio_stream );
+  if( queued < 0 ) {
+    ui_error( UI_ERROR_ERROR, "Couldn't query SDL audio queue: %s",
+              SDL_GetError() );
+    return 0;
+  }
+
+  return audio_buffer_limit - queued;
 }
 
 /* Copy data to fifo */

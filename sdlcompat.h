@@ -16,15 +16,74 @@
 
 #include <SDL3/SDL.h>
 
+#ifndef SDL_ENABLE
+#define SDL_ENABLE 1
+#endif
+
+#ifndef SDL_DISABLE
+#define SDL_DISABLE 0
+#endif
+
+#ifndef SDL_IGNORE
+#define SDL_IGNORE 0
+#endif
+
+#ifndef SDL_SWSURFACE
+#define SDL_SWSURFACE 0
+#endif
+
+#ifndef SDL_FULLSCREEN
+#define SDL_FULLSCREEN SDL_WINDOW_FULLSCREEN
+#endif
+
+#ifndef SDL_NOFRAME
+#define SDL_NOFRAME SDL_WINDOW_BORDERLESS
+#endif
+
+#ifndef SDL_GRAB_OFF
+#define SDL_GRAB_OFF 0
+#endif
+
+#ifndef SDL_GRAB_ON
+#define SDL_GRAB_ON 1
+#endif
+
+#ifndef SDL_GRAB_FULLSCREEN
+#define SDL_GRAB_FULLSCREEN 2
+#endif
+
+#ifndef SDL_APPINPUTFOCUS
+#define SDL_APPINPUTFOCUS 0x01
+#endif
+
+#ifndef SDL_DEFAULT_REPEAT_DELAY
+#define SDL_DEFAULT_REPEAT_DELAY 500
+#endif
+
+#ifndef SDL_DEFAULT_REPEAT_INTERVAL
+#define SDL_DEFAULT_REPEAT_INTERVAL 30
+#endif
+
+#ifndef SDLK_LSUPER
+#define SDLK_LSUPER SDLK_LGUI
+#endif
+
+#ifndef SDLK_RSUPER
+#define SDLK_RSUPER SDLK_RGUI
+#endif
+
 static inline int
-fuse_sdl_enable_key_repeat( int delay GCC_UNUSED, int interval GCC_UNUSED )
+fuse_sdl_enable_key_repeat( int delay, int interval )
 {
+   (void)delay;
+   (void)interval;
    return 0;
 }
 
 static inline int
-fuse_sdl_enable_unicode( int enable GCC_UNUSED )
+fuse_sdl_enable_unicode( int enable )
 {
+   (void)enable;
    return 0;
 }
 
@@ -43,7 +102,8 @@ fuse_sdl_warp_mouse( float x, float y )
    if( !window ) window = SDL_GetKeyboardFocus();
    if( !window ) return false;
 
-   return SDL_WarpMouseInWindow( window, x, y );
+   SDL_WarpMouseInWindow( window, x, y );
+   return true;
 }
 
 static inline int
@@ -64,9 +124,11 @@ fuse_sdl_wm_grab_input( int mode )
 }
 
 static inline void
-fuse_sdl_wm_set_caption( const char *title, const char *icon GCC_UNUSED )
+fuse_sdl_wm_set_caption( const char *title, const char *icon )
 {
    SDL_Window *window;
+
+   (void)icon;
 
    window = SDL_GetKeyboardFocus();
    if( !window ) window = SDL_GetMouseFocus();
@@ -117,46 +179,6 @@ fuse_sdl_joystick_event_state( int state )
 #define AUDIO_S16SYS SDL_AUDIO_S16
 #endif
 
-#ifndef SDL_ENABLE
-#define SDL_ENABLE 1
-#endif
-
-#ifndef SDL_DISABLE
-#define SDL_DISABLE 0
-#endif
-
-#ifndef SDL_IGNORE
-#define SDL_IGNORE 0
-#endif
-
-#ifndef SDL_SWSURFACE
-#define SDL_SWSURFACE 0
-#endif
-
-#ifndef SDL_FULLSCREEN
-#define SDL_FULLSCREEN SDL_WINDOW_FULLSCREEN
-#endif
-
-#ifndef SDL_NOFRAME
-#define SDL_NOFRAME SDL_WINDOW_BORDERLESS
-#endif
-
-#ifndef SDL_GRAB_OFF
-#define SDL_GRAB_OFF 0
-#endif
-
-#ifndef SDL_GRAB_ON
-#define SDL_GRAB_ON 1
-#endif
-
-#ifndef SDL_GRAB_FULLSCREEN
-#define SDL_GRAB_FULLSCREEN 2
-#endif
-
-#ifndef SDL_APPINPUTFOCUS
-#define SDL_APPINPUTFOCUS 0x01
-#endif
-
 #define SDL_EnableKeyRepeat(delay, interval) \
    fuse_sdl_enable_key_repeat( (delay), (interval) )
 #define SDL_EnableUNICODE(enable) fuse_sdl_enable_unicode( (enable) )
@@ -165,6 +187,9 @@ fuse_sdl_joystick_event_state( int state )
 #define SDL_WM_GrabInput(mode) fuse_sdl_wm_grab_input( (mode) )
 #define SDL_WM_SetCaption(title, icon) fuse_sdl_wm_set_caption( (title), (icon) )
 #define SDL_NumJoysticks() fuse_sdl_num_joysticks()
+#ifdef SDL_JoystickOpen
+#undef SDL_JoystickOpen
+#endif
 #define SDL_JoystickOpen(index) fuse_sdl_joystick_open( (index) )
 #define SDL_JoystickEventState(state) fuse_sdl_joystick_event_state( (state) )
 
