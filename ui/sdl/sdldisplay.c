@@ -255,11 +255,13 @@ int
 uidisplay_init( int width, int height )
 {
   SDL_DisplayMode **modes;
+  const SDL_DisplayMode *desktop_mode;
   SDL_DisplayID display;
   int no_modes;
   int i = 0, mode_count = 0, mw = 0, mh = 0, mn = 0;
 
   display = SDL_GetPrimaryDisplay();
+  desktop_mode = SDL_GetDesktopDisplayMode( display );
   modes = SDL_GetFullscreenDisplayModes( display, &mode_count );
 
   no_modes = modes == NULL || mode_count == 0;
@@ -308,6 +310,10 @@ uidisplay_init( int width, int height )
     /* set from command line */
     max_fullscreen_height = min_fullscreen_height = mh;
     fullscreen_width = mw;
+  } else if( desktop_mode ) {
+    /* Scale against the real desktop fullscreen target, not the smallest
+       advertised legacy mode such as 320x200. */
+    max_fullscreen_height = min_fullscreen_height = desktop_mode->h;
   } else if( no_modes ){
     /* Just try whatever we have and see what happens */
     max_fullscreen_height = 480;
@@ -396,20 +402,20 @@ sdldisplay_find_best_fullscreen_scaler( void )
              image_height*sdldisplay_current_size > max_fullscreen_height ) ) {
       if( windowed_scaler == -1) windowed_scaler = current_scaler;
       while( !scaler_is_supported(i) ) i++;
-      scaler_select_scaler( i++ );
+      scaler_set_scaler( i++ );
       sdldisplay_current_size = scaler_get_scaling_factor( current_scaler );
       /* if we failed to find a suitable size scaler, just use normal (what the
          user had originally may be too big) */
       if( image_height * sdldisplay_current_size <= min_fullscreen_height/2 ||
           image_height * sdldisplay_current_size > max_fullscreen_height ) {
-        scaler_select_scaler( SCALER_NORMAL );
+        scaler_set_scaler( SCALER_NORMAL );
         sdldisplay_current_size = scaler_get_scaling_factor( current_scaler );
       }
     }
     searching_fullscreen_scaler = 0;
   } else {
     if( windowed_scaler != -1 ) {
-      scaler_select_scaler( windowed_scaler );
+      scaler_set_scaler( windowed_scaler );
       windowed_scaler = -1;
       sdldisplay_current_size = scaler_get_scaling_factor( current_scaler );
     }
@@ -439,6 +445,7 @@ sdldisplay_load_gfx_mode( void )
   sdldisplay_current_size = scaler_get_scaling_factor( current_scaler );
 
   sdldisplay_find_best_fullscreen_scaler();
+  sdldisplay_current_size = scaler_get_scaling_factor( current_scaler );
 
   window_width = settings_current.full_screen && fullscreen_width ?
                  fullscreen_width : image_width * sdldisplay_current_size;
