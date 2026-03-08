@@ -60,8 +60,9 @@ ui_joystick_init( void )
   error = SDL_Init( SDL_INIT_JOYSTICK );
 #endif
 
-  if ( error ) {
-    ui_error( UI_ERROR_ERROR, "failed to initialise joystick subsystem" );
+  if( !error ) {
+    ui_error( UI_ERROR_ERROR, "failed to initialise joystick subsystem: %s",
+              SDL_GetError() );
     return 0;
   }
 
