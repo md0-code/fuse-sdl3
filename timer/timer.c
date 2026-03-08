@@ -141,17 +141,13 @@ timer_register_startup( void )
 #ifdef SOUND_FIFO
 
 /* Callback-style sound based timer */
-#include "sound/sfifo.h"
-
-extern sfifo_t sound_fifo;
-
 static void
 timer_frame_callback_sound( libspectrum_dword last_tstates )
 {
   for(;;) {
 
     /* Sleep while fifo is full */
-    if( sfifo_space( &sound_fifo ) < sound_framesiz ) {
+    if( sound_lowlevel_buffer_space() < sound_framesiz ) {
       timer_sleep( TEN_MS );
     } else {
       break;

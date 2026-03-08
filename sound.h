@@ -63,5 +63,6 @@ extern int sound_stereo_ay;
 int sound_lowlevel_init( const char *device, int *freqptr, int *stereoptr );
 void sound_lowlevel_end( void );
 void sound_lowlevel_frame( libspectrum_signed_word *data, int len );
+int sound_lowlevel_buffer_space( void );
 
 #endif				/* #ifndef FUSE_SOUND_H */

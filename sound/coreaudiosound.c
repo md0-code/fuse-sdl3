@@ -242,6 +242,12 @@ sound_lowlevel_end( void )
   sfifo_close( &sound_fifo );
 }
 
+int
+sound_lowlevel_buffer_space( void )
+{
+  return sfifo_space( &sound_fifo );
+}
+
 /* Copy data to fifo */
 void
 sound_lowlevel_frame( libspectrum_signed_word *data, int len )
