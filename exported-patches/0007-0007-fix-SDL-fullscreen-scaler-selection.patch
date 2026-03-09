@@ -1,7 +1,7 @@
 From 6ec4ae2f3a6935c48bc8f34bde908f4fe41af6db Mon Sep 17 00:00:00 2001
 From: GitHub Copilot <copilot@local>
 Date: Sun, 8 Mar 2026 19:52:12 +0200
-Subject: [PATCH 07/14] 0007: fix SDL fullscreen scaler selection
+Subject: [PATCH 07/16] 0007: fix SDL fullscreen scaler selection
 
 ---
  ui/scaler/scaler.c  | 10 +++++++++-

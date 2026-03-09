@@ -1,7 +1,7 @@
 From 7f4747ac2004b5799a1e5c332ea3bd291d2e6843 Mon Sep 17 00:00:00 2001
 From: GitHub Copilot <copilot@local>
 Date: Sun, 8 Mar 2026 20:08:17 +0200
-Subject: [PATCH 10/14] 0010: add SDL3 distribution build documentation
+Subject: [PATCH 10/16] 0010: add SDL3 distribution build documentation
 
 ---
  BUILD-SDL3.md | 165 ++++++++++++++++++++++++++++++++++++++++++++++++++

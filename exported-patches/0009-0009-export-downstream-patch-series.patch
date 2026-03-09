@@ -1,7 +1,7 @@
 From e16b59e3954a1a318b1370135b3d57df783a0b2c Mon Sep 17 00:00:00 2001
 From: GitHub Copilot <copilot@local>
 Date: Sun, 8 Mar 2026 20:04:10 +0200
-Subject: [PATCH 09/14] 0009: export downstream patch series
+Subject: [PATCH 09/16] 0009: export downstream patch series
 
 ---
  ...witch-build-system-to-SDL3-detection.patch | 263 +++++++++++
