@@ -126,6 +126,7 @@ static int read_config_file( settings_info *settings );
 
 #ifdef HAVE_LIB_XML2
 static int parse_xml( xmlDocPtr doc, settings_info *settings );
+static int config_file_looks_like_xml( const char *path, int *looks_like_xml );
 #else				/* #ifdef HAVE_LIB_XML2 */
 static int parse_ini( utils_file *file, settings_info *settings );
 #endif				/* #ifdef HAVE_LIB_XML2 */
@@ -160,12 +161,39 @@ void settings_defaults( settings_info *settings )
 
 #ifdef HAVE_LIB_XML2
 
+static int
+config_file_looks_like_xml( const char *path, int *looks_like_xml )
+{
+  utils_file file;
+  unsigned char *cursor, *last;
+  int error;
+
+  error = utils_read_file( path, &file );
+  if( error ) return error;
+
+  cursor = file.buffer;
+  last = file.buffer + file.length;
+
+  while( cursor < last &&
+         ( *cursor == ' ' || *cursor == '\t' || *cursor == '\r' ||
+           *cursor == '\n' ) ) {
+    cursor++;
+  }
+
+  *looks_like_xml = ( cursor == last || *cursor == '<' );
+
+  utils_close_file( &file );
+
+  return 0;
+}
+
 /* Read options from the config file (if libxml2 is available) */
 
 static int
 read_config_file( settings_info *settings )
 {
   const char *cfgdir; char path[ PATH_MAX ];
+  int looks_like_xml;
 
   xmlDocPtr doc;
 
@@ -176,6 +204,18 @@ read_config_file( settings_info *settings )
   /* See if the file exists; if doesn't, it's not a problem */
   if( !compat_file_exists( path ) ) {
       return 0;
+  }
+
+  if( config_file_looks_like_xml( path, &looks_like_xml ) ) {
+    ui_error( UI_ERROR_ERROR, "error reading config file" );
+    return 1;
+  }
+
+  if( !looks_like_xml ) {
+    ui_error( UI_ERROR_WARNING,
+              "legacy non-XML config file '%s' ignored; rename or delete it to let Fuse create a new XML config",
+              path );
+    return 0;
   }
 
   doc = xmlReadFile( path, NULL, 0 );
