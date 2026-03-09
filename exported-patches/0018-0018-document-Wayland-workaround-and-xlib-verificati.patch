@@ -1,0 +1,121 @@
+From ebe6fe6fb193a1d32d3aa093e5f558431272aed5 Mon Sep 17 00:00:00 2001
+From: GitHub Copilot <copilot@local>
+Date: Mon, 9 Mar 2026 06:05:38 +0200
+Subject: [PATCH 18/18] 0018: document Wayland workaround and xlib verification
+
+---
+ BUILD-SDL3.md   | 20 ++++++++++++++++++++
+ RELEASE-SDL3.md |  8 ++++++++
+ TESTING-SDL3.md | 32 ++++++++++++++++++++++++++++++++
+ 3 files changed, 60 insertions(+)
+
+diff --git a/BUILD-SDL3.md b/BUILD-SDL3.md
+index 55d32c31..78c439f8 100644
+--- a/BUILD-SDL3.md
++++ b/BUILD-SDL3.md
+@@ -161,6 +161,26 @@ SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy \
+ For a fuller runtime checklist, including native-Linux fullscreen validation,
+ see `TESTING-SDL3.md`.
+ 
++## Debian sid Wayland note
++
++On at least one Debian sid system, native Wayland startup reached SDL video
++initialization but crashed inside the system `libdecor` GTK plugin stack rather
++than inside Fuse. The following workaround allowed Wayland startup to succeed:
++
++```sh
++LIBDECOR_PLUGIN_DIR=/nonexistent SDL_VIDEO_DRIVER=wayland ./fuse
++```
++
++If you prefer a more conservative fallback, forcing X11 also works around the
++same system-side issue:
++
++```sh
++SDL_VIDEO_DRIVER=x11 ./fuse
++```
++
++This issue appears to be specific to the runtime `libdecor` environment on that
++system, not to the downstream SDL3 rendering path itself.
++
+ ## SDL3 presentation notes
+ 
+ This fork uses SDL3 for the SDL UI and supports aspect-correct fullscreen
+diff --git a/RELEASE-SDL3.md b/RELEASE-SDL3.md
+index 7c986db3..81abee4e 100644
+--- a/RELEASE-SDL3.md
++++ b/RELEASE-SDL3.md
+@@ -28,6 +28,10 @@ SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy \
+ If native Linux graphics behavior changed, also run the checklist from
+ `TESTING-SDL3.md`.
+ 
++Before calling Phase 7 verification complete, also rerun at least one
++non-SDL-primary build from `TESTING-SDL3.md` so the downstream changes are not
++validated only through the SDL UI configuration.
++
+ ## Refresh the exported patch series
+ 
+ The exported patches are part of the published repository, so regenerate them
+@@ -65,6 +69,10 @@ At minimum, confirm that:
+ * any new runtime knobs are documented; and
+ * the patch replay instructions still apply cleanly to upstream `fuse-1.6.0`.
+ 
++If a platform-specific runtime workaround is known, such as the Debian sid
++Wayland `libdecor` workaround documented in `BUILD-SDL3.md` and
++`TESTING-SDL3.md`, keep that note current as part of release prep.
++
+ ## Keep the repository surface clean
+ 
+ Do not add workflow-only outer-repository artifacts to this published branch.
+diff --git a/TESTING-SDL3.md b/TESTING-SDL3.md
+index e200625e..daf4af49 100644
+--- a/TESTING-SDL3.md
++++ b/TESTING-SDL3.md
+@@ -33,6 +33,24 @@ SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy \
+ Both commands are expected to survive until timeout rather than exit early with
+ an SDL initialization failure.
+ 
++## Non-SDL-primary build verification
++
++To confirm the shared SDL3-related changes do not break other UI selections,
++also verify at least one non-SDL-primary build. A verified path for this fork
++is an Xlib build in a clean detached worktree:
++
++```sh
++git worktree add --detach /tmp/fuse-xlib HEAD
++cd /tmp/fuse-xlib
++autoreconf -fi
++./configure --without-gtk
++make -j"$(nproc)"
++timeout -s KILL 5s ./fuse --no-sound --machine 48
++```
++
++This confirms that the non-SDL-primary Xlib configuration still configures,
++builds, and starts while sharing the same downstream source line.
++
+ ## Media loading smoke tests
+ 
+ Tape autoload:
+@@ -66,6 +84,20 @@ Validate all of the following:
+   integer multiple when fullscreen is active; and
+ * no extra stale window contents remain visible after fullscreen transitions.
+ 
++## Debian sid Wayland workaround
++
++One Debian sid environment reproduced a crash inside `libdecor-gtk.so` during
++`SDL_Init( SDL_INIT_VIDEO )`. In that case:
++
++* `SDL_VIDEO_DRIVER=x11 ./fuse` worked;
++* `SDL_VIDEO_DRIVER=wayland ./fuse` still crashed; and
++* `LIBDECOR_PLUGIN_DIR=/nonexistent SDL_VIDEO_DRIVER=wayland ./fuse` worked.
++
++That combination indicates a system `libdecor` plugin failure rather than a
++Fuse-side rendering or emulation failure. When validating Wayland on affected
++systems, record whether Fuse succeeds with the plugin path disabled before
++treating the issue as an emulator regression.
++
+ ## Fullscreen scale-mode checks
+ 
+ Run the same startup command with each texture scale mode:
+-- 
+2.39.5
+
