@@ -1,7 +1,7 @@
 From 28bebb2a24835d9f88378c7813acd946deb1ca10 Mon Sep 17 00:00:00 2001
 From: GitHub Copilot <copilot@local>
 Date: Sun, 8 Mar 2026 19:10:19 +0200
-Subject: [PATCH 05/14] 0005: fix SDL3 build validation regressions
+Subject: [PATCH 05/16] 0005: fix SDL3 build validation regressions
 
 ---
  fuse.c                 |   2 +-
