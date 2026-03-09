@@ -161,6 +161,26 @@ SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy \
 For a fuller runtime checklist, including native-Linux fullscreen validation,
 see `TESTING-SDL3.md`.
 
+## Debian sid Wayland note
+
+On at least one Debian sid system, native Wayland startup reached SDL video
+initialization but crashed inside the system `libdecor` GTK plugin stack rather
+than inside Fuse. The following workaround allowed Wayland startup to succeed:
+
+```sh
+LIBDECOR_PLUGIN_DIR=/nonexistent SDL_VIDEO_DRIVER=wayland ./fuse
+```
+
+If you prefer a more conservative fallback, forcing X11 also works around the
+same system-side issue:
+
+```sh
+SDL_VIDEO_DRIVER=x11 ./fuse
+```
+
+This issue appears to be specific to the runtime `libdecor` environment on that
+system, not to the downstream SDL3 rendering path itself.
+
 ## SDL3 presentation notes
 
 This fork uses SDL3 for the SDL UI and supports aspect-correct fullscreen
