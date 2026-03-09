@@ -1,7 +1,7 @@
 From dd5a25cf37a165510b6361fc3af3f96329f6f519 Mon Sep 17 00:00:00 2001
 From: GitHub Copilot <copilot@local>
 Date: Sun, 8 Mar 2026 18:49:16 +0200
-Subject: [PATCH 02/16] 0002: add SDL3 compatibility layer for input backends
+Subject: [PATCH 02/18] 0002: add SDL3 compatibility layer for input backends
 
 ---
  keysyms.pl           |   2 +-

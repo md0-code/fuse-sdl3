@@ -1,7 +1,7 @@
 From 83a1166b24457efb457e27d06309ecd9f7204143 Mon Sep 17 00:00:00 2001
 From: GitHub Copilot <copilot@local>
 Date: Sun, 8 Mar 2026 18:49:30 +0200
-Subject: [PATCH 03/16] 0003: port SDL UI display backend to SDL3 surfaces
+Subject: [PATCH 03/18] 0003: port SDL UI display backend to SDL3 surfaces
 
 ---
  ui/sdl/sdldisplay.c | 223 ++++++++++++++++++++++++++++++--------------

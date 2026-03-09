@@ -1,7 +1,7 @@
 From ab0ee54bcbb3e40e6ba9df42e26ad4d4811b7638 Mon Sep 17 00:00:00 2001
 From: GitHub Copilot <copilot@local>
 Date: Sun, 8 Mar 2026 18:49:03 +0200
-Subject: [PATCH 01/16] 0001: switch build system to SDL3 detection
+Subject: [PATCH 01/18] 0001: switch build system to SDL3 detection
 
 ---
  configure.ac |  33 ++--------

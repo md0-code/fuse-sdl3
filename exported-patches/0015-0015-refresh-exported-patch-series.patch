@@ -1,7 +1,7 @@
 From 6af88bedc159b84d73b5e4b245ffa0b6aab210be Mon Sep 17 00:00:00 2001
 From: GitHub Copilot <copilot@local>
 Date: Mon, 9 Mar 2026 03:46:34 +0200
-Subject: [PATCH 15/16] 0015: refresh exported patch series
+Subject: [PATCH 15/18] 0015: refresh exported patch series
 
 ---
  ...witch-build-system-to-SDL3-detection.patch |    2 +-

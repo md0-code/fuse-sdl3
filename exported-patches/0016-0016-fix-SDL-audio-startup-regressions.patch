@@ -1,7 +1,7 @@
 From f241c16d3d15ac5c82e0cadfbe826932b4a92e02 Mon Sep 17 00:00:00 2001
 From: GitHub Copilot <copilot@local>
 Date: Mon, 9 Mar 2026 03:59:35 +0200
-Subject: [PATCH 16/16] 0016: fix SDL audio startup regressions
+Subject: [PATCH 16/18] 0016: fix SDL audio startup regressions
 
 ---
  sound/sdlsound.c | 13 +++++--------

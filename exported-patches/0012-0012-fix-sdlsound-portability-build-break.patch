@@ -1,7 +1,7 @@
 From 4c425979209d2c5b7f0ccccf978805a70a0a5acf Mon Sep 17 00:00:00 2001
 From: GitHub Copilot <copilot@local>
 Date: Mon, 9 Mar 2026 03:34:26 +0200
-Subject: [PATCH 12/16] 0012: fix sdlsound portability build break
+Subject: [PATCH 12/18] 0012: fix sdlsound portability build break
 
 ---
  sound/sdlsound.c | 6 ++----
