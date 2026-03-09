@@ -1,0 +1,2186 @@
+From e16b59e3954a1a318b1370135b3d57df783a0b2c Mon Sep 17 00:00:00 2001
+From: GitHub Copilot <copilot@local>
+Date: Sun, 8 Mar 2026 20:04:10 +0200
+Subject: [PATCH 09/12] 0009: export downstream patch series
+
+---
+ ...witch-build-system-to-SDL3-detection.patch | 263 +++++++++++
+ ...mpatibility-layer-for-input-backends.patch | 447 ++++++++++++++++++
+ ...-UI-display-backend-to-SDL3-surfaces.patch | 447 ++++++++++++++++++
+ ...rt-SDL-audio-backend-to-SDL3-streams.patch | 198 ++++++++
+ ...ix-SDL3-build-validation-regressions.patch | 342 ++++++++++++++
+ .../0006-0006-fix-SDL3-startup-checks.patch   |  56 +++
+ ...-fix-SDL-fullscreen-scaler-selection.patch | 115 +++++
+ ...-renderer-for-aspect-correct-scaling.patch | 243 ++++++++++
+ 8 files changed, 2111 insertions(+)
+ create mode 100644 exported-patches/0001-0001-switch-build-system-to-SDL3-detection.patch
+ create mode 100644 exported-patches/0002-0002-add-SDL3-compatibility-layer-for-input-backends.patch
+ create mode 100644 exported-patches/0003-0003-port-SDL-UI-display-backend-to-SDL3-surfaces.patch
+ create mode 100644 exported-patches/0004-0004-port-SDL-audio-backend-to-SDL3-streams.patch
+ create mode 100644 exported-patches/0005-0005-fix-SDL3-build-validation-regressions.patch
+ create mode 100644 exported-patches/0006-0006-fix-SDL3-startup-checks.patch
+ create mode 100644 exported-patches/0007-0007-fix-SDL-fullscreen-scaler-selection.patch
+ create mode 100644 exported-patches/0008-0008-use-SDL-renderer-for-aspect-correct-scaling.patch
+
+diff --git a/exported-patches/0001-0001-switch-build-system-to-SDL3-detection.patch b/exported-patches/0001-0001-switch-build-system-to-SDL3-detection.patch
+new file mode 100644
+index 00000000..57eb3de4
+--- /dev/null
++++ b/exported-patches/0001-0001-switch-build-system-to-SDL3-detection.patch
+@@ -0,0 +1,263 @@
++From ab0ee54bcbb3e40e6ba9df42e26ad4d4811b7638 Mon Sep 17 00:00:00 2001
++From: GitHub Copilot <copilot@local>
++Date: Sun, 8 Mar 2026 18:49:03 +0200
++Subject: [PATCH 1/8] 0001: switch build system to SDL3 detection
++
++---
++ configure.ac |  33 ++--------
++ m4/sdl.m4    | 177 ---------------------------------------------------
++ 2 files changed, 5 insertions(+), 205 deletions(-)
++ delete mode 100644 m4/sdl.m4
++
++diff --git a/configure.ac b/configure.ac
++index d6323c18..c04c59eb 100644
++--- a/configure.ac
+++++ b/configure.ac
++@@ -287,32 +287,9 @@ if test -z "$UI"; then
++   AC_MSG_RESULT($sdl_ui)
++ fi
++ 
++-dnl Check if the user prefers SDL 1 over SDL 2
++-AC_ARG_ENABLE(sdl2,
++-  AS_HELP_STRING([--disable-sdl2],[prefer SDL 1 to SDL 2]),
++-  if test "$enableval" = yes; then sdl2=yes; else sdl2=no; fi,
++-  sdl2=yes
++-)
++-
++-dnl SDL 2 is not supported for the UI yet, so warn the user
++-if test "$sdl_ui" = yes -a "$sdl2" = yes; then
++-  AC_MSG_WARN([SDL 2 not supported for the UI, using SDL 1 instead])
++-  sdl2=no
++-fi
++-
++-dnl Look for SDL 2
+++dnl Look for SDL 3
++ sdl_available=no
++-if test "$sdl2" = yes; then
++-  PKG_CHECK_MODULES([SDL], [sdl2], [sdl_available=yes], [
++-                    AC_MSG_WARN([SDL 2 not found, looking for SDL 1])
++-                    sdl2=no])
++-fi
++-
++-dnl Look for SDL 1 if we don't have or want SDL 2
++-SDL_VERSION=1.2.4
++-if test "$sdl_available" = no; then
++-  AM_PATH_SDL($SDL_VERSION, sdl_available=yes, sdl_available=no)
++-fi
+++PKG_CHECK_MODULES([SDL], [sdl3], [sdl_available=yes], [sdl_available=no])
++ 
++ dnl Enable the SDL UI if all conditions are met
++ if test "$sdl_ui" = yes; then
++@@ -323,7 +300,7 @@ if test "$sdl_ui" = yes; then
++     WIDGET=widget
++     use_sdl=yes
++   else
++-    AC_MSG_ERROR([SDL version $SDL_VERSION not found])
+++    AC_MSG_ERROR([SDL3 not found])
++   fi
++ fi
++ 
++@@ -787,7 +764,7 @@ if test "$stick" = yes; then
++           AC_DEFINE([USE_JOYSTICK], 1, [Defined if we're using hardware joysticks])
++           use_sdl=yes
++         else
++-          AC_MSG_WARN([SDL version $SDL_VERSION not found - joystick support disabled])
+++          AC_MSG_WARN([SDL3 not found - joystick support disabled])
++           stick=no
++         fi
++       fi
++@@ -1079,7 +1056,7 @@ if test "${UI}" = "gtk"; then
++    echo "Using GTK 3: ${gtk3}"
++ fi
++ if test "${use_sdl}" = "yes"; then
++-   echo "Using SDL 2: ${sdl2}"
+++  echo "Using SDL 3: yes"
++ fi
++ if test x"${gpm}" != "x"; then
++    echo "libgpm support: ${gpm}"
++diff --git a/m4/sdl.m4 b/m4/sdl.m4
++deleted file mode 100644
++index ead3f15e..00000000
++--- a/m4/sdl.m4
+++++ /dev/null
++@@ -1,177 +0,0 @@
++-# Configure paths for SDL
++-# Sam Lantinga 9/21/99
++-# stolen from Manish Singh
++-# stolen back from Frank Belew
++-# stolen from Manish Singh
++-# Shamelessly stolen from Owen Taylor
++-
++-# Taken from SDL 1.2.7 by PAK 2004/07/07
++-
++-dnl AM_PATH_SDL([MINIMUM-VERSION, [ACTION-IF-FOUND [, ACTION-IF-NOT-FOUND]]])
++-dnl Test for SDL, and define SDL_CFLAGS and SDL_LIBS
++-dnl
++-AC_DEFUN([AM_PATH_SDL],
++-[dnl 
++-dnl Get the cflags and libraries from the sdl-config script
++-dnl
++-AC_ARG_WITH(sdl-prefix,[  --with-sdl-prefix=PFX   Prefix where SDL is installed (optional)],
++-            sdl_prefix="$withval", sdl_prefix="")
++-AC_ARG_WITH(sdl-exec-prefix,[  --with-sdl-exec-prefix=PFX Exec prefix where SDL is installed (optional)],
++-            sdl_exec_prefix="$withval", sdl_exec_prefix="")
++-AC_ARG_ENABLE(sdltest, [  --disable-sdltest       Do not try to compile and run a test SDL program],
++-		    , enable_sdltest=yes)
++-
++-  if test x$sdl_exec_prefix != x ; then
++-     sdl_args="$sdl_args --exec-prefix=$sdl_exec_prefix"
++-     if test x${SDL_CONFIG+set} != xset ; then
++-        SDL_CONFIG=$sdl_exec_prefix/bin/sdl-config
++-     fi
++-  fi
++-  if test x$sdl_prefix != x ; then
++-     sdl_args="$sdl_args --prefix=$sdl_prefix"
++-     if test x${SDL_CONFIG+set} != xset ; then
++-        SDL_CONFIG=$sdl_prefix/bin/sdl-config
++-     fi
++-  fi
++-
++-  AC_REQUIRE([AC_CANONICAL_HOST])
++-  PATH="$prefix/bin:$prefix/usr/bin:$PATH"
++-  AC_PATH_PROG(SDL_CONFIG, sdl-config, no, [$PATH])
++-  min_sdl_version=ifelse([$1], ,0.11.0,$1)
++-  AC_MSG_CHECKING(for SDL - version >= $min_sdl_version)
++-  no_sdl=""
++-  if test "$SDL_CONFIG" = "no" ; then
++-    no_sdl=yes
++-  else
++-    SDL_CFLAGS=`$SDL_CONFIG $sdlconf_args --cflags`
++-    SDL_LIBS=`$SDL_CONFIG $sdlconf_args --libs`
++-
++-    sdl_major_version=`$SDL_CONFIG $sdl_args --version | \
++-           sed 's/\([[0-9]]*\).\([[0-9]]*\).\([[0-9]]*\)/\1/'`
++-    sdl_minor_version=`$SDL_CONFIG $sdl_args --version | \
++-           sed 's/\([[0-9]]*\).\([[0-9]]*\).\([[0-9]]*\)/\2/'`
++-    sdl_micro_version=`$SDL_CONFIG $sdl_config_args --version | \
++-           sed 's/\([[0-9]]*\).\([[0-9]]*\).\([[0-9]]*\)/\3/'`
++-    if test "x$enable_sdltest" = "xyes" ; then
++-      ac_save_CFLAGS="$CFLAGS"
++-      ac_save_LIBS="$LIBS"
++-      CFLAGS="$CFLAGS $SDL_CFLAGS"
++-      LIBS="$LIBS $SDL_LIBS"
++-dnl
++-dnl Now check if the installed SDL is sufficiently new. (Also sanity
++-dnl checks the results of sdl-config to some extent
++-dnl
++-      rm -f conf.sdltest
++-      AC_TRY_RUN([
++-#include <stdio.h>
++-#include <stdlib.h>
++-#include <string.h>
++-#include "SDL.h"
++-
++-char*
++-my_strdup (char *str)
++-{
++-  char *new_str;
++-  
++-  if (str)
++-    {
++-      new_str = (char *)malloc ((strlen (str) + 1) * sizeof(char));
++-      strcpy (new_str, str);
++-    }
++-  else
++-    new_str = NULL;
++-  
++-  return new_str;
++-}
++-
++-int main (int argc, char *argv[])
++-{
++-  int major, minor, micro;
++-  char *tmp_version;
++-
++-  /* This hangs on some systems (?)
++-  system ("touch conf.sdltest");
++-  */
++-  { FILE *fp = fopen("conf.sdltest", "a"); if ( fp ) fclose(fp); }
++-
++-  /* HP/UX 9 (%@#!) writes to sscanf strings */
++-  tmp_version = my_strdup("$min_sdl_version");
++-  if (sscanf(tmp_version, "%d.%d.%d", &major, &minor, &micro) != 3) {
++-     printf("%s, bad version string\n", "$min_sdl_version");
++-     exit(1);
++-   }
++-
++-   if (($sdl_major_version > major) ||
++-      (($sdl_major_version == major) && ($sdl_minor_version > minor)) ||
++-      (($sdl_major_version == major) && ($sdl_minor_version == minor) && ($sdl_micro_version >= micro)))
++-    {
++-      return 0;
++-    }
++-  else
++-    {
++-      printf("\n*** 'sdl-config --version' returned %d.%d.%d, but the minimum version\n", $sdl_major_version, $sdl_minor_version, $sdl_micro_version);
++-      printf("*** of SDL required is %d.%d.%d. If sdl-config is correct, then it is\n", major, minor, micro);
++-      printf("*** best to upgrade to the required version.\n");
++-      printf("*** If sdl-config was wrong, set the environment variable SDL_CONFIG\n");
++-      printf("*** to point to the correct copy of sdl-config, and remove the file\n");
++-      printf("*** config.cache before re-running configure\n");
++-      return 1;
++-    }
++-}
++-
++-],, no_sdl=yes,[echo $ac_n "cross compiling; assumed OK... $ac_c"])
++-       CFLAGS="$ac_save_CFLAGS"
++-       LIBS="$ac_save_LIBS"
++-     fi
++-  fi
++-  if test "x$no_sdl" = x ; then
++-     AC_MSG_RESULT(yes)
++-     ifelse([$2], , :, [$2])     
++-  else
++-     AC_MSG_RESULT(no)
++-     if test "$SDL_CONFIG" = "no" ; then
++-       echo "*** The sdl-config script installed by SDL could not be found"
++-       echo "*** If SDL was installed in PREFIX, make sure PREFIX/bin is in"
++-       echo "*** your path, or set the SDL_CONFIG environment variable to the"
++-       echo "*** full path to sdl-config."
++-     else
++-       if test -f conf.sdltest ; then
++-        :
++-       else
++-          echo "*** Could not run SDL test program, checking why..."
++-          CFLAGS="$CFLAGS $SDL_CFLAGS"
++-          LIBS="$LIBS $SDL_LIBS"
++-          AC_TRY_LINK([
++-#include <stdio.h>
++-#include "SDL.h"
++-
++-int main(int argc, char *argv[])
++-{ return 0; }
++-#undef  main
++-#define main K_and_R_C_main
++-],      [ return 0; ],
++-        [ echo "*** The test program compiled, but did not run. This usually means"
++-          echo "*** that the run-time linker is not finding SDL or finding the wrong"
++-          echo "*** version of SDL. If it is not finding SDL, you'll need to set your"
++-          echo "*** LD_LIBRARY_PATH environment variable, or edit /etc/ld.so.conf to point"
++-          echo "*** to the installed location  Also, make sure you have run ldconfig if that"
++-          echo "*** is required on your system"
++-	  echo "***"
++-          echo "*** If you have an old version installed, it is best to remove it, although"
++-          echo "*** you may also be able to get things to work by modifying LD_LIBRARY_PATH"],
++-        [ echo "*** The test program failed to compile or link. See the file config.log for the"
++-          echo "*** exact error that occured. This usually means SDL was incorrectly installed"
++-          echo "*** or that you have moved SDL since it was installed. In the latter case, you"
++-          echo "*** may want to edit the sdl-config script: $SDL_CONFIG" ])
++-          CFLAGS="$ac_save_CFLAGS"
++-          LIBS="$ac_save_LIBS"
++-       fi
++-     fi
++-     SDL_CFLAGS=""
++-     SDL_LIBS=""
++-     ifelse([$3], , :, [$3])
++-  fi
++-  AC_SUBST(SDL_CFLAGS)
++-  AC_SUBST(SDL_LIBS)
++-  rm -f conf.sdltest
++-])
++-- 
++2.39.5
++
+diff --git a/exported-patches/0002-0002-add-SDL3-compatibility-layer-for-input-backends.patch b/exported-patches/0002-0002-add-SDL3-compatibility-layer-for-input-backends.patch
+new file mode 100644
+index 00000000..be65f4c6
+--- /dev/null
++++ b/exported-patches/0002-0002-add-SDL3-compatibility-layer-for-input-backends.patch
+@@ -0,0 +1,447 @@
++From dd5a25cf37a165510b6361fc3af3f96329f6f519 Mon Sep 17 00:00:00 2001
++From: GitHub Copilot <copilot@local>
++Date: Sun, 8 Mar 2026 18:49:16 +0200
++Subject: [PATCH 2/8] 0002: add SDL3 compatibility layer for input backends
++
++---
++ keysyms.pl           |   2 +-
++ sdlcompat.h          | 171 +++++++++++++++++++++++++++++++++++++++++++
++ timer/sdl.c          |   2 +-
++ ui/sdl/sdljoystick.c |  18 ++---
++ ui/sdl/sdljoystick.h |   2 +
++ ui/sdl/sdlkeyboard.c |  21 ++++--
++ ui/sdl/sdlkeyboard.h |   2 +
++ ui/sdl/sdlui.c       |  34 +++++----
++ 8 files changed, 220 insertions(+), 32 deletions(-)
++ create mode 100644 sdlcompat.h
++
++diff --git a/keysyms.pl b/keysyms.pl
++index 169ddff7..16c6a468 100755
++--- a/keysyms.pl
+++++ b/keysyms.pl
++@@ -154,7 +154,7 @@ my %ui_data = (
++ 	      function => sub ($) { "GDK_KEY_$_[0]" },
++     	    },
++ 
++-    sdl  => { headers => [ 'SDL.h' ],
+++    sdl  => { headers => [ 'sdlcompat.h' ],
++ 	      max_length => 18,
++ 	      skips => { map { $_ => 1 } ( 'Hyper_L','Hyper_R','Caps_Lock',
++                          'A' .. 'Z', 'asciitilde', 'bar', 'dead_circumflex',
++diff --git a/sdlcompat.h b/sdlcompat.h
++new file mode 100644
++index 00000000..a17cedf9
++--- /dev/null
+++++ b/sdlcompat.h
++@@ -0,0 +1,171 @@
+++/* sdlcompat.h: temporary SDL3 compatibility shim for the SDL migration
+++   Copyright (c) 2026
+++
+++   This file intentionally keeps the early SDL3 migration patches mechanical.
+++   It centralises the header-path switch and a small set of constant aliases so
+++   the backend files can move off legacy SDL includes before their runtime
+++   behaviour is fully ported.
+++*/
+++
+++#ifndef FUSE_SDLCOMPAT_H
+++#define FUSE_SDLCOMPAT_H
+++
+++#ifndef SDL_ENABLE_OLD_NAMES
+++#define SDL_ENABLE_OLD_NAMES
+++#endif
+++
+++#include <SDL3/SDL.h>
+++
+++static inline int
+++fuse_sdl_enable_key_repeat( int delay GCC_UNUSED, int interval GCC_UNUSED )
+++{
+++   return 0;
+++}
+++
+++static inline int
+++fuse_sdl_enable_unicode( int enable GCC_UNUSED )
+++{
+++   return 0;
+++}
+++
+++static inline bool
+++fuse_sdl_show_cursor_toggle( int toggle )
+++{
+++   return toggle ? SDL_ShowCursor() : SDL_HideCursor();
+++}
+++
+++static inline bool
+++fuse_sdl_warp_mouse( float x, float y )
+++{
+++   SDL_Window *window;
+++
+++   window = SDL_GetMouseFocus();
+++   if( !window ) window = SDL_GetKeyboardFocus();
+++   if( !window ) return false;
+++
+++   return SDL_WarpMouseInWindow( window, x, y );
+++}
+++
+++static inline int
+++fuse_sdl_wm_grab_input( int mode )
+++{
+++   SDL_Window *window;
+++   bool grabbed;
+++
+++   window = SDL_GetMouseFocus();
+++   if( !window ) window = SDL_GetKeyboardFocus();
+++   if( !window ) return SDL_GRAB_OFF;
+++
+++   grabbed = mode != SDL_GRAB_OFF;
+++   if( !SDL_SetWindowMouseGrab( window, grabbed ) ) return SDL_GRAB_OFF;
+++   if( !SDL_SetWindowKeyboardGrab( window, grabbed ) ) return SDL_GRAB_OFF;
+++
+++   return mode;
+++}
+++
+++static inline void
+++fuse_sdl_wm_set_caption( const char *title, const char *icon GCC_UNUSED )
+++{
+++   SDL_Window *window;
+++
+++   window = SDL_GetKeyboardFocus();
+++   if( !window ) window = SDL_GetMouseFocus();
+++   if( !window ) return;
+++
+++   SDL_SetWindowTitle( window, title );
+++}
+++
+++static inline int
+++fuse_sdl_num_joysticks( void )
+++{
+++   SDL_JoystickID *joysticks;
+++   int count;
+++
+++   joysticks = SDL_GetJoysticks( &count );
+++   if( joysticks ) SDL_free( joysticks );
+++
+++   return joysticks ? count : 0;
+++}
+++
+++static inline SDL_Joystick*
+++fuse_sdl_joystick_open( int index )
+++{
+++   SDL_JoystickID *joysticks;
+++   SDL_Joystick *joystick;
+++   int count;
+++
+++   joysticks = SDL_GetJoysticks( &count );
+++   if( !joysticks ) return NULL;
+++   if( index < 0 || index >= count ) {
+++      SDL_free( joysticks );
+++      return NULL;
+++   }
+++
+++   joystick = SDL_OpenJoystick( joysticks[index] );
+++   SDL_free( joysticks );
+++   return joystick;
+++}
+++
+++static inline int
+++fuse_sdl_joystick_event_state( int state )
+++{
+++   SDL_SetJoystickEventsEnabled( state != SDL_IGNORE );
+++   return SDL_JoystickEventsEnabled() ? SDL_ENABLE : SDL_IGNORE;
+++}
+++
+++#ifndef AUDIO_S16SYS
+++#define AUDIO_S16SYS SDL_AUDIO_S16
+++#endif
+++
+++#ifndef SDL_ENABLE
+++#define SDL_ENABLE 1
+++#endif
+++
+++#ifndef SDL_DISABLE
+++#define SDL_DISABLE 0
+++#endif
+++
+++#ifndef SDL_IGNORE
+++#define SDL_IGNORE 0
+++#endif
+++
+++#ifndef SDL_SWSURFACE
+++#define SDL_SWSURFACE 0
+++#endif
+++
+++#ifndef SDL_FULLSCREEN
+++#define SDL_FULLSCREEN SDL_WINDOW_FULLSCREEN
+++#endif
+++
+++#ifndef SDL_NOFRAME
+++#define SDL_NOFRAME SDL_WINDOW_BORDERLESS
+++#endif
+++
+++#ifndef SDL_GRAB_OFF
+++#define SDL_GRAB_OFF 0
+++#endif
+++
+++#ifndef SDL_GRAB_ON
+++#define SDL_GRAB_ON 1
+++#endif
+++
+++#ifndef SDL_GRAB_FULLSCREEN
+++#define SDL_GRAB_FULLSCREEN 2
+++#endif
+++
+++#ifndef SDL_APPINPUTFOCUS
+++#define SDL_APPINPUTFOCUS 0x01
+++#endif
+++
+++#define SDL_EnableKeyRepeat(delay, interval) \
+++   fuse_sdl_enable_key_repeat( (delay), (interval) )
+++#define SDL_EnableUNICODE(enable) fuse_sdl_enable_unicode( (enable) )
+++#define SDL_ShowCursor(toggle) fuse_sdl_show_cursor_toggle( (toggle) )
+++#define SDL_WarpMouse(x, y) fuse_sdl_warp_mouse( (float)(x), (float)(y) )
+++#define SDL_WM_GrabInput(mode) fuse_sdl_wm_grab_input( (mode) )
+++#define SDL_WM_SetCaption(title, icon) fuse_sdl_wm_set_caption( (title), (icon) )
+++#define SDL_NumJoysticks() fuse_sdl_num_joysticks()
+++#define SDL_JoystickOpen(index) fuse_sdl_joystick_open( (index) )
+++#define SDL_JoystickEventState(state) fuse_sdl_joystick_event_state( (state) )
+++
+++#endif
++\ No newline at end of file
++diff --git a/timer/sdl.c b/timer/sdl.c
++index e91565f8..3b3418f1 100644
++--- a/timer/sdl.c
+++++ b/timer/sdl.c
++@@ -23,7 +23,7 @@
++ 
++ #include <config.h>
++ 
++-#include <SDL.h>
+++#include "sdlcompat.h"
++ 
++ #include "timer.h"
++ 
++diff --git a/ui/sdl/sdljoystick.c b/ui/sdl/sdljoystick.c
++index 683480a2..2623df39 100644
++--- a/ui/sdl/sdljoystick.c
+++++ b/ui/sdl/sdljoystick.c
++@@ -32,7 +32,7 @@
++ 
++ #else			/* #if !defined USE_JOYSTICK || defined HAVE_JSW_H */
++ 
++-#include <SDL.h>
+++#include "sdlcompat.h"
++ 
++ #include "compat.h"
++ #include "input.h"
++@@ -76,8 +76,8 @@ ui_joystick_init( void )
++       return 0;
++     }
++ 
++-    if( SDL_JoystickNumAxes( joystick2 ) < 2    ||
++-        SDL_JoystickNumButtons( joystick2 ) < 1    ) {
+++    if( SDL_GetNumJoystickAxes( joystick2 ) < 2    ||
+++        SDL_GetNumJoystickButtons( joystick2 ) < 1    ) {
++       ui_error( UI_ERROR_ERROR, "sorry, joystick 2 is inadequate!" );
++       return 0;
++     }
++@@ -91,8 +91,8 @@ ui_joystick_init( void )
++       return 0;
++     }
++  
++-    if( SDL_JoystickNumAxes( joystick1 ) < 2    ||
++-        SDL_JoystickNumButtons( joystick1 ) < 1    ) {
+++    if( SDL_GetNumJoystickAxes( joystick1 ) < 2    ||
+++        SDL_GetNumJoystickButtons( joystick1 ) < 1    ) {
++       ui_error( UI_ERROR_ERROR, "sorry, joystick 1 is inadequate!" );
++       return 0;
++     }
++@@ -114,16 +114,16 @@ ui_joystick_poll( void )
++ 
++   while( SDL_PollEvent( &event ) ) {
++     switch( event.type ) {
++-    case SDL_JOYBUTTONDOWN:
+++    case SDL_EVENT_JOYSTICK_BUTTON_DOWN:
++       sdljoystick_buttonpress( &(event.jbutton) );
++       break;
++-    case SDL_JOYBUTTONUP:
+++    case SDL_EVENT_JOYSTICK_BUTTON_UP:
++       sdljoystick_buttonrelease( &(event.jbutton) );
++       break;
++-    case SDL_JOYAXISMOTION:
+++    case SDL_EVENT_JOYSTICK_AXIS_MOTION:
++       sdljoystick_axismove( &(event.jaxis) );
++       break;
++-    case SDL_JOYHATMOTION:
+++    case SDL_EVENT_JOYSTICK_HAT_MOTION:
++       sdljoystick_hatmove( &(event.jhat) );
++       break;
++     default:
++diff --git a/ui/sdl/sdljoystick.h b/ui/sdl/sdljoystick.h
++index 48bcfcea..12efad19 100644
++--- a/ui/sdl/sdljoystick.h
+++++ b/ui/sdl/sdljoystick.h
++@@ -26,6 +26,8 @@
++ #ifndef FUSE_SDLJOYSTICK_H
++ #define FUSE_SDLJOYSTICK_H
++ 
+++#include "sdlcompat.h"
+++
++ void sdljoystick_buttonpress( SDL_JoyButtonEvent *buttonevent );
++ void sdljoystick_buttonrelease( SDL_JoyButtonEvent *buttonevent );
++ void sdljoystick_axismove( SDL_JoyAxisEvent *axisevent );
++diff --git a/ui/sdl/sdlkeyboard.c b/ui/sdl/sdlkeyboard.c
++index 583ed678..a8310119 100644
++--- a/ui/sdl/sdlkeyboard.c
+++++ b/ui/sdl/sdlkeyboard.c
++@@ -25,7 +25,8 @@
++ 
++ #include <stdio.h>
++ #include <stdlib.h>
++-#include <SDL.h>
+++
+++#include "sdlcompat.h"
++ 
++ #include "display.h"
++ #include "fuse.h"
++@@ -45,6 +46,14 @@ extern const keysyms_map_t unicode_keysyms_map[];
++ 
++ static GHashTable *unicode_keysyms_hash;
++ 
+++static libspectrum_dword
+++sdlkeyboard_unicode_value( const SDL_KeyboardEvent *keyevent )
+++{
+++  SDL_Keycode key = keyevent->key;
+++
+++  return key >= 0 && key <= 0x7f ? (libspectrum_dword)key : 0;
+++}
+++
++ static input_key
++ unicode_keysyms_remap( libspectrum_dword ui_keysym )
++ {
++@@ -80,12 +89,14 @@ sdlkeyboard_keypress( SDL_KeyboardEvent *keyevent )
++ {
++   input_key fuse_keysym, unicode_keysym;
++   input_event_t fuse_event;
+++  libspectrum_dword unicode_value;
++ 
++-  fuse_keysym = keysyms_remap( keyevent->keysym.sym );
+++  fuse_keysym = keysyms_remap( keyevent->key );
++ 
++   /* Currently unicode_keysyms_map contains ASCII character keys */
++-  if( ( keyevent->keysym.unicode & 0xFF80 ) == 0 ) 
++-    unicode_keysym = unicode_keysyms_remap( keyevent->keysym.unicode );
+++  unicode_value = sdlkeyboard_unicode_value( keyevent );
+++  if( ( unicode_value & 0xFF80 ) == 0 )
+++    unicode_keysym = unicode_keysyms_remap( unicode_value );
++   else
++     unicode_keysym = INPUT_KEY_NONE;
++ 
++@@ -108,7 +119,7 @@ sdlkeyboard_keyrelease( SDL_KeyboardEvent *keyevent )
++   input_key fuse_keysym;
++   input_event_t fuse_event;
++ 
++-  fuse_keysym = keysyms_remap( keyevent->keysym.sym );
+++  fuse_keysym = keysyms_remap( keyevent->key );
++ 
++   if( fuse_keysym == INPUT_KEY_NONE ) return;
++ 
++diff --git a/ui/sdl/sdlkeyboard.h b/ui/sdl/sdlkeyboard.h
++index 2f46475d..db204f6b 100644
++--- a/ui/sdl/sdlkeyboard.h
+++++ b/ui/sdl/sdlkeyboard.h
++@@ -25,6 +25,8 @@
++ #ifndef FUSE_SDLKEYBOARD_H
++ #define FUSE_SDLKEYBOARD_H
++ 
+++#include "sdlcompat.h"
+++
++ void sdlkeyboard_init(void);
++ void sdlkeyboard_end(void);
++ void sdlkeyboard_keypress(SDL_KeyboardEvent *keyevent);
++diff --git a/ui/sdl/sdlui.c b/ui/sdl/sdlui.c
++index 090f44e6..88cc5bac 100644
++--- a/ui/sdl/sdlui.c
+++++ b/ui/sdl/sdlui.c
++@@ -25,7 +25,8 @@
++ #include <config.h>
++ 
++ #include <stdio.h>
++-#include <SDL.h>
+++
+++#include "sdlcompat.h"
++ 
++ #include "display.h"
++ #include "fuse.h"
++@@ -78,20 +79,20 @@ ui_event( void )
++ 
++   while ( SDL_PollEvent( &event ) ) {
++     switch ( event.type ) {
++-    case SDL_KEYDOWN:
+++    case SDL_EVENT_KEY_DOWN:
++       sdlkeyboard_keypress( &(event.key) );
++       break;
++-    case SDL_KEYUP:
+++    case SDL_EVENT_KEY_UP:
++       sdlkeyboard_keyrelease( &(event.key) );
++       break;
++ 
++-    case SDL_MOUSEBUTTONDOWN:
+++    case SDL_EVENT_MOUSE_BUTTON_DOWN:
++       ui_mouse_button( event.button.button, 1 );
++       break;
++-    case SDL_MOUSEBUTTONUP:
+++    case SDL_EVENT_MOUSE_BUTTON_UP:
++       ui_mouse_button( event.button.button, 0 );
++       break;
++-    case SDL_MOUSEMOTION:
+++    case SDL_EVENT_MOUSE_MOTION:
++       if( ui_mouse_grabbed ) {
++         ui_mouse_motion( event.motion.x - 128, event.motion.y - 128 );
++         if( event.motion.x != 128 || event.motion.y != 128 )
++@@ -101,33 +102,34 @@ ui_event( void )
++ 
++ #if defined USE_JOYSTICK && !defined HAVE_JSW_H
++ 
++-    case SDL_JOYBUTTONDOWN:
+++    case SDL_EVENT_JOYSTICK_BUTTON_DOWN:
++       sdljoystick_buttonpress( &(event.jbutton) );
++       break;
++-    case SDL_JOYBUTTONUP:
+++    case SDL_EVENT_JOYSTICK_BUTTON_UP:
++       sdljoystick_buttonrelease( &(event.jbutton) );
++       break;
++-    case SDL_JOYAXISMOTION:
+++    case SDL_EVENT_JOYSTICK_AXIS_MOTION:
++       sdljoystick_axismove( &(event.jaxis) );
++       break;
++-    case SDL_JOYHATMOTION:
+++    case SDL_EVENT_JOYSTICK_HAT_MOTION:
++       sdljoystick_hatmove( &(event.jhat) );
++       break;
++ 
++ #endif			/* if defined USE_JOYSTICK && !defined HAVE_JSW_H */
++ 
++-    case SDL_QUIT:
+++    case SDL_EVENT_QUIT:
++       fuse_emulation_pause();
++       menu_file_exit(0);
++       fuse_emulation_unpause();
++       break;
++-    case SDL_VIDEOEXPOSE:
+++    case SDL_EVENT_WINDOW_EXPOSED:
++       display_refresh_all();
++       break;
++-    case SDL_ACTIVEEVENT:
++-      if( event.active.state & SDL_APPINPUTFOCUS ) {
++-	if( event.active.gain ) ui_mouse_resume(); else ui_mouse_suspend();
++-      }
+++    case SDL_EVENT_WINDOW_FOCUS_GAINED:
+++      ui_mouse_resume();
+++      break;
+++    case SDL_EVENT_WINDOW_FOCUS_LOST:
+++      ui_mouse_suspend();
++       break;
++     default:
++       break;
++-- 
++2.39.5
++
+diff --git a/exported-patches/0003-0003-port-SDL-UI-display-backend-to-SDL3-surfaces.patch b/exported-patches/0003-0003-port-SDL-UI-display-backend-to-SDL3-surfaces.patch
+new file mode 100644
+index 00000000..e1474802
+--- /dev/null
++++ b/exported-patches/0003-0003-port-SDL-UI-display-backend-to-SDL3-surfaces.patch
+@@ -0,0 +1,447 @@
++From 83a1166b24457efb457e27d06309ecd9f7204143 Mon Sep 17 00:00:00 2001
++From: GitHub Copilot <copilot@local>
++Date: Sun, 8 Mar 2026 18:49:30 +0200
++Subject: [PATCH 3/8] 0003: port SDL UI display backend to SDL3 surfaces
++
++---
++ ui/sdl/sdldisplay.c | 223 ++++++++++++++++++++++++++++++--------------
++ 1 file changed, 152 insertions(+), 71 deletions(-)
++
++diff --git a/ui/sdl/sdldisplay.c b/ui/sdl/sdldisplay.c
++index 2b73accc..0ff400f4 100644
++--- a/ui/sdl/sdldisplay.c
+++++ b/ui/sdl/sdldisplay.c
++@@ -27,7 +27,8 @@
++ #include <limits.h>
++ #include <stdio.h>
++ #include <string.h>
++-#include <SDL.h>
+++
+++#include "sdlcompat.h"
++ 
++ #include <libspectrum.h>
++ 
++@@ -42,7 +43,9 @@
++ #include "ui/uidisplay.h"
++ #include "utils.h"
++ 
++-SDL_Surface *sdldisplay_gc = NULL;   /* Hardware screen */
+++SDL_Surface *sdldisplay_gc = NULL;   /* Scaled 16-bit backbuffer */
+++static SDL_Window *sdldisplay_window = NULL;
+++static SDL_Surface *sdldisplay_window_surface = NULL;
++ static SDL_Surface *tmp_screen=NULL; /* Temporary screen for scalers */
++ 
++ static SDL_Surface *red_cassette[2], *green_cassette[2];
++@@ -101,11 +104,27 @@ static int image_height;
++ static int timex;
++ 
++ static void init_scalers( void );
+++static void sdldisplay_free_window( void );
++ static int sdldisplay_allocate_colours( int numColours, Uint32 *colour_values,
++                                         Uint32 *bw_values );
++ 
++ static int sdldisplay_load_gfx_mode( void );
++ 
+++static void
+++sdldisplay_free_window( void )
+++{
+++  if( sdldisplay_window ) {
+++    SDL_DestroyWindow( sdldisplay_window );
+++    sdldisplay_window = NULL;
+++    sdldisplay_window_surface = NULL;
+++  }
+++
+++  if( sdldisplay_gc ) {
+++    SDL_FreeSurface( sdldisplay_gc );
+++    sdldisplay_gc = NULL;
+++  }
+++}
+++
++ static void
++ init_scalers( void )
++ {
++@@ -151,32 +170,43 @@ static int
++ sdl_convert_icon( SDL_Surface *source, SDL_Surface **icon, int red )
++ {
++   SDL_Surface *copy;   /* Copy with altered palette */
+++  SDL_Palette *palette;
++   int i;
++ 
++-  SDL_Color colors[ source->format->palette->ncolors ];
+++  palette = SDL_GetSurfacePalette( source );
+++  if( !palette ) return -1;
+++
+++  SDL_Color colors[ palette->ncolors ];
++ 
++-  copy = SDL_ConvertSurface( source, source->format, SDL_SWSURFACE );
+++  copy = SDL_ConvertSurface( source, source->format );
+++  if( !copy ) return -1;
++ 
++-  for( i = 0; i < copy->format->palette->ncolors; i++ ) {
++-    colors[i].r = red ? copy->format->palette->colors[i].r : 0;
++-    colors[i].g = red ? 0 : copy->format->palette->colors[i].g;
+++  palette = SDL_GetSurfacePalette( copy );
+++  if( !palette ) {
+++    SDL_FreeSurface( copy );
+++    return -1;
+++  }
+++
+++  for( i = 0; i < palette->ncolors; i++ ) {
+++    colors[i].r = red ? palette->colors[i].r : 0;
+++    colors[i].g = red ? 0 : palette->colors[i].g;
++     colors[i].b = 0;
+++    colors[i].a = palette->colors[i].a;
++   }
++ 
++-  SDL_SetPalette( copy, SDL_LOGPAL, colors, 0, i );
+++  if( !SDL_SetPaletteColors( palette, colors, 0, i ) ) {
+++    SDL_FreeSurface( copy );
+++    return -1;
+++  }
++ 
++-  icon[0] = SDL_ConvertSurface( copy, tmp_screen->format, SDL_SWSURFACE );
+++  icon[0] = SDL_ConvertSurface( copy, tmp_screen->format );
++ 
++   SDL_FreeSurface( copy );
+++  if( !icon[0] ) return -1;
++ 
++-  icon[1] = SDL_CreateRGBSurface( SDL_SWSURFACE,
++-                                  (icon[0]->w)<<1, (icon[0]->h)<<1,
++-                                  icon[0]->format->BitsPerPixel,
++-                                  icon[0]->format->Rmask,
++-                                  icon[0]->format->Gmask,
++-                                  icon[0]->format->Bmask,
++-                                  icon[0]->format->Amask
++-                                );
+++  icon[1] = SDL_CreateSurface( (icon[0]->w)<<1, (icon[0]->h)<<1,
+++                               icon[0]->format );
+++  if( !icon[1] ) return -1;
++ 
++   ( scaler_get_proc16( SCALER_DOUBLESIZE ) )(
++         (libspectrum_byte*)icon[0]->pixels,
++@@ -205,13 +235,16 @@ sdl_load_status_icon( const char*filename, SDL_Surface **red, SDL_Surface **gree
++     return -1;
++   }
++ 
++-  if(temp->format->palette == NULL) {
+++  if( SDL_GetSurfacePalette( temp ) == NULL ) {
++     fprintf( stderr, "%s: Icon \"%s\" is not paletted\n", fuse_progname, path );
+++    SDL_FreeSurface( temp );
++     return -1;
++   }
++ 
++-  sdl_convert_icon( temp, red, 1 );
++-  sdl_convert_icon( temp, green, 0 );
+++  if( sdl_convert_icon( temp, red, 1 ) || sdl_convert_icon( temp, green, 0 ) ) {
+++    SDL_FreeSurface( temp );
+++    return -1;
+++  }
++ 
++   SDL_FreeSurface( temp );
++ 
++@@ -221,14 +254,15 @@ sdl_load_status_icon( const char*filename, SDL_Surface **red, SDL_Surface **gree
++ int
++ uidisplay_init( int width, int height )
++ {
++-  SDL_Rect **modes;
+++  SDL_DisplayMode **modes;
+++  SDL_DisplayID display;
++   int no_modes;
++-  int i = 0, mw = 0, mh = 0, mn = 0;
+++  int i = 0, mode_count = 0, mw = 0, mh = 0, mn = 0;
++ 
++-  /* Get available fullscreen/software modes */
++-  modes=SDL_ListModes(NULL, SDL_FULLSCREEN|SDL_SWSURFACE);
+++  display = SDL_GetPrimaryDisplay();
+++  modes = SDL_GetFullscreenDisplayModes( display, &mode_count );
++ 
++-  no_modes = ( modes == (SDL_Rect **) 0 || modes == (SDL_Rect **) -1 ) ? 1 : 0;
+++  no_modes = modes == NULL || mode_count == 0;
++ 
++   if( settings_current.sdl_fullscreen_mode &&
++       strcmp( settings_current.sdl_fullscreen_mode, "list" ) == 0 ) {
++@@ -241,21 +275,21 @@ uidisplay_init( int width, int height )
++     "---------------------------------------------------------------------\n"
++     );
++     if( no_modes ) {
++-      fprintf( stderr, "  ** The modes list is empty%s...\n",
++-               modes == (SDL_Rect **) -1 ? ", all resolutions allowed" : "" );
+++      fprintf( stderr, "  ** The modes list is empty...\n" );
++     } else {
++-      for( i = 0; modes[i]; i++ ) {
+++      for( i = 0; i < mode_count; i++ ) {
++         fprintf( stderr, "% 3d  % 5d % 5d\n", i + 1, modes[i]->w, modes[i]->h );
++       }
++     }
++     fprintf( stderr,
++     "=====================================================================\n");
+++    if( modes ) SDL_free( modes );
++     fuse_exiting = 1;
++     return 0;
++   }
++ 
++   if( !no_modes ) {
++-    for( i=0; modes[i]; ++i ); /* count modes */
+++    i = mode_count;
++   }
++ 
++   if( settings_current.sdl_fullscreen_mode ) {
++@@ -298,9 +332,10 @@ uidisplay_init( int width, int height )
++   if ( scaler_select_scaler( current_scaler ) )
++     scaler_select_scaler( SCALER_NORMAL );
++ 
++-  if( sdldisplay_load_gfx_mode() ) return 1;
++-
++-  SDL_WM_SetCaption( "Fuse", "Fuse" );
+++  if( sdldisplay_load_gfx_mode() ) {
+++    if( modes ) SDL_free( modes );
+++    return 1;
+++  }
++ 
++   /* We can now output error messages to our output device */
++   display_ui_initialised = 1;
++@@ -309,6 +344,8 @@ uidisplay_init( int width, int height )
++   sdl_load_status_icon( "microdrive.bmp", red_mdr, green_mdr );
++   sdl_load_status_icon( "plus3disk.bmp", red_disk, green_disk );
++ 
+++  if( modes ) SDL_free( modes );
+++
++   return 0;
++ }
++ 
++@@ -377,7 +414,11 @@ sdldisplay_find_best_fullscreen_scaler( void )
++ static int
++ sdldisplay_load_gfx_mode( void )
++ {
+++  SDL_DisplayMode closest_mode;
+++  SDL_PixelFormat pixel_format;
+++  const SDL_PixelFormatDetails *format_details;
++   Uint16 *tmp_screen_pixels;
+++  int window_width, window_height;
++ 
++   sdldisplay_force_full_refresh = 1;
++ 
++@@ -394,43 +435,80 @@ sdldisplay_load_gfx_mode( void )
++ 
++   sdldisplay_find_best_fullscreen_scaler();
++ 
++-  /* Create the surface that contains the scaled graphics in 16 bit mode */
++-  sdldisplay_gc = SDL_SetVideoMode(
++-    settings_current.full_screen && fullscreen_width ? fullscreen_width :
++-      image_width * sdldisplay_current_size,
++-    settings_current.full_screen && fullscreen_width ? max_fullscreen_height :
++-      image_height * sdldisplay_current_size,
++-    16,
++-    settings_current.full_screen ? (SDL_FULLSCREEN|SDL_SWSURFACE)
++-                                 : SDL_SWSURFACE
++-  );
++-  if( !sdldisplay_gc ) {
+++  window_width = settings_current.full_screen && fullscreen_width ?
+++                 fullscreen_width : image_width * sdldisplay_current_size;
+++  window_height = settings_current.full_screen && fullscreen_width ?
+++                  max_fullscreen_height : image_height * sdldisplay_current_size;
+++
+++  sdldisplay_free_window();
+++
+++  sdldisplay_window = SDL_CreateWindow( "Fuse", window_width, window_height, 0 );
+++  if( !sdldisplay_window ) {
++     fprintf( stderr, "%s: couldn't create SDL graphics context\n", fuse_progname );
++     fuse_abort();
++   }
++ 
++-  settings_current.full_screen =
++-      !!( sdldisplay_gc->flags & ( SDL_FULLSCREEN | SDL_NOFRAME ) );
++-  sdldisplay_is_full_screen = settings_current.full_screen;
+++  SDL_WM_SetCaption( "Fuse", "Fuse" );
++ 
++-  /* Distinguish 555 and 565 mode */
++-  if( sdldisplay_gc->format->Gmask >> sdldisplay_gc->format->Gshift == 0x1f )
+++  if( settings_current.full_screen ) {
+++    if( fullscreen_width && SDL_GetClosestFullscreenDisplayMode(
+++          SDL_GetPrimaryDisplay(), window_width, window_height, 0.0f, false,
+++          &closest_mode ) ) {
+++      if( !SDL_SetWindowFullscreenMode( sdldisplay_window, &closest_mode ) ) {
+++        fprintf( stderr, "%s: couldn't select SDL fullscreen mode\n", fuse_progname );
+++        fuse_abort();
+++      }
+++    } else {
+++      SDL_SetWindowFullscreenMode( sdldisplay_window, NULL );
+++    }
+++
+++    if( !SDL_SetWindowFullscreen( sdldisplay_window, true ) ||
+++        !SDL_SyncWindow( sdldisplay_window ) ) {
+++      fprintf( stderr, "%s: couldn't enable SDL fullscreen mode\n", fuse_progname );
+++      fuse_abort();
+++    }
+++  }
+++
+++  sdldisplay_window_surface = SDL_GetWindowSurface( sdldisplay_window );
+++  if( !sdldisplay_window_surface ) {
+++    fprintf( stderr, "%s: couldn't get SDL window surface\n", fuse_progname );
+++    fuse_abort();
+++  }
+++
+++  pixel_format = SDL_GetWindowPixelFormat( sdldisplay_window );
+++  format_details = SDL_GetPixelFormatDetails( pixel_format );
+++  if( !format_details ) {
+++    fprintf( stderr, "%s: couldn't get SDL pixel format details\n", fuse_progname );
+++    fuse_abort();
+++  }
+++
+++  if( format_details->Gmask >> format_details->Gshift == 0x1f ) {
+++    pixel_format = SDL_PIXELFORMAT_XRGB1555;
++     scaler_select_bitformat( 555 );
++-  else
+++  } else {
+++    pixel_format = SDL_PIXELFORMAT_RGB565;
++     scaler_select_bitformat( 565 );
+++  }
+++
+++  sdldisplay_gc = SDL_CreateSurface( sdldisplay_window_surface->w,
+++                                     sdldisplay_window_surface->h,
+++                                     pixel_format );
+++  if( !sdldisplay_gc ) {
+++    fprintf( stderr, "%s: couldn't create SDL backbuffer\n", fuse_progname );
+++    fuse_abort();
+++  }
+++
+++  sdldisplay_is_full_screen = settings_current.full_screen;
++ 
++   /* Create the surface used for the graphics in 16 bit before scaling */
++ 
++   /* Need some extra bytes around when using 2xSaI */
++   tmp_screen_pixels = (Uint16*)calloc(tmp_screen_width*(image_height+3), sizeof(Uint16));
++-  tmp_screen = SDL_CreateRGBSurfaceFrom(tmp_screen_pixels,
++-                                        tmp_screen_width,
++-                                        image_height + 3,
++-                                        16, tmp_screen_width*2,
++-                                        sdldisplay_gc->format->Rmask,
++-                                        sdldisplay_gc->format->Gmask,
++-                                        sdldisplay_gc->format->Bmask,
++-                                        sdldisplay_gc->format->Amask );
+++  tmp_screen = SDL_CreateSurfaceFrom( tmp_screen_width,
+++                                      image_height + 3,
+++                                      sdldisplay_gc->format,
+++                                      tmp_screen_pixels,
+++                                      tmp_screen_width * 2 );
++ 
++   if( !tmp_screen ) {
++     fprintf( stderr, "%s: couldn't create tmp_screen\n", fuse_progname );
++@@ -464,9 +542,6 @@ uidisplay_hotswap_gfx_mode( void )
++   /* Setup the new GFX mode */
++   if( sdldisplay_load_gfx_mode() ) return 1;
++ 
++-  /* reset palette */
++-  SDL_SetColors( sdldisplay_gc, colour_palette, 0, 16 );
++-
++   /* Mac OS X resets the state of the cursor after a switch to full screen
++      mode */
++   if ( settings_current.full_screen || ui_mouse_grabbed ) {
++@@ -492,7 +567,7 @@ uidisplay_frame_save( void )
++   }
++ 
++   saved = SDL_ConvertSurface( tmp_screen, tmp_screen->format,
++-                              SDL_SWSURFACE );
+++                              );
++ }
++ 
++ void
++@@ -538,11 +613,11 @@ sdl_blit_icon( SDL_Surface **icon,
++ 
++   scaler_proc16(
++ 	(libspectrum_byte*)tmp_screen->pixels +
++-			(x+1) * tmp_screen->format->BytesPerPixel +
+++      (x+1) * SDL_BYTESPERPIXEL( tmp_screen->format ) +
++ 	                (y+1) * tmp_screen_pitch,
++ 	tmp_screen_pitch,
++ 	(libspectrum_byte*)sdldisplay_gc->pixels +
++-			dst_x * sdldisplay_gc->format->BytesPerPixel +
+++      dst_x * SDL_BYTESPERPIXEL( sdldisplay_gc->format ) +
++ 			dst_y * dstPitch,
++ 	dstPitch, w, dst_h
++   );
++@@ -625,7 +700,7 @@ uidisplay_putpixel( int x, int y, int colour )
++     x <<= 1; y <<= 1;
++     dest_base = dest =
++       (libspectrum_word*)( (libspectrum_byte*)tmp_screen->pixels +
++-                           (x+1) * tmp_screen->format->BytesPerPixel +
+++                           (x+1) * SDL_BYTESPERPIXEL( tmp_screen->format ) +
++                            (y+1) * tmp_screen->pitch);
++ 
++     *(dest++) = palette_colour;
++@@ -637,7 +712,7 @@ uidisplay_putpixel( int x, int y, int colour )
++   } else {
++     dest =
++       (libspectrum_word*)( (libspectrum_byte*)tmp_screen->pixels +
++-                           (x+1) * tmp_screen->format->BytesPerPixel +
+++                           (x+1) * SDL_BYTESPERPIXEL( tmp_screen->format ) +
++                            (y+1) * tmp_screen->pitch);
++ 
++     *dest = palette_colour;
++@@ -665,7 +740,7 @@ uidisplay_plot8( int x, int y, libspectrum_byte data,
++ 
++     dest_base =
++       (libspectrum_word*)( (libspectrum_byte*)tmp_screen->pixels +
++-                           (x+1) * tmp_screen->format->BytesPerPixel +
+++                           (x+1) * SDL_BYTESPERPIXEL( tmp_screen->format ) +
++                            (y+1) * tmp_screen->pitch);
++ 
++     for( i=0; i<2; i++ ) {
++@@ -696,7 +771,7 @@ uidisplay_plot8( int x, int y, libspectrum_byte data,
++ 
++     dest =
++       (libspectrum_word*)( (libspectrum_byte*)tmp_screen->pixels +
++-                           (x+1) * tmp_screen->format->BytesPerPixel +
+++                           (x+1) * SDL_BYTESPERPIXEL( tmp_screen->format ) +
++                            (y+1) * tmp_screen->pitch);
++ 
++     *(dest++) = ( data & 0x80 ) ? palette_ink : palette_paper;
++@@ -726,7 +801,7 @@ uidisplay_plot16( int x, int y, libspectrum_word data,
++ 
++   dest_base =
++     (libspectrum_word*)( (libspectrum_byte*)tmp_screen->pixels +
++-                         (x+1) * tmp_screen->format->BytesPerPixel +
+++                         (x+1) * SDL_BYTESPERPIXEL( tmp_screen->format ) +
++                          (y+1) * tmp_screen->pitch);
++ 
++   for( i=0; i<2; i++ ) {
++@@ -799,11 +874,11 @@ uidisplay_frame_end( void )
++ 
++     scaler_proc16(
++       (libspectrum_byte*)tmp_screen->pixels +
++-                        (r->x+1) * tmp_screen->format->BytesPerPixel +
+++	                (r->x+1) * SDL_BYTESPERPIXEL( tmp_screen->format ) +
++ 	                (r->y+1)*tmp_screen_pitch,
++       tmp_screen_pitch,
++       (libspectrum_byte*)sdldisplay_gc->pixels +
++-	                 dst_x * sdldisplay_gc->format->BytesPerPixel +
+++	                 dst_x * SDL_BYTESPERPIXEL( sdldisplay_gc->format ) +
++ 			 dst_y*dstPitch,
++       dstPitch, r->w, dst_h
++     );
++@@ -820,8 +895,12 @@ uidisplay_frame_end( void )
++ 
++   if( SDL_MUSTLOCK( sdldisplay_gc ) ) SDL_UnlockSurface( sdldisplay_gc );
++ 
+++  for( r = updated_rects; r != updated_rects + num_rects; r++ ) {
+++    SDL_BlitSurface( sdldisplay_gc, r, sdldisplay_window_surface, r );
+++  }
+++
++   /* Finally, blit all our changes to the screen */
++-  SDL_UpdateRects( sdldisplay_gc, num_rects, updated_rects );
+++  SDL_UpdateWindowSurfaceRects( sdldisplay_window, updated_rects, num_rects );
++ 
++   num_rects = 0;
++   sdldisplay_force_full_refresh = 0;
++@@ -863,6 +942,8 @@ uidisplay_end( void )
++     SDL_FreeSurface( tmp_screen ); tmp_screen = NULL;
++   }
++ 
+++  sdldisplay_free_window();
+++
++   if( saved ) {
++     SDL_FreeSurface( saved ); saved = NULL;
++   }
++-- 
++2.39.5
++
+diff --git a/exported-patches/0004-0004-port-SDL-audio-backend-to-SDL3-streams.patch b/exported-patches/0004-0004-port-SDL-audio-backend-to-SDL3-streams.patch
+new file mode 100644
+index 00000000..945d161b
+--- /dev/null
++++ b/exported-patches/0004-0004-port-SDL-audio-backend-to-SDL3-streams.patch
+@@ -0,0 +1,198 @@
++From 2a491fd07e4dc0b54edddb11a63ed197ddf774c3 Mon Sep 17 00:00:00 2001
++From: GitHub Copilot <copilot@local>
++Date: Sun, 8 Mar 2026 18:49:38 +0200
++Subject: [PATCH 4/8] 0004: port SDL audio backend to SDL3 streams
++
++---
++ sound/sdlsound.c | 113 ++++++++++++++++-------------------------------
++ 1 file changed, 39 insertions(+), 74 deletions(-)
++
++diff --git a/sound/sdlsound.c b/sound/sdlsound.c
++index 5e34c8f8..c460ecf8 100644
++--- a/sound/sdlsound.c
+++++ b/sound/sdlsound.c
++@@ -29,16 +29,14 @@
++ #include <sys/types.h>
++ #include <sys/time.h>
++ 
++-#include <SDL.h>
+++#include "sdlcompat.h"
++ 
++ #include "settings.h"
++-#include "sfifo.h"
++ #include "sound.h"
++ #include "ui/ui.h"
++ 
++-static void sdlwrite( void *userdata, Uint8 *stream, int len );
++-
++-sfifo_t sound_fifo;
+++static SDL_AudioStream *audio_stream;
+++static int audio_buffer_limit;
++ 
++ /* Number of Spectrum frames audio latency to use */
++ #define NUM_FRAMES 2
++@@ -49,7 +47,7 @@ static int audio_output_started;
++ int
++ sound_lowlevel_init( const char *device, int *freqptr, int *stereoptr )
++ {
++-  SDL_AudioSpec requested, received;
+++  SDL_AudioSpec requested;
++   int error;
++   float hz;
++   int sound_framesiz;
++@@ -79,8 +77,7 @@ sound_lowlevel_init( const char *device, int *freqptr, int *stereoptr )
++ 
++   requested.freq = *freqptr;
++   requested.channels = *stereoptr ? 2 : 1;
++-  requested.format = AUDIO_S16SYS;
++-  requested.callback = sdlwrite;
+++  requested.format = SDL_AUDIO_S16;
++ 
++   /* Adjust relative processor speed to deal with adjusting sound generation
++      frequency against emulation speed (more flexible than adjusting generated
++@@ -99,44 +96,19 @@ sound_lowlevel_init( const char *device, int *freqptr, int *stereoptr )
++   requested.samples = sound_framesiz;
++ #endif			/* #ifdef __FreeBSD__ */
++ 
++-  if ( SDL_OpenAudio( &requested, &received ) < 0 ) {
+++  audio_stream = SDL_OpenAudioDeviceStream( SDL_AUDIO_DEVICE_DEFAULT_PLAYBACK,
+++                                            &requested, NULL, NULL );
+++  if( !audio_stream ) {
++     settings_current.sound = 0;
++     ui_error( UI_ERROR_ERROR, "Couldn't open sound device: %s",
++               SDL_GetError() );
++     return 1;
++   }
++ 
++-  *freqptr = received.freq;
++-
++-  if( received.format != AUDIO_S16SYS ) {
++-    /* close audio and then just let SDL convert to this wacky format at a
++-       supported sample rate */
++-    SDL_CloseAudio();
++-
++-    requested.freq = *freqptr;
++-    sound_framesiz = *freqptr / hz;
++-    requested.samples = sound_framesiz;
++-
++-    if( SDL_OpenAudio( &requested, NULL ) < 0 ) {
++-      settings_current.sound = 0;
++-      ui_error( UI_ERROR_ERROR, "Couldn't open sound device: %s",
++-                SDL_GetError() );
++-      return 1;
++-    }
++-  } else {
++-    *stereoptr = received.channels == 1 ? 0 : 1;
++-  }
++-
++   sound_framesiz = *freqptr / hz;
++   sound_framesiz <<= 1;
++ 
++-  if( ( error = sfifo_init( &sound_fifo, NUM_FRAMES
++-                                         * received.channels
++-                                         * sound_framesiz + 1 ) ) ) {
++-    ui_error( UI_ERROR_ERROR, "Problem initialising sound fifo: %s",
++-              strerror ( error ) );
++-    return 1;
++-  }
+++  audio_buffer_limit = NUM_FRAMES * requested.channels * sound_framesiz + 1;
++ 
++   /* wait to run sound until we have some sound to play */
++   audio_output_started = 0;
++@@ -147,40 +119,52 @@ sound_lowlevel_init( const char *device, int *freqptr, int *stereoptr )
++ void
++ sound_lowlevel_end( void )
++ {
++-  SDL_PauseAudio( 1 );
++-  SDL_LockAudio();
++-  SDL_CloseAudio();
+++  if( audio_stream ) {
+++    SDL_ClearAudioStream( audio_stream );
+++    SDL_DestroyAudioStream( audio_stream );
+++    audio_stream = NULL;
+++  }
+++
++   SDL_QuitSubSystem( SDL_INIT_AUDIO );
++-  sfifo_flush( &sound_fifo );
++-  sfifo_close( &sound_fifo );
++ }
++ 
++ /* Copy data to fifo */
++ void
++ sound_lowlevel_frame( libspectrum_signed_word *data, int len )
++ {
++-  int i = 0;
+++  int chunk;
+++  int queued;
++ 
++   /* Convert to bytes */
++   libspectrum_signed_byte* bytes = (libspectrum_signed_byte*)data;
++   len <<= 1;
++ 
++-  while( len ) {
++-    if( ( i = sfifo_write( &sound_fifo, bytes, len ) ) < 0 ) {
++-      break;
++-    } else if (!i) {
+++  while( len && audio_stream ) {
+++    queued = SDL_GetAudioStreamQueued( audio_stream );
+++    if( queued < 0 ) {
+++      ui_error( UI_ERROR_ERROR, "Couldn't query SDL audio queue: %s",
+++                SDL_GetError() );
+++      return;
+++    }
+++
+++    chunk = MIN( len, audio_buffer_limit - queued );
+++    if( chunk <= 0 ) {
++       SDL_Delay(10);
+++      continue;
++     }
++-    bytes += i;
++-    len -= i;
++-  }
++-  if( i < 0 ) {
++-    ui_error( UI_ERROR_ERROR, "Couldn't write sound fifo: %s",
++-              strerror( i ) );
+++
+++    if( !SDL_PutAudioStreamData( audio_stream, bytes, chunk ) ) {
+++      ui_error( UI_ERROR_ERROR, "Couldn't queue SDL audio: %s",
+++                SDL_GetError() );
+++      return;
+++    }
+++
+++    bytes += chunk;
+++    len -= chunk;
++   }
++ 
++-  if( !audio_output_started ) {
++-    SDL_PauseAudio( 0 );
+++  if( audio_stream && !audio_output_started ) {
+++    SDL_ResumeAudioStreamDevice( audio_stream );
++     audio_output_started = 1;
++   }
++ }
++@@ -189,22 +173,3 @@ sound_lowlevel_frame( libspectrum_signed_word *data, int len )
++ #define MIN(a,b)    (((a) < (b)) ? (a) : (b))
++ #endif
++ 
++-/* Write len samples from fifo into stream */
++-void
++-sdlwrite( void *userdata, Uint8 *stream, int len )
++-{
++-  int f;
++-
++-  /* Try to only read an even number of bytes so as not to fragment a sample */
++-  len = MIN( len, sfifo_used( &sound_fifo ) );
++-  len &= sound_stereo_ay ? 0xfffc : 0xfffe;
++-
++-  /* Read input_size bytes from fifo into sound stream */
++-  while( ( f = sfifo_read( &sound_fifo, stream, len ) ) > 0 ) {
++-    stream += f;
++-    len -= f;
++-  }
++-
++-  /* If we ran out of sound, do nothing else as SDL has prefilled
++-     the output buffer with silence :( */
++-}
++-- 
++2.39.5
++
+diff --git a/exported-patches/0005-0005-fix-SDL3-build-validation-regressions.patch b/exported-patches/0005-0005-fix-SDL3-build-validation-regressions.patch
+new file mode 100644
+index 00000000..69402cb8
+--- /dev/null
++++ b/exported-patches/0005-0005-fix-SDL3-build-validation-regressions.patch
+@@ -0,0 +1,342 @@
++From 28bebb2a24835d9f88378c7813acd946deb1ca10 Mon Sep 17 00:00:00 2001
++From: GitHub Copilot <copilot@local>
++Date: Sun, 8 Mar 2026 19:10:19 +0200
++Subject: [PATCH 5/8] 0005: fix SDL3 build validation regressions
++
++---
++ fuse.c                 |   2 +-
++ sdlcompat.h            | 113 +++++++++++++++++++++++++----------------
++ sound.h                |   1 +
++ sound/coreaudiosound.c |   6 +++
++ sound/sdlsound.c       |  22 ++++++--
++ sound/wiisound.c       |   6 +++
++ timer/timer.c          |   6 +--
++ ui/sdl/sdldisplay.c    |  12 +++--
++ 8 files changed, 109 insertions(+), 59 deletions(-)
++
++diff --git a/fuse.c b/fuse.c
++index 51ebf575..abf37d4b 100644
++--- a/fuse.c
+++++ b/fuse.c
++@@ -42,7 +42,7 @@
++    used in the GTK and Xlib UIs we need to also do the magic when that code is
++    in use, feel free to look away for the next line */
++ #if defined UI_SDL || (defined USE_JOYSTICK && !defined HAVE_JSW_H && (defined UI_X || defined UI_GTK) )
++-#include <SDL.h>		/* Needed on MacOS X and Windows */
+++#include "sdlcompat.h"		/* Needed on MacOS X and Windows */
++ #endif /* #if defined UI_SDL || (defined USE_JOYSTICK && !defined HAVE_JSW_H && (defined UI_X || defined UI_GTK) ) */
++ 
++ #ifdef GEKKO
++diff --git a/sdlcompat.h b/sdlcompat.h
++index a17cedf9..fa5dd6de 100644
++--- a/sdlcompat.h
+++++ b/sdlcompat.h
++@@ -16,15 +16,74 @@
++ 
++ #include <SDL3/SDL.h>
++ 
+++#ifndef SDL_ENABLE
+++#define SDL_ENABLE 1
+++#endif
+++
+++#ifndef SDL_DISABLE
+++#define SDL_DISABLE 0
+++#endif
+++
+++#ifndef SDL_IGNORE
+++#define SDL_IGNORE 0
+++#endif
+++
+++#ifndef SDL_SWSURFACE
+++#define SDL_SWSURFACE 0
+++#endif
+++
+++#ifndef SDL_FULLSCREEN
+++#define SDL_FULLSCREEN SDL_WINDOW_FULLSCREEN
+++#endif
+++
+++#ifndef SDL_NOFRAME
+++#define SDL_NOFRAME SDL_WINDOW_BORDERLESS
+++#endif
+++
+++#ifndef SDL_GRAB_OFF
+++#define SDL_GRAB_OFF 0
+++#endif
+++
+++#ifndef SDL_GRAB_ON
+++#define SDL_GRAB_ON 1
+++#endif
+++
+++#ifndef SDL_GRAB_FULLSCREEN
+++#define SDL_GRAB_FULLSCREEN 2
+++#endif
+++
+++#ifndef SDL_APPINPUTFOCUS
+++#define SDL_APPINPUTFOCUS 0x01
+++#endif
+++
+++#ifndef SDL_DEFAULT_REPEAT_DELAY
+++#define SDL_DEFAULT_REPEAT_DELAY 500
+++#endif
+++
+++#ifndef SDL_DEFAULT_REPEAT_INTERVAL
+++#define SDL_DEFAULT_REPEAT_INTERVAL 30
+++#endif
+++
+++#ifndef SDLK_LSUPER
+++#define SDLK_LSUPER SDLK_LGUI
+++#endif
+++
+++#ifndef SDLK_RSUPER
+++#define SDLK_RSUPER SDLK_RGUI
+++#endif
+++
++ static inline int
++-fuse_sdl_enable_key_repeat( int delay GCC_UNUSED, int interval GCC_UNUSED )
+++fuse_sdl_enable_key_repeat( int delay, int interval )
++ {
+++   (void)delay;
+++   (void)interval;
++    return 0;
++ }
++ 
++ static inline int
++-fuse_sdl_enable_unicode( int enable GCC_UNUSED )
+++fuse_sdl_enable_unicode( int enable )
++ {
+++   (void)enable;
++    return 0;
++ }
++ 
++@@ -43,7 +102,8 @@ fuse_sdl_warp_mouse( float x, float y )
++    if( !window ) window = SDL_GetKeyboardFocus();
++    if( !window ) return false;
++ 
++-   return SDL_WarpMouseInWindow( window, x, y );
+++   SDL_WarpMouseInWindow( window, x, y );
+++   return true;
++ }
++ 
++ static inline int
++@@ -64,10 +124,12 @@ fuse_sdl_wm_grab_input( int mode )
++ }
++ 
++ static inline void
++-fuse_sdl_wm_set_caption( const char *title, const char *icon GCC_UNUSED )
+++fuse_sdl_wm_set_caption( const char *title, const char *icon )
++ {
++    SDL_Window *window;
++ 
+++   (void)icon;
+++
++    window = SDL_GetKeyboardFocus();
++    if( !window ) window = SDL_GetMouseFocus();
++    if( !window ) return;
++@@ -117,46 +179,6 @@ fuse_sdl_joystick_event_state( int state )
++ #define AUDIO_S16SYS SDL_AUDIO_S16
++ #endif
++ 
++-#ifndef SDL_ENABLE
++-#define SDL_ENABLE 1
++-#endif
++-
++-#ifndef SDL_DISABLE
++-#define SDL_DISABLE 0
++-#endif
++-
++-#ifndef SDL_IGNORE
++-#define SDL_IGNORE 0
++-#endif
++-
++-#ifndef SDL_SWSURFACE
++-#define SDL_SWSURFACE 0
++-#endif
++-
++-#ifndef SDL_FULLSCREEN
++-#define SDL_FULLSCREEN SDL_WINDOW_FULLSCREEN
++-#endif
++-
++-#ifndef SDL_NOFRAME
++-#define SDL_NOFRAME SDL_WINDOW_BORDERLESS
++-#endif
++-
++-#ifndef SDL_GRAB_OFF
++-#define SDL_GRAB_OFF 0
++-#endif
++-
++-#ifndef SDL_GRAB_ON
++-#define SDL_GRAB_ON 1
++-#endif
++-
++-#ifndef SDL_GRAB_FULLSCREEN
++-#define SDL_GRAB_FULLSCREEN 2
++-#endif
++-
++-#ifndef SDL_APPINPUTFOCUS
++-#define SDL_APPINPUTFOCUS 0x01
++-#endif
++-
++ #define SDL_EnableKeyRepeat(delay, interval) \
++    fuse_sdl_enable_key_repeat( (delay), (interval) )
++ #define SDL_EnableUNICODE(enable) fuse_sdl_enable_unicode( (enable) )
++@@ -165,6 +187,9 @@ fuse_sdl_joystick_event_state( int state )
++ #define SDL_WM_GrabInput(mode) fuse_sdl_wm_grab_input( (mode) )
++ #define SDL_WM_SetCaption(title, icon) fuse_sdl_wm_set_caption( (title), (icon) )
++ #define SDL_NumJoysticks() fuse_sdl_num_joysticks()
+++#ifdef SDL_JoystickOpen
+++#undef SDL_JoystickOpen
+++#endif
++ #define SDL_JoystickOpen(index) fuse_sdl_joystick_open( (index) )
++ #define SDL_JoystickEventState(state) fuse_sdl_joystick_event_state( (state) )
++ 
++diff --git a/sound.h b/sound.h
++index aacf3a52..700c462b 100644
++--- a/sound.h
+++++ b/sound.h
++@@ -63,5 +63,6 @@ extern int sound_stereo_ay;
++ int sound_lowlevel_init( const char *device, int *freqptr, int *stereoptr );
++ void sound_lowlevel_end( void );
++ void sound_lowlevel_frame( libspectrum_signed_word *data, int len );
+++int sound_lowlevel_buffer_space( void );
++ 
++ #endif				/* #ifndef FUSE_SOUND_H */
++diff --git a/sound/coreaudiosound.c b/sound/coreaudiosound.c
++index 08883107..2068f171 100644
++--- a/sound/coreaudiosound.c
+++++ b/sound/coreaudiosound.c
++@@ -242,6 +242,12 @@ sound_lowlevel_end( void )
++   sfifo_close( &sound_fifo );
++ }
++ 
+++int
+++sound_lowlevel_buffer_space( void )
+++{
+++  return sfifo_space( &sound_fifo );
+++}
+++
++ /* Copy data to fifo */
++ void
++ sound_lowlevel_frame( libspectrum_signed_word *data, int len )
++diff --git a/sound/sdlsound.c b/sound/sdlsound.c
++index c460ecf8..17956597 100644
++--- a/sound/sdlsound.c
+++++ b/sound/sdlsound.c
++@@ -90,11 +90,6 @@ sound_lowlevel_init( const char *device, int *freqptr, int *stereoptr )
++      speed to about 2000% on my Mac, 100Hz allows up to 5000% for me) */
++   if( hz > 100.0 ) hz = 100.0;
++   sound_framesiz = *freqptr / hz;
++-#ifdef __FreeBSD__
++-  requested.samples = pow( 2.0, floor( log2( sound_framesiz ) ) );
++-#else			/* #ifdef __FreeBSD__ */
++-  requested.samples = sound_framesiz;
++-#endif			/* #ifdef __FreeBSD__ */
++ 
++   audio_stream = SDL_OpenAudioDeviceStream( SDL_AUDIO_DEVICE_DEFAULT_PLAYBACK,
++                                             &requested, NULL, NULL );
++@@ -128,6 +123,23 @@ sound_lowlevel_end( void )
++   SDL_QuitSubSystem( SDL_INIT_AUDIO );
++ }
++ 
+++int
+++sound_lowlevel_buffer_space( void )
+++{
+++  int queued;
+++
+++  if( !audio_stream ) return 0;
+++
+++  queued = SDL_GetAudioStreamQueued( audio_stream );
+++  if( queued < 0 ) {
+++    ui_error( UI_ERROR_ERROR, "Couldn't query SDL audio queue: %s",
+++              SDL_GetError() );
+++    return 0;
+++  }
+++
+++  return audio_buffer_limit - queued;
+++}
+++
++ /* Copy data to fifo */
++ void
++ sound_lowlevel_frame( libspectrum_signed_word *data, int len )
++diff --git a/sound/wiisound.c b/sound/wiisound.c
++index 503f36e3..d3a378d1 100644
++--- a/sound/wiisound.c
+++++ b/sound/wiisound.c
++@@ -92,6 +92,12 @@ sound_lowlevel_end( void )
++   AUDIO_StopDMA();
++ }
++ 
+++int
+++sound_lowlevel_buffer_space( void )
+++{
+++  return sfifo_space( &sound_fifo );
+++}
+++
++ void
++ sound_lowlevel_frame(libspectrum_signed_word *data, int len)
++ {
++diff --git a/timer/timer.c b/timer/timer.c
++index 53e10707..30a018d1 100644
++--- a/timer/timer.c
+++++ b/timer/timer.c
++@@ -141,17 +141,13 @@ timer_register_startup( void )
++ #ifdef SOUND_FIFO
++ 
++ /* Callback-style sound based timer */
++-#include "sound/sfifo.h"
++-
++-extern sfifo_t sound_fifo;
++-
++ static void
++ timer_frame_callback_sound( libspectrum_dword last_tstates )
++ {
++   for(;;) {
++ 
++     /* Sleep while fifo is full */
++-    if( sfifo_space( &sound_fifo ) < sound_framesiz ) {
+++    if( sound_lowlevel_buffer_space() < sound_framesiz ) {
++       timer_sleep( TEN_MS );
++     } else {
++       break;
++diff --git a/ui/sdl/sdldisplay.c b/ui/sdl/sdldisplay.c
++index 0ff400f4..d0974eeb 100644
++--- a/ui/sdl/sdldisplay.c
+++++ b/ui/sdl/sdldisplay.c
++@@ -353,9 +353,14 @@ static int
++ sdldisplay_allocate_colours( int numColours, Uint32 *colour_values,
++                              Uint32 *bw_values )
++ {
+++  const SDL_PixelFormatDetails *format_details;
+++  const SDL_Palette *palette;
++   int i;
++   Uint8 red, green, blue, grey;
++ 
+++  format_details = SDL_GetPixelFormatDetails( tmp_screen->format );
+++  palette = SDL_GetSurfacePalette( tmp_screen );
+++
++   for( i = 0; i < numColours; i++ ) {
++ 
++       red = colour_palette[i].r;
++@@ -365,8 +370,8 @@ sdldisplay_allocate_colours( int numColours, Uint32 *colour_values,
++     /* Addition of 0.5 is to avoid rounding errors */
++     grey = ( 0.299 * red + 0.587 * green + 0.114 * blue ) + 0.5;
++ 
++-    colour_values[i] = SDL_MapRGB( tmp_screen->format,  red, green, blue );
++-    bw_values[i]     = SDL_MapRGB( tmp_screen->format, grey,  grey, grey );
+++    colour_values[i] = SDL_MapRGB( format_details, palette, red, green, blue );
+++    bw_values[i]     = SDL_MapRGB( format_details, palette, grey, grey, grey );
++   }
++ 
++   return 0;
++@@ -566,8 +571,7 @@ uidisplay_frame_save( void )
++     saved = NULL;
++   }
++ 
++-  saved = SDL_ConvertSurface( tmp_screen, tmp_screen->format,
++-                              );
+++  saved = SDL_ConvertSurface( tmp_screen, tmp_screen->format );
++ }
++ 
++ void
++-- 
++2.39.5
++
+diff --git a/exported-patches/0006-0006-fix-SDL3-startup-checks.patch b/exported-patches/0006-0006-fix-SDL3-startup-checks.patch
+new file mode 100644
+index 00000000..8fd2094e
+--- /dev/null
++++ b/exported-patches/0006-0006-fix-SDL3-startup-checks.patch
+@@ -0,0 +1,56 @@
++From fea2c5df7d4d93c54b312735b0b27828c96e0fc2 Mon Sep 17 00:00:00 2001
++From: GitHub Copilot <copilot@local>
++Date: Sun, 8 Mar 2026 19:21:33 +0200
++Subject: [PATCH 6/8] 0006: fix SDL3 startup checks
++
++---
++ ui/sdl/sdljoystick.c |  5 +++--
++ ui/sdl/sdlui.c       | 10 +++++-----
++ 2 files changed, 8 insertions(+), 7 deletions(-)
++
++diff --git a/ui/sdl/sdljoystick.c b/ui/sdl/sdljoystick.c
++index 2623df39..a2c8d110 100644
++--- a/ui/sdl/sdljoystick.c
+++++ b/ui/sdl/sdljoystick.c
++@@ -60,8 +60,9 @@ ui_joystick_init( void )
++   error = SDL_Init( SDL_INIT_JOYSTICK );
++ #endif
++ 
++-  if ( error ) {
++-    ui_error( UI_ERROR_ERROR, "failed to initialise joystick subsystem" );
+++  if( !error ) {
+++    ui_error( UI_ERROR_ERROR, "failed to initialise joystick subsystem: %s",
+++              SDL_GetError() );
++     return 0;
++   }
++ 
++diff --git a/ui/sdl/sdlui.c b/ui/sdl/sdlui.c
++index 88cc5bac..fd2ea65b 100644
++--- a/ui/sdl/sdlui.c
+++++ b/ui/sdl/sdlui.c
++@@ -49,17 +49,17 @@ atexit_proc( void )
++ int 
++ ui_init( int *argc, char ***argv )
++ {
++-  int error;
++-
++   if( ui_widget_init() ) return 1;
++ 
++ /* Comment out to Work around a bug in OS X 10.1 related to OpenGL in windowed
++    mode */
++   atexit(atexit_proc);
++ 
++-  error = SDL_Init( SDL_INIT_VIDEO );
++-  if ( error )
++-    return error;
+++  if( !SDL_Init( SDL_INIT_VIDEO ) ) {
+++    ui_error( UI_ERROR_ERROR, "failed to initialise SDL video subsystem: %s",
+++              SDL_GetError() );
+++    return 1;
+++  }
++ 
++ #ifndef __MORPHOS__
++   SDL_EnableUNICODE( 1 );
++-- 
++2.39.5
++
+diff --git a/exported-patches/0007-0007-fix-SDL-fullscreen-scaler-selection.patch b/exported-patches/0007-0007-fix-SDL-fullscreen-scaler-selection.patch
+new file mode 100644
+index 00000000..ddf96f82
+--- /dev/null
++++ b/exported-patches/0007-0007-fix-SDL-fullscreen-scaler-selection.patch
+@@ -0,0 +1,115 @@
++From 6ec4ae2f3a6935c48bc8f34bde908f4fe41af6db Mon Sep 17 00:00:00 2001
++From: GitHub Copilot <copilot@local>
++Date: Sun, 8 Mar 2026 19:52:12 +0200
++Subject: [PATCH 7/8] 0007: fix SDL fullscreen scaler selection
++
++---
++ ui/scaler/scaler.c  | 10 +++++++++-
++ ui/scaler/scaler.h  |  1 +
++ ui/sdl/sdldisplay.c | 13 ++++++++++---
++ 3 files changed, 20 insertions(+), 4 deletions(-)
++
++diff --git a/ui/scaler/scaler.c b/ui/scaler/scaler.c
++index d479a08a..e8983b57 100644
++--- a/ui/scaler/scaler.c
+++++ b/ui/scaler/scaler.c
++@@ -132,7 +132,7 @@ scaler_flags_t scaler_flags;
++ scaler_expand_fn *scaler_expander;
++ 
++ int
++-scaler_select_scaler( scaler_type scaler )
+++scaler_set_scaler( scaler_type scaler )
++ {
++   if( !scaler_is_supported( scaler ) ) return 1;
++ 
++@@ -149,6 +149,14 @@ scaler_select_scaler( scaler_type scaler )
++   scaler_flags = scaler_get_flags( current_scaler );
++   scaler_expander = scaler_get_expander( current_scaler );
++ 
+++  return 0;
+++}
+++
+++int
+++scaler_select_scaler( scaler_type scaler )
+++{
+++  if( scaler_set_scaler( scaler ) ) return 1;
+++
++   return uidisplay_hotswap_gfx_mode();
++ }
++ 
++diff --git a/ui/scaler/scaler.h b/ui/scaler/scaler.h
++index 8b587a28..c5f8bb43 100644
++--- a/ui/scaler/scaler.h
+++++ b/ui/scaler/scaler.h
++@@ -81,6 +81,7 @@ typedef int (*scaler_available_fn)( scaler_type scaler );
++ 
++ int scaler_select_id( const char *scaler_mode );
++ void scaler_register_clear( void );
+++int scaler_set_scaler( scaler_type scaler );
++ int scaler_select_scaler( scaler_type scaler );
++ void scaler_register( scaler_type scaler );
++ int scaler_is_supported( scaler_type scaler );
++diff --git a/ui/sdl/sdldisplay.c b/ui/sdl/sdldisplay.c
++index d0974eeb..eb3553b3 100644
++--- a/ui/sdl/sdldisplay.c
+++++ b/ui/sdl/sdldisplay.c
++@@ -255,11 +255,13 @@ int
++ uidisplay_init( int width, int height )
++ {
++   SDL_DisplayMode **modes;
+++  const SDL_DisplayMode *desktop_mode;
++   SDL_DisplayID display;
++   int no_modes;
++   int i = 0, mode_count = 0, mw = 0, mh = 0, mn = 0;
++ 
++   display = SDL_GetPrimaryDisplay();
+++  desktop_mode = SDL_GetDesktopDisplayMode( display );
++   modes = SDL_GetFullscreenDisplayModes( display, &mode_count );
++ 
++   no_modes = modes == NULL || mode_count == 0;
++@@ -308,6 +310,10 @@ uidisplay_init( int width, int height )
++     /* set from command line */
++     max_fullscreen_height = min_fullscreen_height = mh;
++     fullscreen_width = mw;
+++  } else if( desktop_mode ) {
+++    /* Scale against the real desktop fullscreen target, not the smallest
+++       advertised legacy mode such as 320x200. */
+++    max_fullscreen_height = min_fullscreen_height = desktop_mode->h;
++   } else if( no_modes ){
++     /* Just try whatever we have and see what happens */
++     max_fullscreen_height = 480;
++@@ -396,20 +402,20 @@ sdldisplay_find_best_fullscreen_scaler( void )
++              image_height*sdldisplay_current_size > max_fullscreen_height ) ) {
++       if( windowed_scaler == -1) windowed_scaler = current_scaler;
++       while( !scaler_is_supported(i) ) i++;
++-      scaler_select_scaler( i++ );
+++      scaler_set_scaler( i++ );
++       sdldisplay_current_size = scaler_get_scaling_factor( current_scaler );
++       /* if we failed to find a suitable size scaler, just use normal (what the
++          user had originally may be too big) */
++       if( image_height * sdldisplay_current_size <= min_fullscreen_height/2 ||
++           image_height * sdldisplay_current_size > max_fullscreen_height ) {
++-        scaler_select_scaler( SCALER_NORMAL );
+++        scaler_set_scaler( SCALER_NORMAL );
++         sdldisplay_current_size = scaler_get_scaling_factor( current_scaler );
++       }
++     }
++     searching_fullscreen_scaler = 0;
++   } else {
++     if( windowed_scaler != -1 ) {
++-      scaler_select_scaler( windowed_scaler );
+++      scaler_set_scaler( windowed_scaler );
++       windowed_scaler = -1;
++       sdldisplay_current_size = scaler_get_scaling_factor( current_scaler );
++     }
++@@ -439,6 +445,7 @@ sdldisplay_load_gfx_mode( void )
++   sdldisplay_current_size = scaler_get_scaling_factor( current_scaler );
++ 
++   sdldisplay_find_best_fullscreen_scaler();
+++  sdldisplay_current_size = scaler_get_scaling_factor( current_scaler );
++ 
++   window_width = settings_current.full_screen && fullscreen_width ?
++                  fullscreen_width : image_width * sdldisplay_current_size;
++-- 
++2.39.5
++
+diff --git a/exported-patches/0008-0008-use-SDL-renderer-for-aspect-correct-scaling.patch b/exported-patches/0008-0008-use-SDL-renderer-for-aspect-correct-scaling.patch
+new file mode 100644
+index 00000000..c34f4518
+--- /dev/null
++++ b/exported-patches/0008-0008-use-SDL-renderer-for-aspect-correct-scaling.patch
+@@ -0,0 +1,243 @@
++From 9c5e99c40940e2405cfecf81ebdbbb89d4170048 Mon Sep 17 00:00:00 2001
++From: GitHub Copilot <copilot@local>
++Date: Sun, 8 Mar 2026 20:01:21 +0200
++Subject: [PATCH 8/8] 0008: use SDL renderer for aspect-correct scaling
++
++---
++ ui/sdl/sdldisplay.c | 140 ++++++++++++++++++++++++++++++++++----------
++ 1 file changed, 110 insertions(+), 30 deletions(-)
++
++diff --git a/ui/sdl/sdldisplay.c b/ui/sdl/sdldisplay.c
++index eb3553b3..7a0c7db3 100644
++--- a/ui/sdl/sdldisplay.c
+++++ b/ui/sdl/sdldisplay.c
++@@ -25,6 +25,7 @@
++ #include <config.h>
++ 
++ #include <limits.h>
+++#include <stdlib.h>
++ #include <stdio.h>
++ #include <string.h>
++ 
++@@ -45,7 +46,8 @@
++ 
++ SDL_Surface *sdldisplay_gc = NULL;   /* Scaled 16-bit backbuffer */
++ static SDL_Window *sdldisplay_window = NULL;
++-static SDL_Surface *sdldisplay_window_surface = NULL;
+++static SDL_Renderer *sdldisplay_renderer = NULL;
+++static SDL_Texture *sdldisplay_texture = NULL;
++ static SDL_Surface *tmp_screen=NULL; /* Temporary screen for scalers */
++ 
++ static SDL_Surface *red_cassette[2], *green_cassette[2];
++@@ -105,6 +107,8 @@ static int timex;
++ 
++ static void init_scalers( void );
++ static void sdldisplay_free_window( void );
+++static SDL_ScaleMode sdldisplay_get_scale_mode( void );
+++static void sdldisplay_get_render_rect( SDL_FRect *rect );
++ static int sdldisplay_allocate_colours( int numColours, Uint32 *colour_values,
++                                         Uint32 *bw_values );
++ 
++@@ -113,10 +117,19 @@ static int sdldisplay_load_gfx_mode( void );
++ static void
++ sdldisplay_free_window( void )
++ {
+++  if( sdldisplay_texture ) {
+++    SDL_DestroyTexture( sdldisplay_texture );
+++    sdldisplay_texture = NULL;
+++  }
+++
+++  if( sdldisplay_renderer ) {
+++    SDL_DestroyRenderer( sdldisplay_renderer );
+++    sdldisplay_renderer = NULL;
+++  }
+++
++   if( sdldisplay_window ) {
++     SDL_DestroyWindow( sdldisplay_window );
++     sdldisplay_window = NULL;
++-    sdldisplay_window_surface = NULL;
++   }
++ 
++   if( sdldisplay_gc ) {
++@@ -125,6 +138,48 @@ sdldisplay_free_window( void )
++   }
++ }
++ 
+++static SDL_ScaleMode
+++sdldisplay_get_scale_mode( void )
+++{
+++  const char *mode = getenv( "FUSE_SDL_SCALE_MODE" );
+++
+++  if( !mode || !*mode ) return SDL_SCALEMODE_NEAREST;
+++
+++  if( !strcmp( mode, "linear" ) ) return SDL_SCALEMODE_LINEAR;
+++  if( !strcmp( mode, "pixelart" ) ) return SDL_SCALEMODE_PIXELART;
+++
+++  return SDL_SCALEMODE_NEAREST;
+++}
+++
+++static void
+++sdldisplay_get_render_rect( SDL_FRect *rect )
+++{
+++  int output_width = sdldisplay_gc ? sdldisplay_gc->w : 0;
+++  int output_height = sdldisplay_gc ? sdldisplay_gc->h : 0;
+++  float scale;
+++
+++  if( sdldisplay_renderer &&
+++      !SDL_GetCurrentRenderOutputSize( sdldisplay_renderer, &output_width,
+++                                       &output_height ) ) {
+++    output_width = sdldisplay_gc ? sdldisplay_gc->w : 0;
+++    output_height = sdldisplay_gc ? sdldisplay_gc->h : 0;
+++  }
+++
+++  if( !sdldisplay_gc || output_width <= 0 || output_height <= 0 ) {
+++    rect->x = rect->y = 0.0f;
+++    rect->w = rect->h = 0.0f;
+++    return;
+++  }
+++
+++  scale = SDL_min( output_width / (float)sdldisplay_gc->w,
+++                   output_height / (float)sdldisplay_gc->h );
+++
+++  rect->w = sdldisplay_gc->w * scale;
+++  rect->h = sdldisplay_gc->h * scale;
+++  rect->x = ( output_width - rect->w ) / 2.0f;
+++  rect->y = ( output_height - rect->h ) / 2.0f;
+++}
+++
++ static void
++ init_scalers( void )
++ {
++@@ -427,9 +482,9 @@ sdldisplay_load_gfx_mode( void )
++ {
++   SDL_DisplayMode closest_mode;
++   SDL_PixelFormat pixel_format;
++-  const SDL_PixelFormatDetails *format_details;
+++  SDL_FRect render_rect;
++   Uint16 *tmp_screen_pixels;
++-  int window_width, window_height;
+++  int logical_width, logical_height, window_width, window_height;
++ 
++   sdldisplay_force_full_refresh = 1;
++ 
++@@ -481,35 +536,39 @@ sdldisplay_load_gfx_mode( void )
++     }
++   }
++ 
++-  sdldisplay_window_surface = SDL_GetWindowSurface( sdldisplay_window );
++-  if( !sdldisplay_window_surface ) {
++-    fprintf( stderr, "%s: couldn't get SDL window surface\n", fuse_progname );
+++  sdldisplay_renderer = SDL_CreateRenderer( sdldisplay_window, NULL );
+++  if( !sdldisplay_renderer ) {
+++    fprintf( stderr, "%s: couldn't create SDL renderer\n", fuse_progname );
++     fuse_abort();
++   }
++ 
++-  pixel_format = SDL_GetWindowPixelFormat( sdldisplay_window );
++-  format_details = SDL_GetPixelFormatDetails( pixel_format );
++-  if( !format_details ) {
++-    fprintf( stderr, "%s: couldn't get SDL pixel format details\n", fuse_progname );
++-    fuse_abort();
++-  }
+++  pixel_format = SDL_PIXELFORMAT_RGB565;
+++  scaler_select_bitformat( 565 );
++ 
++-  if( format_details->Gmask >> format_details->Gshift == 0x1f ) {
++-    pixel_format = SDL_PIXELFORMAT_XRGB1555;
++-    scaler_select_bitformat( 555 );
++-  } else {
++-    pixel_format = SDL_PIXELFORMAT_RGB565;
++-    scaler_select_bitformat( 565 );
++-  }
+++  logical_width = image_width * sdldisplay_current_size + 0.5f;
+++  logical_height = image_height * sdldisplay_current_size + 0.5f;
++ 
++-  sdldisplay_gc = SDL_CreateSurface( sdldisplay_window_surface->w,
++-                                     sdldisplay_window_surface->h,
+++  sdldisplay_gc = SDL_CreateSurface( logical_width, logical_height,
++                                      pixel_format );
++   if( !sdldisplay_gc ) {
++     fprintf( stderr, "%s: couldn't create SDL backbuffer\n", fuse_progname );
++     fuse_abort();
++   }
++ 
+++  sdldisplay_texture = SDL_CreateTexture( sdldisplay_renderer, pixel_format,
+++                                          SDL_TEXTUREACCESS_STREAMING,
+++                                          logical_width, logical_height );
+++  if( !sdldisplay_texture ) {
+++    fprintf( stderr, "%s: couldn't create SDL texture\n", fuse_progname );
+++    fuse_abort();
+++  }
+++
+++  if( !SDL_SetTextureScaleMode( sdldisplay_texture,
+++                                sdldisplay_get_scale_mode() ) ) {
+++    fprintf( stderr, "%s: couldn't set SDL texture scale mode\n", fuse_progname );
+++    fuse_abort();
+++  }
+++
++   sdldisplay_is_full_screen = settings_current.full_screen;
++ 
++   /* Create the surface used for the graphics in 16 bit before scaling */
++@@ -527,10 +586,19 @@ sdldisplay_load_gfx_mode( void )
++     fuse_abort();
++   }
++ 
++-  fullscreen_x_off = ( sdldisplay_gc->w - image_width * sdldisplay_current_size ) *
++-                     sdldisplay_is_full_screen  / 2;
++-  fullscreen_y_off = ( sdldisplay_gc->h - image_height * sdldisplay_current_size ) *
++-                     sdldisplay_is_full_screen / 2;
+++  fullscreen_x_off = 0;
+++  fullscreen_y_off = 0;
+++
+++  sdldisplay_get_render_rect( &render_rect );
+++  if( sdldisplay_renderer ) {
+++    SDL_SetRenderDrawColor( sdldisplay_renderer, 0, 0, 0, SDL_ALPHA_OPAQUE );
+++    SDL_RenderClear( sdldisplay_renderer );
+++    if( render_rect.w > 0.0f && render_rect.h > 0.0f ) {
+++      SDL_RenderTexture( sdldisplay_renderer, sdldisplay_texture, NULL,
+++                         &render_rect );
+++    }
+++    SDL_RenderPresent( sdldisplay_renderer );
+++  }
++ 
++   sdldisplay_allocate_colours( 16, colour_values, bw_values );
++ 
++@@ -843,6 +911,7 @@ uidisplay_plot16( int x, int y, libspectrum_word data,
++ void
++ uidisplay_frame_end( void )
++ {
+++  SDL_FRect render_rect;
++   SDL_Rect *r;
++   Uint32 tmp_screen_pitch, dstPitch;
++   SDL_Rect *last_rect;
++@@ -906,12 +975,23 @@ uidisplay_frame_end( void )
++ 
++   if( SDL_MUSTLOCK( sdldisplay_gc ) ) SDL_UnlockSurface( sdldisplay_gc );
++ 
++-  for( r = updated_rects; r != updated_rects + num_rects; r++ ) {
++-    SDL_BlitSurface( sdldisplay_gc, r, sdldisplay_window_surface, r );
+++  if( !SDL_UpdateTexture( sdldisplay_texture, NULL, sdldisplay_gc->pixels,
+++                          sdldisplay_gc->pitch ) ) {
+++    fprintf( stderr, "%s: couldn't update SDL texture\n", fuse_progname );
+++    fuse_abort();
++   }
++ 
++-  /* Finally, blit all our changes to the screen */
++-  SDL_UpdateWindowSurfaceRects( sdldisplay_window, updated_rects, num_rects );
+++  sdldisplay_get_render_rect( &render_rect );
+++  SDL_SetRenderDrawColor( sdldisplay_renderer, 0, 0, 0, SDL_ALPHA_OPAQUE );
+++  SDL_RenderClear( sdldisplay_renderer );
+++  if( render_rect.w > 0.0f && render_rect.h > 0.0f ) {
+++    if( !SDL_RenderTexture( sdldisplay_renderer, sdldisplay_texture, NULL,
+++                            &render_rect ) ) {
+++      fprintf( stderr, "%s: couldn't render SDL texture\n", fuse_progname );
+++      fuse_abort();
+++    }
+++  }
+++  SDL_RenderPresent( sdldisplay_renderer );
++ 
++   num_rects = 0;
++   sdldisplay_force_full_refresh = 0;
++-- 
++2.39.5
++
+-- 
+2.39.5
+

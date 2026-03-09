@@ -1,0 +1,34 @@
+From 4c425979209d2c5b7f0ccccf978805a70a0a5acf Mon Sep 17 00:00:00 2001
+From: GitHub Copilot <copilot@local>
+Date: Mon, 9 Mar 2026 03:34:26 +0200
+Subject: [PATCH 12/12] 0012: fix sdlsound portability build break
+
+---
+ sound/sdlsound.c | 6 ++----
+ 1 file changed, 2 insertions(+), 4 deletions(-)
+
+diff --git a/sound/sdlsound.c b/sound/sdlsound.c
+index 17956597..841b082f 100644
+--- a/sound/sdlsound.c
++++ b/sound/sdlsound.c
+@@ -159,7 +159,8 @@ sound_lowlevel_frame( libspectrum_signed_word *data, int len )
+       return;
+     }
+ 
+-    chunk = MIN( len, audio_buffer_limit - queued );
++    chunk = audio_buffer_limit - queued;
++    if( chunk > len ) chunk = len;
+     if( chunk <= 0 ) {
+       SDL_Delay(10);
+       continue;
+@@ -181,7 +182,4 @@ sound_lowlevel_frame( libspectrum_signed_word *data, int len )
+   }
+ }
+ 
+-#ifndef MIN
+-#define MIN(a,b)    (((a) < (b)) ? (a) : (b))
+-#endif
+ 
+-- 
+2.39.5
+

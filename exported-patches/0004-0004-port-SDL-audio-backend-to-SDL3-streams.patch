@@ -1,7 +1,7 @@
 From 2a491fd07e4dc0b54edddb11a63ed197ddf774c3 Mon Sep 17 00:00:00 2001
 From: GitHub Copilot <copilot@local>
 Date: Sun, 8 Mar 2026 18:49:38 +0200
-Subject: [PATCH 4/8] 0004: port SDL audio backend to SDL3 streams
+Subject: [PATCH 04/12] 0004: port SDL audio backend to SDL3 streams
 
 ---
  sound/sdlsound.c | 113 ++++++++++++++++-------------------------------
