@@ -1,7 +1,7 @@
 From 167fa14baca3e0b9ccebed784b79008d6a25fd74 Mon Sep 17 00:00:00 2001
 From: GitHub Copilot <copilot@local>
 Date: Mon, 9 Mar 2026 03:22:01 +0200
-Subject: [PATCH 11/12] 0011: add SDL3 testing and release guides
+Subject: [PATCH 11/14] 0011: add SDL3 testing and release guides
 
 ---
  BUILD-SDL3.md   |  13 +++++-

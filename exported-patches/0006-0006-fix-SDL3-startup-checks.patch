@@ -1,7 +1,7 @@
 From fea2c5df7d4d93c54b312735b0b27828c96e0fc2 Mon Sep 17 00:00:00 2001
 From: GitHub Copilot <copilot@local>
 Date: Sun, 8 Mar 2026 19:21:33 +0200
-Subject: [PATCH 06/12] 0006: fix SDL3 startup checks
+Subject: [PATCH 06/14] 0006: fix SDL3 startup checks
 
 ---
  ui/sdl/sdljoystick.c |  5 +++--
