@@ -10,6 +10,11 @@ What is in this repository:
 * the instructions below for building either this tree directly or rebuilding
   the same result from upstream plus patches.
 
+Companion documents:
+
+* `TESTING-SDL3.md` for runtime and native-Linux validation.
+* `RELEASE-SDL3.md` for publishing updated patch exports and release artifacts.
+
 What is intentionally not in this repository:
 
 * a vendored read-only upstream Fuse mirror.
@@ -153,6 +158,9 @@ SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy \
   timeout 5s ./fuse --no-sound --machine 48
 ```
 
+For a fuller runtime checklist, including native-Linux fullscreen validation,
+see `TESTING-SDL3.md`.
+
 ## SDL3 presentation notes
 
 This fork uses SDL3 for the SDL UI and supports aspect-correct fullscreen
@@ -163,3 +171,6 @@ FUSE_SDL_SCALE_MODE=nearest ./fuse --machine 48
 FUSE_SDL_SCALE_MODE=linear ./fuse --machine 48
 FUSE_SDL_SCALE_MODE=pixelart ./fuse --machine 48
 ```
+
+When preparing a public update of this fork, follow `RELEASE-SDL3.md` so the
+branch head, exported patches, and builder-facing documentation stay aligned.

@@ -10,7 +10,8 @@ usable as a distribution point on its own:
 * the full downstream source tree is present in this repository;
 * the exact replayable delta from upstream `fuse-1.6.0` is published in
   `exported-patches/`; and
-* detailed build instructions for this fork are in `BUILD-SDL3.md`.
+* detailed build, validation, and release instructions for this fork are in
+  `BUILD-SDL3.md`, `TESTING-SDL3.md`, and `RELEASE-SDL3.md`.
 
 This repository intentionally does not vendor a separate pristine upstream Fuse
 mirror. If you want to rebuild the port on top of upstream yourself, apply the
@@ -101,8 +102,8 @@ Windows
 Building Fuse
 -------------
 
-For this SDL3 fork, start with `BUILD-SDL3.md` and then see `INSTALL` for the
-upstream-oriented build notes.
+For this SDL3 fork, start with `BUILD-SDL3.md`, `TESTING-SDL3.md`, and
+`RELEASE-SDL3.md`, then see `INSTALL` for the upstream-oriented build notes.
 
 Closing comments
 ----------------
