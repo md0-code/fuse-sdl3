@@ -1,7 +1,7 @@
 From 9c5e99c40940e2405cfecf81ebdbbb89d4170048 Mon Sep 17 00:00:00 2001
 From: GitHub Copilot <copilot@local>
 Date: Sun, 8 Mar 2026 20:01:21 +0200
-Subject: [PATCH 8/8] 0008: use SDL renderer for aspect-correct scaling
+Subject: [PATCH 08/12] 0008: use SDL renderer for aspect-correct scaling
 
 ---
  ui/sdl/sdldisplay.c | 140 ++++++++++++++++++++++++++++++++++----------
