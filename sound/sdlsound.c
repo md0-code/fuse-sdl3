@@ -159,7 +159,8 @@ sound_lowlevel_frame( libspectrum_signed_word *data, int len )
       return;
     }
 
-    chunk = MIN( len, audio_buffer_limit - queued );
+    chunk = audio_buffer_limit - queued;
+    if( chunk > len ) chunk = len;
     if( chunk <= 0 ) {
       SDL_Delay(10);
       continue;
@@ -181,7 +182,4 @@ sound_lowlevel_frame( libspectrum_signed_word *data, int len )
   }
 }
 
-#ifndef MIN
-#define MIN(a,b)    (((a) < (b)) ? (a) : (b))
-#endif
 
