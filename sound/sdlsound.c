@@ -37,6 +37,7 @@
 
 static SDL_AudioStream *audio_stream;
 static int audio_buffer_limit;
+static int audio_frame_size;
 
 /* Number of Spectrum frames audio latency to use */
 #define NUM_FRAMES 2
@@ -55,13 +56,7 @@ sound_lowlevel_init( const char *device, int *freqptr, int *stereoptr )
 #ifndef __MORPHOS__    
   /* I'd rather just use setenv, but Windows doesn't have it */
   if( device ) {
-    const char *environment = "SDL_AUDIODRIVER=";
-    char *command = libspectrum_new( char, strlen( environment ) +
-                                           strlen( device ) + 1 );
-    strcpy( command, environment );
-    strcat( command, device );
-    error = putenv( command );
-    libspectrum_free( command );
+    error = setenv( "SDL_AUDIODRIVER", device, 1 );
     if( error ) { 
       settings_current.sound = 0;
       ui_error( UI_ERROR_ERROR, "Couldn't set SDL_AUDIODRIVER: %s",
@@ -78,6 +73,7 @@ sound_lowlevel_init( const char *device, int *freqptr, int *stereoptr )
   requested.freq = *freqptr;
   requested.channels = *stereoptr ? 2 : 1;
   requested.format = SDL_AUDIO_S16;
+  audio_frame_size = requested.channels * sizeof( libspectrum_signed_word );
 
   /* Adjust relative processor speed to deal with adjusting sound generation
      frequency against emulation speed (more flexible than adjusting generated
@@ -103,7 +99,7 @@ sound_lowlevel_init( const char *device, int *freqptr, int *stereoptr )
   sound_framesiz = *freqptr / hz;
   sound_framesiz <<= 1;
 
-  audio_buffer_limit = NUM_FRAMES * requested.channels * sound_framesiz + 1;
+  audio_buffer_limit = NUM_FRAMES * requested.channels * sound_framesiz;
 
   /* wait to run sound until we have some sound to play */
   audio_output_started = 0;
@@ -161,6 +157,7 @@ sound_lowlevel_frame( libspectrum_signed_word *data, int len )
 
     chunk = audio_buffer_limit - queued;
     if( chunk > len ) chunk = len;
+    chunk -= chunk % audio_frame_size;
     if( chunk <= 0 ) {
       SDL_Delay(10);
       continue;
