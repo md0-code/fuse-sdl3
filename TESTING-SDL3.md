@@ -33,6 +33,24 @@ SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy \
 Both commands are expected to survive until timeout rather than exit early with
 an SDL initialization failure.
 
+## Non-SDL-primary build verification
+
+To confirm the shared SDL3-related changes do not break other UI selections,
+also verify at least one non-SDL-primary build. A verified path for this fork
+is an Xlib build in a clean detached worktree:
+
+```sh
+git worktree add --detach /tmp/fuse-xlib HEAD
+cd /tmp/fuse-xlib
+autoreconf -fi
+./configure --without-gtk
+make -j"$(nproc)"
+timeout -s KILL 5s ./fuse --no-sound --machine 48
+```
+
+This confirms that the non-SDL-primary Xlib configuration still configures,
+builds, and starts while sharing the same downstream source line.
+
 ## Media loading smoke tests
 
 Tape autoload:
@@ -65,6 +83,20 @@ Validate all of the following:
 * the image scales to the desktop resolution instead of staying at a small
   integer multiple when fullscreen is active; and
 * no extra stale window contents remain visible after fullscreen transitions.
+
+## Debian sid Wayland workaround
+
+One Debian sid environment reproduced a crash inside `libdecor-gtk.so` during
+`SDL_Init( SDL_INIT_VIDEO )`. In that case:
+
+* `SDL_VIDEO_DRIVER=x11 ./fuse` worked;
+* `SDL_VIDEO_DRIVER=wayland ./fuse` still crashed; and
+* `LIBDECOR_PLUGIN_DIR=/nonexistent SDL_VIDEO_DRIVER=wayland ./fuse` worked.
+
+That combination indicates a system `libdecor` plugin failure rather than a
+Fuse-side rendering or emulation failure. When validating Wayland on affected
+systems, record whether Fuse succeeds with the plugin path disabled before
+treating the issue as an emulator regression.
 
 ## Fullscreen scale-mode checks
 

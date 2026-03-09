@@ -28,6 +28,10 @@ SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy \
 If native Linux graphics behavior changed, also run the checklist from
 `TESTING-SDL3.md`.
 
+Before calling Phase 7 verification complete, also rerun at least one
+non-SDL-primary build from `TESTING-SDL3.md` so the downstream changes are not
+validated only through the SDL UI configuration.
+
 ## Refresh the exported patch series
 
 The exported patches are part of the published repository, so regenerate them
@@ -64,6 +68,10 @@ At minimum, confirm that:
 * `--with-sdl` still means the SDL3 UI;
 * any new runtime knobs are documented; and
 * the patch replay instructions still apply cleanly to upstream `fuse-1.6.0`.
+
+If a platform-specific runtime workaround is known, such as the Debian sid
+Wayland `libdecor` workaround documented in `BUILD-SDL3.md` and
+`TESTING-SDL3.md`, keep that note current as part of release prep.
 
 ## Keep the repository surface clean
 
