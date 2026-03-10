@@ -65,6 +65,8 @@ typedef enum widget_type {
 
 /* Activate a widget */
 int widget_do( widget_type which, void *data );
+void widget_show_transient_message( const char *message );
+void widget_frame( void );
 
 /* Finish with widgets for now */
 void widget_finish( void );

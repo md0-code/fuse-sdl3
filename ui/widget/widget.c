@@ -56,6 +56,9 @@
 #include <windows.h>
 #endif
 
+#define WIDGET_TRANSIENT_MESSAGE_LENGTH 64
+#define WIDGET_TRANSIENT_MESSAGE_FRAMES 40
+
 /* Bitmap font storage */
 typedef struct {
   libspectrum_byte bitmap[15], left, width, defined;
@@ -89,6 +92,8 @@ typedef struct widget_recurse_t {
 } widget_recurse_t;
 
 static widget_recurse_t widget_return[10]; /* The stack to recurse on */
+static char widget_transient_message[ WIDGET_TRANSIENT_MESSAGE_LENGTH ];
+static int widget_transient_message_frames;
 
 static int widget_read_font( const char *filename )
 {
@@ -489,6 +494,44 @@ int widget_end( void )
   return 0;
 }
 
+void
+widget_show_transient_message( const char *message )
+{
+  if( !message || !message[0] ) return;
+
+  snprintf( widget_transient_message, sizeof( widget_transient_message ), "%s",
+            message );
+  widget_transient_message_frames = WIDGET_TRANSIENT_MESSAGE_FRAMES;
+}
+
+void
+widget_frame( void )
+{
+  int width, x;
+  int text_width, text_x, text_y;
+
+  if( widget_transient_message_frames <= 0 || ui_widget_level >= 0 ) return;
+  if( !display_ui_initialised ) return;
+
+  text_width = widget_stringwidth( widget_transient_message );
+  width = ( text_width + 16 + 7 ) / 8;
+  if( width < 18 ) width = 18;
+  if( width > 30 ) width = 30;
+  x = ( DISPLAY_WIDTH_COLS - width ) / 2;
+  text_x = x * 8 + ( width * 8 - text_width ) / 2;
+  text_y = 16;
+
+  widget_dialog_with_border( x, 1, width, 3 );
+  widget_printstring( text_x, text_y, WIDGET_COLOUR_FOREGROUND,
+                      widget_transient_message );
+  widget_display_lines( 1, 3 );
+
+  widget_transient_message_frames--;
+  if( widget_transient_message_frames == 0 ) {
+    display_refresh_all();
+  }
+}
+
 /* General widget routine */
 
 int widget_do( widget_type which, void *data )
@@ -697,7 +740,6 @@ widget_t widget_data[] = {
 };
 
 #ifndef UI_SDL
-#ifndef UI_X
 /* The statusbar handling functions */
 /* TODO: make these do something useful */
 int
@@ -711,7 +753,6 @@ ui_statusbar_update_speed( float speed )
 {
   return 0;
 }
-#endif
 #endif                          /* #ifndef UI_SDL */
 
 /* Tape browser update function. The dialog box is created every time it

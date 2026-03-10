@@ -89,6 +89,12 @@ ui_verror( ui_error_level severity, const char *format, va_list ap )
   return 0;
 }
 
+void
+ui_show_transient_message( const char *message )
+{
+  widget_show_transient_message( message );
+}
+
 ui_confirm_save_t
 ui_confirm_save( const char *format, ... )
 {
@@ -112,14 +118,6 @@ print_error_to_stderr( ui_error_level severity, const char *message )
   /* Print the error to stderr if it's more significant than just
      informational */
   if( severity > UI_ERROR_INFO ) {
-
-    /* For the fb and svgalib UIs, we don't want to write to stderr if
-       it's a terminal, as it's then likely to be what we're currently
-       using for graphics output, and writing text to it isn't a good
-       idea. Things are OK if we're exiting though */
-#if defined( UI_FB ) || defined( UI_SVGA )
-    if( isatty( STDERR_FILENO ) && !fuse_exiting ) return 1;
-#endif			/* #if defined( UI_FB ) || defined( UI_SVGA ) */
 
     fprintf( stderr, "%s: ", fuse_progname );
 
@@ -153,6 +151,7 @@ void
 ui_error_frame( void )
 {
   frames_since_last_message++;
+  widget_frame();
 }
 
 int ui_mouse_present = 0;

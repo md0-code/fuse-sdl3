@@ -37,13 +37,10 @@
 
 #include <unistd.h>
 
-/* We need to include SDL.h on Mac O X and Windows to do some magic
-   bootstrapping by redefining main. As we now allow SDL joystick code to be
-   used in the GTK and Xlib UIs we need to also do the magic when that code is
-   in use, feel free to look away for the next line */
-#if defined UI_SDL || (defined USE_JOYSTICK && !defined HAVE_JSW_H && (defined UI_X || defined UI_GTK) )
+/* SDL needs to redefine main on some platforms during startup. */
+#ifdef UI_SDL
 #include "sdlcompat.h"		/* Needed on MacOS X and Windows */
-#endif /* #if defined UI_SDL || (defined USE_JOYSTICK && !defined HAVE_JSW_H && (defined UI_X || defined UI_GTK) ) */
+#endif				/* #ifdef UI_SDL */
 
 #ifdef GEKKO
 #include <fat.h>
@@ -170,11 +167,7 @@ static int do_start_files( start_files_t *start_files );
 
 static int fuse_end(void);
 
-#ifdef UI_WIN32
-int fuse_main(int argc, char **argv)
-#else
 int main(int argc, char **argv)
-#endif
 {
   int r;
 
@@ -534,32 +527,39 @@ static void fuse_show_help( void )
   printf( "\n" );
   fuse_show_version();
   printf(
-   "\nAvailable command-line options:\n\n"
-   "Boolean options (use `--no-<option>' to turn off):\n\n"
-   "--auto-load            Automatically load tape files when opened.\n"
-   "--compress-rzx         Write RZX files out compressed.\n"
-   "--issue2               Emulate an Issue 2 Spectrum.\n"
-   "--kempston             Emulate the Kempston joystick on QAOP<space>.\n"
-   "--loading-sound        Emulate the sound of tapes loading.\n"
-   "--sound                Produce sound.\n"
-   "--sound-force-8bit     Generate 8-bit sound even if 16-bit is available.\n"
-   "--slt                  Turn SLT traps on.\n"
-   "--traps                Turn tape traps on.\n\n"
-   "Other options:\n\n"
-   "--help                 This information.\n"
-   "--machine <type>       Which machine should be emulated?\n"
-   "--playback <filename>  Play back RZX file <filename>.\n"
-   "--record <filename>    Record to RZX file <filename>.\n"
-   "--separation <type>    Use ACB/ABC stereo for the AY-3-8912 sound chip.\n"
-   "--snapshot <filename>  Load snapshot <filename>.\n"
-   "--speed <percentage>   How fast should emulation run?\n"
-   "--fb-mode <mode>       Which mode should be used for FB?\n"
-   "--tape <filename>      Open tape file <filename>.\n"
-   "--version              Print version number and exit.\n"
+  "\nCommon command-line options:\n\n"
+  "Boolean options (use --no-<option> to turn off):\n\n"
+  "--auto-load            Automatically load tape files when opened.\n"
+  "--compress-rzx         Write RZX files out compressed.\n"
+  "--fastload             Load from tape instantly where possible.\n"
+  "--full-screen          Start the SDL UI in fullscreen mode.\n"
+  "--issue2               Emulate an Issue 2 Spectrum.\n"
+  "--kempston             Emulate the Kempston joystick.\n"
+  "--loading-sound        Emulate the sound of tapes loading.\n"
+  "--sound                Produce sound.\n"
+  "--sound-force-8bit     Generate 8-bit sound even if 16-bit is available.\n"
+  "--statusbar            Show the SDL status icons or UI status bar.\n"
+  "--slt                  Turn SLT traps on.\n"
+  "--traps                Turn tape traps on.\n\n"
+  "Startup and media options:\n\n"
+  "--help                 Show this summary.\n"
+  "--machine <type>       Select the machine to emulate at startup.\n"
+  "--playback <filename>  Play back RZX file <filename>.\n"
+  "--record <filename>    Record to RZX file <filename>.\n"
+  "--snapshot <filename>  Load snapshot <filename>.\n"
+  "--tape <filename>      Open tape file <filename>.\n"
+  "--version              Print version number and exit.\n\n"
+  "Display and sound options:\n\n"
+  "--graphics-filter <m>  Set the startup scaler/filter (default: 2x).\n"
+  "--sdl-fullscreen-mode <mode>\n"
+  "                       Pick an SDL fullscreen mode, or use list.\n"
+  "--speed <percentage>   Set the emulation speed percentage.\n"
+  "--fbmode <mode>        Select the framebuffer mode where supported.\n"
+  "--separation <type>    Use ACB/ABC stereo for the AY-3-8912 sound chip.\n"
    "\n"
    "For help, please mail <fuse-emulator-devel@lists.sf.net> or use\n"
    "the forums at <http://sourceforge.net/p/fuse-emulator/discussion/>.\n"
-   "For complete documentation, see the manual page of Fuse.\n\n" );
+  "For the complete command-line reference, see the manual page of Fuse.\n\n" );
 }
 
 /* Stop all activities associated with actual Spectrum emulation */

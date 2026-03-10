@@ -238,6 +238,8 @@ typedef struct input_event_t {
 
 } input_event_t;
 
+const char* input_key_text( input_key key );
+
 int input_event( const input_event_t *event );
 
 #endif			/* #ifndef FUSE_INPUT_H */

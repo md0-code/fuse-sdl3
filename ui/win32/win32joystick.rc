@@ -222,3 +222,67 @@ BEGIN
     MENUITEM "Nothing", 1
   END
 END
+
+IDR_JOYSTICKS_KEYBOARD_POPUP MENU
+BEGIN
+  POPUP ""
+  BEGIN
+    MENUITEM "Cursor Up", INPUT_KEY_Up
+    MENUITEM "Cursor Down", INPUT_KEY_Down
+    MENUITEM "Cursor Left", INPUT_KEY_Left
+    MENUITEM "Cursor Right", INPUT_KEY_Right
+    MENUITEM "Left Alt", INPUT_KEY_Alt_L
+
+    POPUP "Numbers"
+    BEGIN
+      MENUITEM "0", INPUT_KEY_0
+      MENUITEM "1", INPUT_KEY_1
+      MENUITEM "2", INPUT_KEY_2
+      MENUITEM "3", INPUT_KEY_3
+      MENUITEM "4", INPUT_KEY_4
+      MENUITEM "5", INPUT_KEY_5
+      MENUITEM "6", INPUT_KEY_6
+      MENUITEM "7", INPUT_KEY_7
+      MENUITEM "8", INPUT_KEY_8
+      MENUITEM "9", INPUT_KEY_9
+    END
+
+    POPUP "A-M"
+    BEGIN
+      MENUITEM "A", INPUT_KEY_a
+      MENUITEM "B", INPUT_KEY_b
+      MENUITEM "C", INPUT_KEY_c
+      MENUITEM "D", INPUT_KEY_d
+      MENUITEM "E", INPUT_KEY_e
+      MENUITEM "F", INPUT_KEY_f
+      MENUITEM "G", INPUT_KEY_g
+      MENUITEM "H", INPUT_KEY_h
+      MENUITEM "I", INPUT_KEY_i
+      MENUITEM "J", INPUT_KEY_j
+      MENUITEM "K", INPUT_KEY_k
+      MENUITEM "L", INPUT_KEY_l
+      MENUITEM "M", INPUT_KEY_m
+    END
+
+    POPUP "N-Z"
+    BEGIN
+      MENUITEM "N", INPUT_KEY_n
+      MENUITEM "O", INPUT_KEY_o
+      MENUITEM "P", INPUT_KEY_p
+      MENUITEM "Q", INPUT_KEY_q
+      MENUITEM "R", INPUT_KEY_r
+      MENUITEM "S", INPUT_KEY_s
+      MENUITEM "T", INPUT_KEY_t
+      MENUITEM "U", INPUT_KEY_u
+      MENUITEM "V", INPUT_KEY_v
+      MENUITEM "W", INPUT_KEY_w
+      MENUITEM "X", INPUT_KEY_x
+      MENUITEM "Y", INPUT_KEY_y
+      MENUITEM "Z", INPUT_KEY_z
+    END
+
+    MENUITEM "Space", INPUT_KEY_space
+    MENUITEM "Enter", INPUT_KEY_Return
+    MENUITEM "Nothing", 1
+  END
+END

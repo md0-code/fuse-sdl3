@@ -58,7 +58,8 @@ struct button_info {
   int *setting;
   char name[80];
   GtkWidget *label;
-  keyboard_key_name key;
+  int key;
+  int use_input_keys;
 };
 
 struct joystick_info {
@@ -78,7 +79,7 @@ typedef enum key_item_t {
 typedef struct key_menu_t {
   key_item_t item;
   const gchar *text;
-  keyboard_key_name key;
+  int key;
 } key_menu_t;
 
 static void setup_info( struct joystick_info *info, int callback_action );
@@ -86,8 +87,9 @@ static void create_joystick_type_selector( struct joystick_info *info,
 					   GtkBox *parent );
 static void
 create_fire_button_selector( const char *title, struct button_info *info,
-                             GtkBox *parent, GtkTreeModel *model );
-static void set_key_text( GtkWidget *label, keyboard_key_name key );
+                             GtkBox *parent, GtkTreeModel *model,
+                             const key_menu_t *menu, size_t menu_count );
+static void set_key_text( GtkWidget *label, const struct button_info *info );
 
 static void key_callback( GtkComboBox *widget, gpointer user_data );
 static void joystick_done( GtkButton *button, gpointer user_data );
@@ -146,8 +148,64 @@ static key_menu_t key_menu[] = {
 
 };
 
+  static key_menu_t keyboard_key_menu[] = {
+
+    { ITEM, "Cursor Up", INPUT_KEY_Up },
+    { ITEM, "Cursor Down", INPUT_KEY_Down },
+    { ITEM, "Cursor Left", INPUT_KEY_Left },
+    { ITEM, "Cursor Right", INPUT_KEY_Right },
+    { ITEM, "Left Alt", INPUT_KEY_Alt_L },
+
+    { KEY_GROUP, "Numbers", INPUT_KEY_NONE },
+    { SUBITEM, "0", INPUT_KEY_0 },
+    { SUBITEM, "1", INPUT_KEY_1 },
+    { SUBITEM, "2", INPUT_KEY_2 },
+    { SUBITEM, "3", INPUT_KEY_3 },
+    { SUBITEM, "4", INPUT_KEY_4 },
+    { SUBITEM, "5", INPUT_KEY_5 },
+    { SUBITEM, "6", INPUT_KEY_6 },
+    { SUBITEM, "7", INPUT_KEY_7 },
+    { SUBITEM, "8", INPUT_KEY_8 },
+    { SUBITEM, "9", INPUT_KEY_9 },
+
+    { KEY_GROUP, "A - M", INPUT_KEY_NONE },
+    { SUBITEM, "A", INPUT_KEY_a },
+    { SUBITEM, "B", INPUT_KEY_b },
+    { SUBITEM, "C", INPUT_KEY_c },
+    { SUBITEM, "D", INPUT_KEY_d },
+    { SUBITEM, "E", INPUT_KEY_e },
+    { SUBITEM, "F", INPUT_KEY_f },
+    { SUBITEM, "G", INPUT_KEY_g },
+    { SUBITEM, "H", INPUT_KEY_h },
+    { SUBITEM, "I", INPUT_KEY_i },
+    { SUBITEM, "J", INPUT_KEY_j },
+    { SUBITEM, "K", INPUT_KEY_k },
+    { SUBITEM, "L", INPUT_KEY_l },
+    { SUBITEM, "M", INPUT_KEY_m },
+
+    { KEY_GROUP, "N - Z", INPUT_KEY_NONE },
+    { SUBITEM, "N", INPUT_KEY_n },
+    { SUBITEM, "O", INPUT_KEY_o },
+    { SUBITEM, "P", INPUT_KEY_p },
+    { SUBITEM, "Q", INPUT_KEY_q },
+    { SUBITEM, "R", INPUT_KEY_r },
+    { SUBITEM, "S", INPUT_KEY_s },
+    { SUBITEM, "T", INPUT_KEY_t },
+    { SUBITEM, "U", INPUT_KEY_u },
+    { SUBITEM, "V", INPUT_KEY_v },
+    { SUBITEM, "W", INPUT_KEY_w },
+    { SUBITEM, "X", INPUT_KEY_x },
+    { SUBITEM, "Y", INPUT_KEY_y },
+    { SUBITEM, "Z", INPUT_KEY_z },
+
+    { ITEM, "Space", INPUT_KEY_space },
+    { ITEM, "Enter", INPUT_KEY_Return },
+    { ITEM, "Nothing", INPUT_KEY_NONE },
+
+  };
+
 static GtkTreeModel *
-create_joystick_options_store( void )
+  create_joystick_options_store( const key_menu_t *menu, size_t menu_count )
 {
   GtkTreeIter iter, iter2;
   GtkTreeStore *store;
@@ -155,24 +213,24 @@ create_joystick_options_store( void )
 
   store = gtk_tree_store_new( NUM_COLS, G_TYPE_STRING, G_TYPE_INT );
 
-  for( i = 0; i < ARRAY_SIZE( key_menu ); i++ ) {
+  for( i = 0; i < menu_count; i++ ) {
 
-    switch( key_menu[i].item ) {
+    switch( menu[i].item ) {
 
       case ITEM:
       case KEY_GROUP:
         gtk_tree_store_append( store, &iter, NULL );
         gtk_tree_store_set( store, &iter,
-                            COL_TEXT, key_menu[i].text,
-                            COL_KEY, key_menu[i].key,
+                            COL_TEXT, menu[i].text,
+                            COL_KEY, menu[i].key,
                             -1 );
         break;
 
       case SUBITEM:
         gtk_tree_store_append( store, &iter2, &iter );
         gtk_tree_store_set( store, &iter2,
-                            COL_TEXT, key_menu[i].text,
-                            COL_KEY, key_menu[i].key,
+                            COL_TEXT, menu[i].text,
+                            COL_KEY, menu[i].key,
                             -1 );
         break;
 
@@ -190,6 +248,8 @@ menu_options_joysticks_select( GtkAction *gtk_action GCC_UNUSED,
   GtkWidget *dialog, *hbox, *vbox, *content_area;
   GtkTreeModel *model;
   struct joystick_info info;
+  const key_menu_t *menu;
+  size_t menu_count;
   int i;
 
   fuse_emulation_pause();
@@ -208,7 +268,15 @@ menu_options_joysticks_select( GtkAction *gtk_action GCC_UNUSED,
   vbox = gtk_box_new( GTK_ORIENTATION_VERTICAL, 2 );
   gtk_box_pack_start( GTK_BOX( hbox ), vbox, TRUE, TRUE, 0 );
 
-  model = create_joystick_options_store();
+  if( callback_action == 3 ) {
+    menu = keyboard_key_menu;
+    menu_count = ARRAY_SIZE( keyboard_key_menu );
+  } else {
+    menu = key_menu;
+    menu_count = ARRAY_SIZE( key_menu );
+  }
+
+  model = create_joystick_options_store( menu, menu_count );
 
   for( i = 0; i < NUM_JOY_BUTTONS; i += 5 ) {
     
@@ -220,7 +288,8 @@ menu_options_joysticks_select( GtkAction *gtk_action GCC_UNUSED,
     for( j = i; j < i + 5; j++ )
       if( info.button[j].setting ) {
         create_fire_button_selector( info.button[j].name, &( info.button[j] ),
-                                     GTK_BOX( vbox ), model );
+                                     GTK_BOX( vbox ), model, menu,
+                                     menu_count );
       }
   }
 
@@ -261,8 +330,10 @@ setup_info( struct joystick_info *info, int callback_action )
     info->button[12].setting = &( settings_current.joystick_1_fire_13 );
     info->button[13].setting = &( settings_current.joystick_1_fire_14 );
     info->button[14].setting = &( settings_current.joystick_1_fire_15 );
-    for( i = 0; i < NUM_JOY_BUTTONS; i++ )
+    for( i = 0; i < NUM_JOY_BUTTONS; i++ ) {
+      info->button[i].use_input_keys = 0;
       snprintf( info->button[i].name, 80, "Button %lu", (unsigned long)i + 1 );
+    }
     break;
 
   case 2:
@@ -282,23 +353,33 @@ setup_info( struct joystick_info *info, int callback_action )
     info->button[12].setting = &( settings_current.joystick_2_fire_12 );
     info->button[13].setting = &( settings_current.joystick_2_fire_13 );
     info->button[14].setting = &( settings_current.joystick_2_fire_14 );
-    for( i = 0; i < NUM_JOY_BUTTONS; i++ )
+    for( i = 0; i < NUM_JOY_BUTTONS; i++ ) {
+      info->button[i].use_input_keys = 0;
       snprintf( info->button[i].name, 80, "Button %lu", (unsigned long)i + 1 );
+    }
     break;
 
   case 3:
     info->type = &( settings_current.joystick_keyboard_output );
     info->button[0].setting = &( settings_current.joystick_keyboard_up  );
+    info->button[0].use_input_keys = 1;
     snprintf( info->button[0].name, 80, "Button for UP" );
     info->button[1].setting = &( settings_current.joystick_keyboard_down  );
+    info->button[1].use_input_keys = 1;
     snprintf( info->button[1].name, 80, "Button for DOWN" );
     info->button[2].setting = &( settings_current.joystick_keyboard_left  );
+    info->button[2].use_input_keys = 1;
     snprintf( info->button[2].name, 80, "Button for LEFT" );
     info->button[3].setting = &( settings_current.joystick_keyboard_right  );
+    info->button[3].use_input_keys = 1;
     snprintf( info->button[3].name, 80, "Button for RIGHT" );
     info->button[4].setting = &( settings_current.joystick_keyboard_fire  );
+    info->button[4].use_input_keys = 1;
     snprintf( info->button[4].name, 80, "Button for FIRE" );
-    for( i = 5; i < NUM_JOY_BUTTONS; i++ ) info->button[i].setting = NULL;
+    for( i = 5; i < NUM_JOY_BUTTONS; i++ ) {
+      info->button[i].setting = NULL;
+      info->button[i].use_input_keys = 0;
+    }
     break;
 
   }
@@ -350,7 +431,8 @@ set_entry_properties( GtkCellLayout *cell_layout GCC_UNUSED,
 
 static void
 create_fire_button_selector( const char *title, struct button_info *info,
-                             GtkBox *parent, GtkTreeModel *model )
+                             GtkBox *parent, GtkTreeModel *model,
+                             const key_menu_t *menu, size_t menu_count )
 {
   GtkWidget *frame, *box, *combo;
   GtkCellRenderer *renderer;
@@ -369,14 +451,14 @@ create_fire_button_selector( const char *title, struct button_info *info,
   info->key = *info->setting;
   info->label = gtk_label_new( "" );
 
-  for( i = 0; i < ARRAY_SIZE( key_menu ); i++ ) {
+  for( i = 0; i < menu_count; i++ ) {
     
-    keyboard_key_name key;
+    int key;
 
-    key = key_menu[i].key;
+    key = menu[i].key;
 
-    if( key_menu[i].item != KEY_GROUP && key == (unsigned int)*info->setting ) {
-      set_key_text( info->label, key );
+    if( menu[i].item != KEY_GROUP && key == *info->setting ) {
+      set_key_text( info->label, info );
       break;
     }
 
@@ -406,12 +488,13 @@ create_fire_button_selector( const char *title, struct button_info *info,
 }
 
 static void
-set_key_text( GtkWidget *label, keyboard_key_name key )
+set_key_text( GtkWidget *label, const struct button_info *info )
 {
   const char *text;
   char buffer[40];
 
-  text = keyboard_key_text( key );
+  text = info->use_input_keys ? input_key_text( info->key )
+                              : keyboard_key_text( info->key );
 
   snprintf( buffer, 40, "%s", text );
 
@@ -424,7 +507,7 @@ key_callback( GtkComboBox *widget, gpointer user_data )
   GtkTreeIter iter;
   GValue value;
   struct button_info *info = user_data;
-  keyboard_key_name key;
+  int key;
   GtkTreeModel *model;
 
   /* Get current selection */
@@ -437,7 +520,7 @@ key_callback( GtkComboBox *widget, gpointer user_data )
 
   /* Store and display selection */
   info->key = key;
-  set_key_text( info->label, info->key );
+  set_key_text( info->label, info );
 }
 
 static void

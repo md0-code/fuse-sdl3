@@ -69,11 +69,24 @@ get_key_name_for_button_ ## which ( void ) \
   return keyboard_key_text( *current_settings[ which ] ); \
 }
 
+#define GET_SET_INPUT_KEY_NAME_FUNCTIONS( which ) \
+\
+static const char* \
+get_input_key_name_for_button_ ## which ( void ) \
+{ \
+  return input_key_text( *current_settings[ which ] ); \
+}
+
 GET_SET_KEY_FUNCTIONS( 1 )
 GET_SET_KEY_FUNCTIONS( 2 )
 GET_SET_KEY_FUNCTIONS( 3 )
 GET_SET_KEY_FUNCTIONS( 4 )
 GET_SET_KEY_FUNCTIONS( 5 )
+GET_SET_INPUT_KEY_NAME_FUNCTIONS( 1 )
+GET_SET_INPUT_KEY_NAME_FUNCTIONS( 2 )
+GET_SET_INPUT_KEY_NAME_FUNCTIONS( 3 )
+GET_SET_INPUT_KEY_NAME_FUNCTIONS( 4 )
+GET_SET_INPUT_KEY_NAME_FUNCTIONS( 5 )
 #ifdef USE_JOYSTICK
 GET_SET_KEY_FUNCTIONS( 6 )
 GET_SET_KEY_FUNCTIONS( 7 )
@@ -156,11 +169,85 @@ static widget_menu_entry submenu_select_key_for_button_ ## which [] = { \
   { NULL } \
 };
 
+#define SUBMENU_INPUT_KEY_SELECTIONS( which ) \
+\
+static widget_menu_entry submenu_select_input_numbers_for_button_ ## which [] = { \
+  { "Select a key" }, \
+  { "\0120\011", INPUT_KEY_0, NULL, set_key_for_button_ ## which, NULL, INPUT_KEY_0 }, \
+  { "\0121\011", INPUT_KEY_1, NULL, set_key_for_button_ ## which, NULL, INPUT_KEY_1 }, \
+  { "\0122\011", INPUT_KEY_2, NULL, set_key_for_button_ ## which, NULL, INPUT_KEY_2 }, \
+  { "\0123\011", INPUT_KEY_3, NULL, set_key_for_button_ ## which, NULL, INPUT_KEY_3 }, \
+  { "\0124\011", INPUT_KEY_4, NULL, set_key_for_button_ ## which, NULL, INPUT_KEY_4 }, \
+  { "\0125\011", INPUT_KEY_5, NULL, set_key_for_button_ ## which, NULL, INPUT_KEY_5 }, \
+  { "\0126\011", INPUT_KEY_6, NULL, set_key_for_button_ ## which, NULL, INPUT_KEY_6 }, \
+  { "\0127\011", INPUT_KEY_7, NULL, set_key_for_button_ ## which, NULL, INPUT_KEY_7 }, \
+  { "\0128\011", INPUT_KEY_8, NULL, set_key_for_button_ ## which, NULL, INPUT_KEY_8 }, \
+  { "\0129\011", INPUT_KEY_9, NULL, set_key_for_button_ ## which, NULL, INPUT_KEY_9 }, \
+  { NULL } \
+}; \
+\
+static widget_menu_entry submenu_select_input_letters1_for_button_ ## which [] = { \
+  { "Select a key" }, \
+  { "\012A\011", INPUT_KEY_a, NULL, set_key_for_button_ ## which, NULL, INPUT_KEY_a }, \
+  { "\012B\011", INPUT_KEY_b, NULL, set_key_for_button_ ## which, NULL, INPUT_KEY_b }, \
+  { "\012C\011", INPUT_KEY_c, NULL, set_key_for_button_ ## which, NULL, INPUT_KEY_c }, \
+  { "\012D\011", INPUT_KEY_d, NULL, set_key_for_button_ ## which, NULL, INPUT_KEY_d }, \
+  { "\012E\011", INPUT_KEY_e, NULL, set_key_for_button_ ## which, NULL, INPUT_KEY_e }, \
+  { "\012F\011", INPUT_KEY_f, NULL, set_key_for_button_ ## which, NULL, INPUT_KEY_f }, \
+  { "\012G\011", INPUT_KEY_g, NULL, set_key_for_button_ ## which, NULL, INPUT_KEY_g }, \
+  { "\012H\011", INPUT_KEY_h, NULL, set_key_for_button_ ## which, NULL, INPUT_KEY_h }, \
+  { "\012I\011", INPUT_KEY_i, NULL, set_key_for_button_ ## which, NULL, INPUT_KEY_i }, \
+  { "\012J\011", INPUT_KEY_j, NULL, set_key_for_button_ ## which, NULL, INPUT_KEY_j }, \
+  { "\012K\011", INPUT_KEY_k, NULL, set_key_for_button_ ## which, NULL, INPUT_KEY_k }, \
+  { "\012L\011", INPUT_KEY_l, NULL, set_key_for_button_ ## which, NULL, INPUT_KEY_l }, \
+  { "\012M\011", INPUT_KEY_m, NULL, set_key_for_button_ ## which, NULL, INPUT_KEY_m }, \
+  { NULL } \
+}; \
+\
+static widget_menu_entry submenu_select_input_letters2_for_button_ ## which [] = { \
+  { "Select a key" }, \
+  { "\012N\011", INPUT_KEY_n, NULL, set_key_for_button_ ## which, NULL, INPUT_KEY_n }, \
+  { "\012O\011", INPUT_KEY_o, NULL, set_key_for_button_ ## which, NULL, INPUT_KEY_o }, \
+  { "\012P\011", INPUT_KEY_p, NULL, set_key_for_button_ ## which, NULL, INPUT_KEY_p }, \
+  { "\012Q\011", INPUT_KEY_q, NULL, set_key_for_button_ ## which, NULL, INPUT_KEY_q }, \
+  { "\012R\011", INPUT_KEY_r, NULL, set_key_for_button_ ## which, NULL, INPUT_KEY_r }, \
+  { "\012S\011", INPUT_KEY_s, NULL, set_key_for_button_ ## which, NULL, INPUT_KEY_s }, \
+  { "\012T\011", INPUT_KEY_t, NULL, set_key_for_button_ ## which, NULL, INPUT_KEY_t }, \
+  { "\012U\011", INPUT_KEY_u, NULL, set_key_for_button_ ## which, NULL, INPUT_KEY_u }, \
+  { "\012V\011", INPUT_KEY_v, NULL, set_key_for_button_ ## which, NULL, INPUT_KEY_v }, \
+  { "\012W\011", INPUT_KEY_w, NULL, set_key_for_button_ ## which, NULL, INPUT_KEY_w }, \
+  { "\012X\011", INPUT_KEY_x, NULL, set_key_for_button_ ## which, NULL, INPUT_KEY_x }, \
+  { "\012Y\011", INPUT_KEY_y, NULL, set_key_for_button_ ## which, NULL, INPUT_KEY_y }, \
+  { "\012Z\011", INPUT_KEY_z, NULL, set_key_for_button_ ## which, NULL, INPUT_KEY_z }, \
+  { NULL } \
+}; \
+\
+static widget_menu_entry submenu_select_input_key_for_button_ ## which [] = { \
+  { "Select a key" }, \
+  { "Cursor \012U\011p", INPUT_KEY_u, NULL, set_key_for_button_ ## which, NULL, INPUT_KEY_Up }, \
+  { "Cursor \012D\011own", INPUT_KEY_d, NULL, set_key_for_button_ ## which, NULL, INPUT_KEY_Down }, \
+  { "Cursor \012L\011eft", INPUT_KEY_l, NULL, set_key_for_button_ ## which, NULL, INPUT_KEY_Left }, \
+  { "Cursor \012R\011ight", INPUT_KEY_r, NULL, set_key_for_button_ ## which, NULL, INPUT_KEY_Right }, \
+  { "Left A\012l\011t", INPUT_KEY_l, NULL, set_key_for_button_ ## which, NULL, INPUT_KEY_Alt_L }, \
+  { "\012N\011umbers...", INPUT_KEY_n, submenu_select_input_numbers_for_button_ ## which, NULL, NULL, 0 }, \
+  { "\012A\011-M...", INPUT_KEY_a, submenu_select_input_letters1_for_button_ ## which, NULL, NULL, 0 }, \
+  { "N-\012Z\011...", INPUT_KEY_z, submenu_select_input_letters2_for_button_ ## which, NULL, NULL, 0 }, \
+  { "\012S\011pace", INPUT_KEY_s, NULL, set_key_for_button_ ## which, NULL, INPUT_KEY_space }, \
+  { "\012E\011nter", INPUT_KEY_e, NULL, set_key_for_button_ ## which, NULL, INPUT_KEY_Return }, \
+  { "N\012o\011thing", INPUT_KEY_o, NULL, set_key_for_button_ ## which, NULL, INPUT_KEY_NONE }, \
+  { NULL } \
+};
+
 SUBMENU_KEY_SELECTIONS( 1 )
 SUBMENU_KEY_SELECTIONS( 2 )
 SUBMENU_KEY_SELECTIONS( 3 )
 SUBMENU_KEY_SELECTIONS( 4 )
 SUBMENU_KEY_SELECTIONS( 5 )
+SUBMENU_INPUT_KEY_SELECTIONS( 1 )
+SUBMENU_INPUT_KEY_SELECTIONS( 2 )
+SUBMENU_INPUT_KEY_SELECTIONS( 3 )
+SUBMENU_INPUT_KEY_SELECTIONS( 4 )
+SUBMENU_INPUT_KEY_SELECTIONS( 5 )
 #ifdef USE_JOYSTICK
 SUBMENU_KEY_SELECTIONS( 6 )
 SUBMENU_KEY_SELECTIONS( 7 )
@@ -211,11 +298,11 @@ static widget_menu_entry submenu_joystick_buttons[] = {
 
 static widget_menu_entry submenu_keyboard_buttons[] = {
   { "Select keyboard key" },
-  { "Button \012U\011p", INPUT_KEY_u, submenu_select_key_for_button_1, NULL, get_key_name_for_button_1, 0 },
-  { "Button \012D\011own", INPUT_KEY_d, submenu_select_key_for_button_2, NULL, get_key_name_for_button_2, 0 },
-  { "Button \012L\011eft", INPUT_KEY_l, submenu_select_key_for_button_3, NULL, get_key_name_for_button_3, 0 },
-  { "Button \012R\011ight", INPUT_KEY_r, submenu_select_key_for_button_4, NULL,	get_key_name_for_button_4, 0 },
-  { "Button \012F\011ire", INPUT_KEY_f, submenu_select_key_for_button_5, NULL, get_key_name_for_button_5, 0 },
+  { "Button \012U\011p", INPUT_KEY_u, submenu_select_input_key_for_button_1, NULL, get_input_key_name_for_button_1, 0 },
+  { "Button \012D\011own", INPUT_KEY_d, submenu_select_input_key_for_button_2, NULL, get_input_key_name_for_button_2, 0 },
+  { "Button \012L\011eft", INPUT_KEY_l, submenu_select_input_key_for_button_3, NULL, get_input_key_name_for_button_3, 0 },
+  { "Button \012R\011ight", INPUT_KEY_r, submenu_select_input_key_for_button_4, NULL, get_input_key_name_for_button_4, 0 },
+  { "Button \012F\011ire", INPUT_KEY_f, submenu_select_input_key_for_button_5, NULL, get_input_key_name_for_button_5, 0 },
   { NULL }
 };
 

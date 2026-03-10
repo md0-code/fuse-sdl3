@@ -4,93 +4,89 @@ Implement the refined requirements as a milestone-oriented roadmap with narrow
 deliverables so each stage is reviewable, testable, and easy to track in the
 direct fork. The revised sequence moves keyboard joystick defaults and related
 setting changes earlier, bundles the requested startup-default changes
-explicitly, then keeps Windows build support and shader work isolated later
-because they carry the highest design and regression risk.
+explicitly, then keeps the SDL-only frontend reduction, native Windows build
+work, and shader work isolated later because they carry the highest design and
+regression risk.
 
 ## Milestone Breakdown
 
 1. Milestone 1: downstream versioning and branding metadata.
-   Update `worktrees/fuse-downstream/configure.ac` to define a manual internal
-   build number that increments per release and composes the visible version
-   string as upstream-version.build-number. Update
-   `worktrees/fuse-downstream/fuse.c` to print the downstream SDL3 identity,
-   GitHub address, and original upstream copyright text together, while
-   keeping existing upstream-facing metadata semantics stable.
+    [done]
 
 2. Milestone 2: portable config precedence.
-   Change `worktrees/fuse-downstream/settings.c` so the current working
-   directory is checked first for `.fuserc` on Unix-like hosts and `fuse.cfg`
-   on Windows, then fall back to the existing config directory. Keep XML
-   parsing and legacy-config handling unchanged, and preserve command-line
-   arguments as the highest-priority override.
+    [done]
 
 3. Milestone 3: new joystick emulation keys and mapping groundwork.
-   Audit the existing keyboard joystick and Spectrum key assignments to choose
-   a safe default fire key that is not already reserved; `Left Alt` is only a
-   candidate until the audit confirms it is portable and unused enough.
-   Extend `worktrees/fuse-downstream/settings.dat` so cursor keys and the new
-   fire key are selectable in the keyboard joystick mapping list, set them as
-   the new default mapping, and investigate what the existing
-   `keyboard_arrows_shifted` option actually does before deciding whether it is
-   sufficient to preserve Spectrum cursor behavior by itself.
-
-4. Milestone 4: downstream default settings refresh.
-   Change the requested defaults in `worktrees/fuse-downstream/settings.dat`
-   in one isolated milestone: graphics filter to `2x`, status bar off,
-   fastloading off, tape traps off, and keyboard joystick defaults to cursor
-   keys plus the chosen fire key. Regenerate derived outputs and verify
-   whether `worktrees/fuse-downstream/ui/sdl/sdldisplay.c` needs a matching
-   startup-size adjustment so the initial SDL window geometry matches the
-   selected logical scale.
+    [done]
+    
+4. Milestone 4: default settings refresh.
+    [done]
 
 5. Milestone 5: command line overhaul.
+   [done]
    Audit the generated and built-in command-line surfaces against the actual
-   downstream behavior, then add fullscreen command-line support only if it is
+   behavior, then add fullscreen command-line support only if it is
    still missing in practice. In the same milestone, update the built-in help
    screen and any closely coupled command-line documentation so the reported
    options match the real implementation instead of the older abbreviated
    help text.
 
-6. Milestone 6: MinGW Windows SDL3 build support.
-   Make the current downstream SDL3 tree configure and build cleanly with
-   MinGW-w64 first, because that path aligns with the existing autotools
-   infrastructure in `worktrees/fuse-downstream/configure.ac`. Limit source
-   compatibility changes to portability and SDL UI code unless wider platform
-   assumptions are proven broken.
+6. Milestone 6: SDL-only frontend reduction.
+   [done]
+   Freeze the downstream frontend scope as `ui/sdl` plus `ui/widget`, then
+   disable the GTK, Xlib, fb, svga, Wii, and legacy Win32 UI backends from the
+   active downstream build. Limit this milestone to build-surface reduction,
+   generated-file dependency cleanup, and shared-interface changes required to
+   stop legacy UI types from leaking into retained code. Keep Windows platform
+   support code that is still useful for the retained SDL build, especially
+   path, timer, socket, launcher, and runtime-integration helpers.
 
-7. Milestone 7: Visual C build path and Windows docs.
-   Add the Visual C build path as either concrete source/build support or a
-   validated documented workflow, depending on how much project/build metadata
-   is required outside autotools. Update
-   `worktrees/fuse-downstream/BUILD-SDL3.md` with distinct MinGW and Visual C
-   instructions, dependency acquisition notes, and runtime DLL expectations.
+7. Milestone 7: CMake build foundation for the retained SDL plus widget tree.
+   Add a top-level CMake build that models the actual downstream target:
+   retained core code, SDL frontend code, widget UI code, generated sources,
+   and the platform support code that is still needed. Prove the CMake source
+   model on Linux first so source lists, generation rules, include paths, and
+   link dependencies are correct before Windows-specific compiler issues are
+   introduced. Model only the retained SDL and widget generators so the new
+   build does not silently depend on outputs from deleted frontend paths.
 
-8. Milestone 8: shader settings and command-line surface.
+8. Milestone 8: native Windows `clang-cl` bring-up and docs.
+   Define a reproducible dependency-acquisition path for Windows, then make the
+   CMake build compile and run natively on Windows with `clang-cl`. Treat
+   compiler and runtime fixes as shared portability cleanup where possible, and
+   update `BUILD-SDL3.md` with the new CMake-based Windows workflow,
+   dependency notes, and runtime DLL expectations. Validate Visual Studio usage
+   through the CMake generator after the command-line `clang-cl` path works.
+   Finish by validating resource lookup, configuration directories, ROM
+   discovery, temporary files, Unicode-path handling, timers, sockets, and DLL
+   assumptions under native Windows.
+
+9. Milestone 9: shader settings and command-line surface.
     Add settings entries for external shader selection in
-    `worktrees/fuse-downstream/settings.dat`, including a command-line option
+    `settings.dat`, including a command-line option
     for selecting or clearing a startup shader. Keep this milestone strictly about
     configuration surfaces and derived-output regeneration so the later
     renderer work lands on stable user-facing interfaces.
 
-9. Milestone 9: SDL renderer shader infrastructure.
-    Refactor `worktrees/fuse-downstream/ui/sdl/sdldisplay.c` so the current
+10. Milestone 10: SDL renderer shader infrastructure.
+    Refactor `ui/sdl/sdldisplay.c` so the current
     presentation path is split cleanly into frame generation, texture upload,
     and final presentation. Add the backend capability checks, shader-loading
     path, and robust non-shader fallback needed to support externally supplied
     GLSL shaders without destabilizing the baseline SDL3 renderer path.
 
-10. Milestone 10: shader menu integration and runtime switching.
+11. Milestone 11: shader menu integration and runtime switching.
     Add menu-level control for selecting, clearing, or inspecting the active
-    shader using the established patterns in `worktrees/fuse-downstream/menu.c`
-    and `worktrees/fuse-downstream/ui.c`. Decide in this milestone whether runtime
+    shader using the established patterns in `menu.c`
+    and `ui.c`. Decide in this milestone whether runtime
     shader changes require renderer rebuilds or can rebind presentation
     resources in place, and keep that behavior localized to the SDL renderer
     layer.
 
-11. Milestone 11: testing, docs, and workflow refresh.
-    Update `worktrees/fuse-downstream/TESTING-SDL3.md` and any published
+12. Milestone 12: testing, docs, and workflow refresh.
+    Update `TESTING-SDL3.md` and any published
     top-level docs to cover portable mode, fullscreen usage, x2 default
-    startup, joystick mode selection, Windows build paths, and shader
+    startup, joystick mode selection, the CMake-based Windows build path, and shader
     selection and fallback behavior. Finish by rerunning the documented build
     and smoke-test workflow against the direct fork.
 
@@ -108,16 +104,18 @@ because they carry the highest design and regression risk.
    confirm the built-in help text matches the actual downstream command-line
    implementation.
 
-4. After milestones 6 and 7, validate at least one MinGW-w64 build and review
-   the Visual C build path for completeness, recording any unresolved
-   IDE/project-system gaps.
+4. After milestones 6 through 8, validate the reduced SDL-only frontend set,
+   confirm the Linux CMake build reaches parity with the retained autotools SDL
+   path, verify at least one native Windows `clang-cl` build and launch, and
+   confirm Visual Studio use remains a thin CMake-generator wrapper rather than
+   a separately maintained project path.
 
-5. After milestones 8 through 10, validate shader selection from command line
+5. After milestones 9 through 11, validate shader selection from command line
    and menu, confirm invalid or unsupported shaders fail cleanly, and ensure
    non-shader rendering remains the fallback path.
 
-6. After milestone 11, rerun the documented SDL smoke tests and confirm at least
-   one non-SDL-primary build still works.
+6. After milestone 12, rerun the documented SDL smoke tests and confirm the
+   documented CMake and retained downstream build workflows still work.
 
 ## Decisions
 
@@ -129,7 +127,10 @@ because they carry the highest design and regression risk.
    alignment are resolved before Windows and shader work.
 - Keep cursor-key Kempston mode optional and preserve Ctrl-plus-arrow Spectrum
   cursor semantics.
-- Sequence Windows support as MinGW first, Visual C second.
+- Sequence Windows support as SDL-only frontend reduction first, CMake second,
+  and native Windows `clang-cl` bring-up third.
+- Keep the retained frontend target explicit: `ui/sdl` plus `ui/widget`, not a
+   widget rewrite.
 - Land shader configuration surfaces before shader renderer internals so the
   user-facing contract stabilizes early.
 
@@ -144,10 +145,19 @@ because they carry the highest design and regression risk.
    `Left Alt` as provisional until verified against existing bindings and OS
    quirks.
 
-3. If Visual C support requires substantial non-autotools project
-   maintenance, keep it as a separately documented deliverable rather than
-   coupling it tightly to the MinGW source changes.
+3. If the CMake Windows path requires significant dependency or generator
+   policy beyond the initial `clang-cl` bring-up, keep Visual Studio-specific
+   polish separate from the core source and compiler enablement work.
 
-4. If `keyboard_arrows_shifted` does not already provide the desired Spectrum
+4. Because generated-source rules are currently spread across frontend-specific
+   make fragments, keep milestone 7 focused on modeling only the retained SDL
+   and widget generators so the new build does not depend on deleted frontend
+   outputs.
+
+5. If Windows dependency acquisition is not standardized early, the port can
+   appear to build while actually depending on an undocumented mixture of
+   MSYS2, manual DLL copies, and host-specific toolchain state.
+
+6. If `keyboard_arrows_shifted` does not already provide the desired Spectrum
    cursor fallback semantics, keep its behavior unchanged and implement the
    Ctrl-plus-arrow path explicitly in the new joystick-mode logic.

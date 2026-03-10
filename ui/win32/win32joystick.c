@@ -173,7 +173,8 @@ struct button_info {
   HWND label; /* this is the label on the button */
   HWND static_label; /* this is the label on the static */
   HWND frame; 
-  keyboard_key_name key;
+  int key;
+  int use_input_keys;
 };
 
 struct joystick_info {
@@ -193,7 +194,7 @@ static void create_joystick_type_selector( struct joystick_info *info,
 static void
 create_fire_button_selector( const TCHAR *title, struct button_info *info,
                              HWND hwndDlg );
-static void set_key_text( HWND hlabel, keyboard_key_name key );
+static void set_key_text( HWND hlabel, const struct button_info *info );
 static void joystick_done( LONG_PTR user_data );
 static void show_key_selection_popoup( HWND hwndDlg, LPARAM lParam );
 
@@ -316,9 +317,11 @@ setup_info( struct joystick_info *info, int action )
     info->button[12].setting = &( settings_current.joystick_1_fire_13 );
     info->button[13].setting = &( settings_current.joystick_1_fire_14 );
     info->button[14].setting = &( settings_current.joystick_1_fire_15 );
-    for( i = 0; i < NUM_JOY_BUTTONS; i++ )
+    for( i = 0; i < NUM_JOY_BUTTONS; i++ ) {
+      info->button[i].use_input_keys = 0;
       _sntprintf( info->button[i].name, 80, "Button %lu",
                   (unsigned long)i + 1 );
+    }
     break;
 
   case 2:
@@ -338,24 +341,34 @@ setup_info( struct joystick_info *info, int action )
     info->button[12].setting = &( settings_current.joystick_2_fire_13 );
     info->button[13].setting = &( settings_current.joystick_2_fire_14 );
     info->button[14].setting = &( settings_current.joystick_2_fire_15 );
-    for( i = 0; i < NUM_JOY_BUTTONS; i++ )
+    for( i = 0; i < NUM_JOY_BUTTONS; i++ ) {
+      info->button[i].use_input_keys = 0;
       _sntprintf( info->button[i].name, 80, "Button %lu",
                   (unsigned long)i + 1 );
+    }
     break;
 
   case 3:
     info->type = &( settings_current.joystick_keyboard_output );
     info->button[0].setting = &( settings_current.joystick_keyboard_up  );
+    info->button[0].use_input_keys = 1;
     _sntprintf( info->button[0].name, 80, "Button for UP" );
     info->button[1].setting = &( settings_current.joystick_keyboard_down  );
+    info->button[1].use_input_keys = 1;
     _sntprintf( info->button[1].name, 80, "Button for DOWN" );
     info->button[2].setting = &( settings_current.joystick_keyboard_left  );
+    info->button[2].use_input_keys = 1;
     _sntprintf( info->button[2].name, 80, "Button for LEFT" );
     info->button[3].setting = &( settings_current.joystick_keyboard_right  );
+    info->button[3].use_input_keys = 1;
     _sntprintf( info->button[3].name, 80, "Button for RIGHT" );
     info->button[4].setting = &( settings_current.joystick_keyboard_fire  );
+    info->button[4].use_input_keys = 1;
     _sntprintf( info->button[4].name, 80, "Button for FIRE" );
-    for( i = 5; i < NUM_JOY_BUTTONS; i++ ) info->button[i].setting = NULL;
+    for( i = 5; i < NUM_JOY_BUTTONS; i++ ) {
+      info->button[i].setting = NULL;
+      info->button[i].use_input_keys = 0;
+    }
     break;
 
   }
@@ -403,19 +416,20 @@ create_fire_button_selector( const TCHAR *title, struct button_info *info,
 {
   SendMessage( info->frame, WM_SETTEXT, 0, ( LPARAM ) title );
   info->key = *info->setting;
-  set_key_text( info->label, info->key );
-  set_key_text( info->static_label, info->key );
+  set_key_text( info->label, info );
+  set_key_text( info->static_label, info );
 
   SetWindowLongPtr( info->label, GWLP_USERDATA, ( LONG_PTR ) info );
 }
 
 static void
-set_key_text( HWND hlabel, keyboard_key_name key )
+set_key_text( HWND hlabel, const struct button_info *info )
 {
   const TCHAR *text;
   TCHAR buffer[40];
 
-  text = keyboard_key_text( key );
+  text = info->use_input_keys ? input_key_text( info->key )
+                              : keyboard_key_text( info->key );
 
   _sntprintf( buffer, 40, "%s", text );
   
@@ -449,13 +463,16 @@ show_key_selection_popoup( HWND hwndDlg, LPARAM lParam )
   HMENU hpopup;
   struct button_info *info;
   BOOL menu_id;
+  LPCTSTR menu_name;
   
   info = ( struct button_info * ) GetWindowLongPtr( ( HWND ) lParam,
                                                     GWLP_USERDATA );
   /* create a popup right over the button that has been clicked */
   GetWindowRect( ( HWND ) lParam, &rect );
+  menu_name = info->use_input_keys ? MAKEINTRESOURCE( IDR_JOYSTICKS_KEYBOARD_POPUP )
+                                   : MAKEINTRESOURCE( IDR_JOYSTICKS_POPUP );
   hpopup = GetSubMenu( LoadMenu( fuse_hInstance,
-                     MAKEINTRESOURCE( IDR_JOYSTICKS_POPUP ) ), 0 );
+                     menu_name ), 0 );
   /* popup returns the key value */
   menu_id = TrackPopupMenu( hpopup, TPM_LEFTALIGN | TPM_TOPALIGN |
                             TPM_NONOTIFY | TPM_RETURNCMD |
@@ -467,8 +484,8 @@ show_key_selection_popoup( HWND hwndDlg, LPARAM lParam )
     if( menu_id != 1 )
       info->key = menu_id;
     else
-      info->key = KEYBOARD_NONE;
-    set_key_text( info->label, info->key );
-    set_key_text( info->static_label, info->key );
+      info->key = info->use_input_keys ? INPUT_KEY_NONE : KEYBOARD_NONE;
+    set_key_text( info->label, info );
+    set_key_text( info->static_label, info );
   }
 }

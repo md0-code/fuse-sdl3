@@ -37,6 +37,70 @@ static int keypress( const input_event_key_t *event );
 static int keyrelease( const input_event_key_t *event );
 static int do_joystick( const input_event_joystick_t *joystick_event,
 			int press );
+static int keyboard_joystick_button( input_key keysym,
+                                     joystick_button *button );
+static int is_arrow_key( input_key keysym );
+static int keyboard_joystick_toggle_available( void );
+static int is_keyboard_joystick_arrow_key( input_key keysym );
+static int use_cursor_bypass_toggle( input_key keysym );
+static int use_keyboard_joystick_for_keypress( input_key keysym );
+static keyboard_key_name cursor_role_key( joystick_button button );
+static int use_cursor_role_keypress( input_key keysym, joystick_button *button );
+
+static int cursor_bypass_toggled;
+static int keyboard_joystick_state;
+
+const char*
+input_key_text( input_key key )
+{
+  const char *text;
+  static char unknown_key[ 32 ];
+
+  switch( key ) {
+  case INPUT_KEY_Up: return "Up";
+  case INPUT_KEY_Down: return "Down";
+  case INPUT_KEY_Left: return "Left";
+  case INPUT_KEY_Right: return "Right";
+  case INPUT_KEY_Insert: return "Insert";
+  case INPUT_KEY_Delete: return "Delete";
+  case INPUT_KEY_Home: return "Home";
+  case INPUT_KEY_End: return "End";
+  case INPUT_KEY_Page_Up: return "Page Up";
+  case INPUT_KEY_Page_Down: return "Page Down";
+  case INPUT_KEY_Caps_Lock: return "Caps Lock";
+  case INPUT_KEY_KP_Enter: return "Keypad Enter";
+  case INPUT_KEY_F1: return "F1";
+  case INPUT_KEY_F2: return "F2";
+  case INPUT_KEY_F3: return "F3";
+  case INPUT_KEY_F4: return "F4";
+  case INPUT_KEY_F5: return "F5";
+  case INPUT_KEY_F6: return "F6";
+  case INPUT_KEY_F7: return "F7";
+  case INPUT_KEY_F8: return "F8";
+  case INPUT_KEY_F9: return "F9";
+  case INPUT_KEY_F10: return "F10";
+  case INPUT_KEY_F11: return "F11";
+  case INPUT_KEY_F12: return "F12";
+  case INPUT_KEY_Shift_L: return "Left Shift";
+  case INPUT_KEY_Shift_R: return "Right Shift";
+  case INPUT_KEY_Control_L: return "Left Control";
+  case INPUT_KEY_Control_R: return "Right Control";
+  case INPUT_KEY_Alt_L: return "Left Alt";
+  case INPUT_KEY_Alt_R: return "Right Alt";
+  case INPUT_KEY_Meta_L: return "Left Meta";
+  case INPUT_KEY_Meta_R: return "Right Meta";
+  case INPUT_KEY_Super_L: return "Left Super";
+  case INPUT_KEY_Super_R: return "Right Super";
+  case INPUT_KEY_Hyper_L: return "Left Hyper";
+  case INPUT_KEY_Hyper_R: return "Right Hyper";
+  case INPUT_KEY_Mode_switch: return "Mode Switch";
+  default:
+    text = keyboard_key_text( (keyboard_key_name)key );
+    if( text ) return text;
+    snprintf( unknown_key, sizeof( unknown_key ), "Key %d", key );
+    return unknown_key;
+  }
+}
 
 int
 input_event( const input_event_t *event )
@@ -65,6 +129,100 @@ use_shifted_arrow_keys( input_key keysym )
   return ( settings_current.keyboard_arrows_shifted &&
            ( keysym == INPUT_KEY_Up || keysym == INPUT_KEY_Down ||
              keysym == INPUT_KEY_Left || keysym == INPUT_KEY_Right ) );
+}
+
+static int
+keyboard_joystick_button( input_key keysym, joystick_button *button )
+{
+  if( keysym == settings_current.joystick_keyboard_up ) {
+    *button = JOYSTICK_BUTTON_UP;
+    return 1;
+  }
+
+  if( keysym == settings_current.joystick_keyboard_down ) {
+    *button = JOYSTICK_BUTTON_DOWN;
+    return 1;
+  }
+
+  if( keysym == settings_current.joystick_keyboard_left ) {
+    *button = JOYSTICK_BUTTON_LEFT;
+    return 1;
+  }
+
+  if( keysym == settings_current.joystick_keyboard_right ) {
+    *button = JOYSTICK_BUTTON_RIGHT;
+    return 1;
+  }
+
+  if( keysym == settings_current.joystick_keyboard_fire ) {
+    *button = JOYSTICK_BUTTON_FIRE;
+    return 1;
+  }
+
+  return 0;
+}
+
+static int
+is_arrow_key( input_key keysym )
+{
+  return keysym == INPUT_KEY_Up || keysym == INPUT_KEY_Down ||
+         keysym == INPUT_KEY_Left || keysym == INPUT_KEY_Right;
+}
+
+static int
+keyboard_joystick_toggle_available( void )
+{
+  return settings_current.joystick_keyboard_output != JOYSTICK_TYPE_NONE &&
+         ( is_arrow_key( settings_current.joystick_keyboard_up ) ||
+           is_arrow_key( settings_current.joystick_keyboard_down ) ||
+           is_arrow_key( settings_current.joystick_keyboard_left ) ||
+           is_arrow_key( settings_current.joystick_keyboard_right ) );
+}
+
+static int
+is_keyboard_joystick_arrow_key( input_key keysym )
+{
+  joystick_button button;
+
+  return is_arrow_key( keysym ) &&
+         keyboard_joystick_button( keysym, &button ) &&
+         button != JOYSTICK_BUTTON_FIRE;
+}
+
+static keyboard_key_name
+cursor_role_key( joystick_button button )
+{
+  switch( button ) {
+  case JOYSTICK_BUTTON_LEFT: return KEYBOARD_5;
+  case JOYSTICK_BUTTON_RIGHT: return KEYBOARD_8;
+  case JOYSTICK_BUTTON_UP: return KEYBOARD_7;
+  case JOYSTICK_BUTTON_DOWN: return KEYBOARD_6;
+  case JOYSTICK_BUTTON_FIRE: return KEYBOARD_0;
+  }
+
+  return KEYBOARD_NONE;
+}
+
+static int
+use_cursor_role_keypress( input_key keysym, joystick_button *button )
+{
+  return use_cursor_bypass_toggle( keysym ) &&
+         keyboard_joystick_button( keysym, button ) &&
+         *button != JOYSTICK_BUTTON_FIRE;
+}
+
+static int
+use_cursor_bypass_toggle( input_key keysym )
+{
+  return cursor_bypass_toggled &&
+         keyboard_joystick_toggle_available() &&
+         is_keyboard_joystick_arrow_key( keysym );
+}
+
+static int
+use_keyboard_joystick_for_keypress( input_key keysym )
+{
+  return !use_cursor_bypass_toggle( keysym );
 }
 
 static void
@@ -234,6 +392,7 @@ recreated_keypress( input_key k )
 static int
 keypress( const input_event_key_t *event )
 {
+  joystick_button button;
   int swallow;
 
   if( ui_widget_level >= 0 ) {
@@ -247,28 +406,29 @@ keypress( const input_event_key_t *event )
     if( !ui_mouse_grabbed ) return 0;
   }
 
+  if( event->spectrum_key == INPUT_KEY_F12 &&
+      keyboard_joystick_toggle_available() ) {
+    cursor_bypass_toggled = !cursor_bypass_toggled;
+    ui_show_transient_message( cursor_bypass_toggled ?
+                               "Cursor keys active" :
+                               "Joystick keys active" );
+    return 0;
+  }
+
   swallow = 0;
   /* Joystick emulation via keyboard keys */
-  if ( event->spectrum_key == settings_current.joystick_keyboard_up ) {
-    swallow = joystick_press( JOYSTICK_KEYBOARD, JOYSTICK_BUTTON_UP   , 1 );
-  }
-  else if( event->spectrum_key == settings_current.joystick_keyboard_down ) {
-    swallow = joystick_press( JOYSTICK_KEYBOARD, JOYSTICK_BUTTON_DOWN , 1 );
-  }
-  else if( event->spectrum_key == settings_current.joystick_keyboard_left ) {
-    swallow = joystick_press( JOYSTICK_KEYBOARD, JOYSTICK_BUTTON_LEFT , 1 );
-  }
-  else if( event->spectrum_key == settings_current.joystick_keyboard_right ) {
-    swallow = joystick_press( JOYSTICK_KEYBOARD, JOYSTICK_BUTTON_RIGHT, 1 );
-  }
-  else if( event->spectrum_key == settings_current.joystick_keyboard_fire ) {
-    swallow = joystick_press( JOYSTICK_KEYBOARD, JOYSTICK_BUTTON_FIRE , 1 );
+  if( use_keyboard_joystick_for_keypress( event->spectrum_key ) &&
+      keyboard_joystick_button( event->spectrum_key, &button ) ) {
+    swallow = joystick_press( JOYSTICK_KEYBOARD, button, 1 );
+    if( swallow ) keyboard_joystick_state |= ( 1 << button );
   }
 
   if( swallow ) return 0;
 
   if( settings_current.recreated_spectrum ) {
     recreated_keypress( event->spectrum_key );
+  } else if( use_cursor_role_keypress( event->spectrum_key, &button ) ) {
+    keyboard_press( cursor_role_key( button ) );
   } else {
     send_keyboard_press( event->spectrum_key );
   }
@@ -281,25 +441,29 @@ keypress( const input_event_key_t *event )
 static int
 keyrelease( const input_event_key_t *event )
 {
-  if( !settings_current.recreated_spectrum ) {
-    send_keyboard_release( event->spectrum_key );
+  joystick_button button;
+  int swallowed;
+
+  if( event->spectrum_key == INPUT_KEY_F12 &&
+      keyboard_joystick_toggle_available() ) {
+    return 0;
+  }
+
+  swallowed = keyboard_joystick_button( event->spectrum_key, &button ) &&
+             ( keyboard_joystick_state & ( 1 << button ) );
+
+  if( !settings_current.recreated_spectrum && !swallowed ) {
+    if( use_cursor_role_keypress( event->spectrum_key, &button ) ) {
+      keyboard_release( cursor_role_key( button ) );
+    } else {
+      send_keyboard_release( event->spectrum_key );
+    }
   }
 
   /* Joystick emulation via keyboard keys */
-  if( event->spectrum_key == settings_current.joystick_keyboard_up ) {
-    joystick_press( JOYSTICK_KEYBOARD, JOYSTICK_BUTTON_UP   , 0 );
-  }
-  else if( event->spectrum_key == settings_current.joystick_keyboard_down ) {
-    joystick_press( JOYSTICK_KEYBOARD, JOYSTICK_BUTTON_DOWN , 0 );
-  }
-  else if( event->spectrum_key == settings_current.joystick_keyboard_left ) {
-    joystick_press( JOYSTICK_KEYBOARD, JOYSTICK_BUTTON_LEFT , 0 );
-  }
-  else if( event->spectrum_key == settings_current.joystick_keyboard_right ) {
-    joystick_press( JOYSTICK_KEYBOARD, JOYSTICK_BUTTON_RIGHT, 0 );
-  }
-  else if( event->spectrum_key == settings_current.joystick_keyboard_fire ) {
-    joystick_press( JOYSTICK_KEYBOARD, JOYSTICK_BUTTON_FIRE , 0 );
+  if( swallowed ) {
+    joystick_press( JOYSTICK_KEYBOARD, button, 0 );
+    keyboard_joystick_state &= ~( 1 << button );
   }
 
   return 0;
