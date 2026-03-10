@@ -37,9 +37,10 @@ install-win32: all
 	cp $(top_builddir)/.libs/fuse$(EXEEXT) $(DESTDIR) || \
 	cp $(top_builddir)/fuse$(EXEEXT) $(DESTDIR)
 #	Get text files
-	for file in AUTHORS ChangeLog COPYING README; \
+	for file in AUTHORS ChangeLog COPYING; \
 	  do cp "$(top_srcdir)/$$file" "$(DESTDIR)/$$file.txt"; \
 	done
+	cp "$(top_srcdir)/README.md" "$(DESTDIR)/README.txt"
 #	Get manuals
 	if test -n "$(GROFF)"; then \
 	  sed ':a;N;$$!ba;s/\.PP\n\.TS/\.bp\n&/g' $(top_srcdir)/man/fuse.1 | \
