@@ -36,8 +36,8 @@ joy_prompt, boolean, 0,, joystick-prompt
 joy_kempston, boolean, 0,, kempston
 kempston_mouse, boolean, 0
 mouse_swap_buttons, boolean, 0
-tape_traps, boolean, 1,, traps, tapetraps
-fastload, boolean, 1
+tape_traps, boolean, 0,, traps, tapetraps
+fastload, boolean, 0
 auto_load, boolean, 1
 detect_loader, boolean, 1
 accelerate_loader, boolean, 1
@@ -56,7 +56,7 @@ raw_s_net, boolean, 0
 snet, string, NULL
 confirm_actions, boolean, 1
 printer, boolean, 0
-statusbar, boolean, 1
+statusbar, boolean, 0
 interface1, boolean, 0
 mdr_len, numeric, 180
 mdr_random_len, boolean, 1
@@ -138,11 +138,11 @@ joystick_2_fire_13, numeric, 4096
 joystick_2_fire_14, numeric, 4096
 joystick_2_fire_15, numeric, 4096
 joystick_keyboard_output, numeric, 0
-joystick_keyboard_up, numeric, 113
-joystick_keyboard_down, numeric, 97
-joystick_keyboard_left, numeric, 111
-joystick_keyboard_right, numeric, 112
-joystick_keyboard_fire, numeric, 32
+joystick_keyboard_up, numeric, 256
+joystick_keyboard_down, numeric, 257
+joystick_keyboard_left, numeric, 258
+joystick_keyboard_right, numeric, 259
+joystick_keyboard_fire, numeric, 4100
 
 keyboard_arrows_shifted, boolean, 1
 
@@ -205,7 +205,7 @@ svga_modes, string, NULL
 sdl_fullscreen_mode, string, NULL
 doublescan_mode, numeric, 1, 'D', doublescan-mode
 
-start_scaler_mode, string, "normal", 'g', graphics-filter
+start_scaler_mode, string, "2x", 'g', graphics-filter
 
 speccyboot_tap, string, "tap0",
 

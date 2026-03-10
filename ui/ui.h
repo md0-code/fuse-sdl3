@@ -67,6 +67,7 @@ int ui_verror( ui_error_level severity, const char *format, va_list ap )
      GCC_PRINTF( 2, 0 );
 int ui_error_specific( ui_error_level severity, const char *message );
 void ui_error_frame( void );
+void ui_show_transient_message( const char *message );
 
 /* Callbacks used by the debugger */
 int ui_debugger_activate( void );

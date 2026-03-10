@@ -181,293 +181,38 @@ CPPFLAGS="$ac_save_CPPFLAGS"
 AC_SUBST(LIBSPEC_HAVE_ZLIB)
 
 dnl Select a user interface
+dnl Downstream only supports the retained SDL frontend plus widget UI.
+AC_MSG_CHECKING(whether SDL UI requested)
+AC_ARG_WITH(sdl,
+[  --without-sdl           downstream build requires the SDL3 frontend],
+if test "$withval" = no; then sdl_ui=no; else sdl_ui=yes; fi,
+sdl_ui=yes)
+AC_MSG_RESULT($sdl_ui)
 
-dnl Try various UI options; set the `ui' variable when we've got one
-dnl we like, and then don't look at the other options
-
-AC_PATH_XTRA
-
-dnl Look for Win32 UI (default=no)
-AC_MSG_CHECKING(whether Win32 UI requested)
-AC_ARG_WITH(win32,
-[  --with-win32            use Win32 for user interface],
-if test "$withval" = no; then win32=no; else win32=yes; fi,
-win32=auto)
-
-if test "$win32" = auto; then
-case "$host_os" in
-  mingw32*)
-    win32=yes
-    ;;
-  *)
-    win32=no
-    ;;
-esac
-fi
-AC_MSG_RESULT($win32)
-
-if test "$win32" = yes; then
-  AC_CHECK_HEADER(windows.h,
-                  LIBS="$LIBS -mwindows -lcomctl32 -lwinmm";
-                  AC_DEFINE([UI_WIN32], 1, [Defined if Win32 UI in use])
-                  UI=win32,
-                  AC_MSG_ERROR([Win32 UI not found]))
-fi
-
-dnl Look for svgalib (default=no)
-if test -z "$UI"; then
-  AC_MSG_CHECKING(whether svgalib UI requested)
-  AC_ARG_WITH(svgalib,
-  [  --with-svgalib          use svgalib for user interface],
-  if test "$withval" = no; then svgalib=no; else svgalib=yes; fi,
-  svgalib=no)
-  AC_MSG_RESULT($svgalib)
-  if test "$svgalib" = yes; then
-    AC_CHECK_HEADER(vga.h,
-                    LIBS="$LIBS -lvga";
-                    AC_DEFINE([UI_SVGA], 1, [Defined if svgalib UI in use])
-                    AC_DEFINE([USE_WIDGET], 1,
-                              [Defined if we're using a widget-based UI])
-                    UI=svga; WIDGET=widget,
-                    AC_MSG_ERROR([svgalib not found]))
-  fi
-fi
-
-dnl Look for framebuffer interface for SA1110 (default=no)
-if test -z "$UI"; then
-  AC_MSG_CHECKING(whether framebuffer UI requested)
-  AC_ARG_WITH(fb,
-  [  --with-fb               use framebuffer for user interface],
-  if test "$withval" = no; then fb=no; else fb=yes; fi,
-  fb=no)
-  AC_MSG_RESULT($fb)
-  if test "$fb" = yes; then
-    AC_DEFINE([UI_FB], 1, [Defined if framebuffer UI in use])
-    AC_DEFINE([USE_WIDGET], 1, [Defined if we're using a widget-based UI])
-    UI=fb; WIDGET=widget;
-    dnl Look for libgpm (default=yes)
-    AC_MSG_CHECKING(whether gpm requested)
-    AC_ARG_WITH(gpm,
-    [  --without-gpm           don't use libgpm for e.g. Kempston mouse],
-    if test "$withval" = no; then gpm=no; else gpm=yes; fi,
-    gpm=yes)
-    AC_MSG_RESULT($gpm)
-    dnl Note: we use libdl to get libgpm at runtime
-    if test "$gpm" = yes; then
-      AC_CHECK_HEADER(gpm.h,
-		      LIBS="$LIBS -ldl";
-		      AC_DEFINE([HAVE_GPM_H], 1, [Defined if gpm in use]),
-		      AC_MSG_ERROR([libgpm not found]))
-    fi
-  fi
-fi
-
-dnl Look for Wii interface (default = 0)
-if test -z "$UI"; then
-  AC_MSG_CHECKING(whether Wii UI requested)
-  AC_ARG_WITH(wii,
-  [  --with-wii               use Wii FB for user interface],
-  if test "$withval" = no; then wii=no; else wii=yes; fi,
-  wii=no)
-  AC_MSG_RESULT($wii)
-  if test "$wii" = yes; then
-    AC_DEFINE([UI_WII], 1, [Defined if Wii UI in use])
-    AC_DEFINE([USE_WIDGET], 1, [Defined if we're using a widget-based UI])
-    AC_DEFINE([USE_JOYSTICK], 1, [Defined if we're using hardware joysticks])
-    UI=wii; WIDGET=widget;
-    host_os=wii
-    dnl Look for libgpm (default=yes)
-    AC_MSG_CHECKING(whether gpm requested)
-    AC_ARG_WITH(gpm,
-    [  --without-gpm           don't use libgpm for e.g. Kempston mouse],
-    if test "$withval" = no; then gpm=no; else gpm=yes; fi,
-    gpm=yes)
-    AC_MSG_RESULT($gpm)
-    dnl Note: we use libdl to get libgpm at runtime
-    if test "$gpm" = yes; then
-      AC_CHECK_HEADER(gpm.h,
-		      LIBS="$LIBS -ldl";
-		      AC_DEFINE([HAVE_GPM_H], 1, [Defined if gpm in use]),
-		      AC_MSG_ERROR([libgpm not found]))
-    fi
-  fi
-fi
-
-dnl Check if the user wants the SDL UI
-if test -z "$UI"; then
-  AC_MSG_CHECKING(whether SDL UI requested)
-  AC_ARG_WITH(sdl,
-  [  --with-sdl              use SDL for user interface],
-  if test "$withval" = no; then sdl_ui=no; else sdl_ui=yes; fi,
-  sdl_ui=no)
-  AC_MSG_RESULT($sdl_ui)
+if test "$sdl_ui" != yes; then
+  AC_MSG_ERROR([downstream build only supports the SDL3 frontend])
 fi
 
 dnl Look for SDL 3
 sdl_available=no
 PKG_CHECK_MODULES([SDL], [sdl3], [sdl_available=yes], [sdl_available=no])
 
-dnl Enable the SDL UI if all conditions are met
-if test "$sdl_ui" = yes; then
-  if test "$sdl_available" = yes; then
-    AC_DEFINE([UI_SDL], 1, [Defined if the SDL UI in use])
-    AC_DEFINE([USE_WIDGET], 1, [Defined if we're using a widget-based UI])
-    UI=sdl
-    WIDGET=widget
-    use_sdl=yes
-  else
-    AC_MSG_ERROR([SDL3 not found])
-  fi
+if test "$sdl_available" != yes; then
+  AC_MSG_ERROR([SDL3 not found])
 fi
 
-dnl Look for null UI (default=no)
-if test -z "$UI"; then
-  AC_MSG_CHECKING(whether null UI requested)
-  AC_ARG_WITH(null-ui,
-  [  --with-null-ui          use null user interface],
-  if test "$withval" = no; then null_ui=no; else null_ui=yes; fi,
-  null_ui=no)
-  AC_MSG_RESULT($null_ui)
-  if test "$null_ui" = yes; then
-    AC_DEFINE([UI_NULL], 1, [Defined if null UI is in use])
-    UI=null
-  fi
-fi
+AC_DEFINE([UI_SDL], 1, [Defined if the SDL UI in use])
+AC_DEFINE([USE_WIDGET], 1, [Defined if we're using a widget-based UI])
+UI=sdl
+WIDGET=widget
+use_sdl=yes
 
-dnl Look for GTK (default=yes)
-if test -z "$UI"; then
-  AC_MSG_CHECKING(whether GTK UI requested)
-  AC_ARG_WITH(gtk,
-  [  --without-gtk           don't use GTK for user interface],
-  if test "$withval" = no; then gtk=no; else gtk=yes; fi,
-  if test "$fakeglib" = yes; then gtk=no; else gtk=yes; fi)
-  AC_MSG_RESULT($gtk)
-
-  if test "$gtk" = yes; then
-
-    if test "$fakeglib" = yes; then
-      AC_MSG_ERROR([libspectrum is using its own internal GLib replacement
-GTK requires the real GLib library, so the GTK UI cannot be used with
-the libspectrum that was found.  Rebuild libspectrum to use the real GLib
-library (i.e. do not pass --with-fake-glib) instead of its own replacement.])
-    fi
-
-    AC_ARG_ENABLE(gtk3,
-      AS_HELP_STRING([--disable-gtk3],[prefer GTK 2 to GTK 3]),
-      if test "$enableval" = yes; then gtk3=yes; else gtk3=no; fi,
-      gtk3=auto
-    )
-
-    if test "$gtk3" = yes; then
-      PKG_CHECK_MODULES(GTK, [gtk+-3.0],,
-        AC_MSG_ERROR([GTK not found])
-      )
-
-    elif test "$gtk3" = no; then
-      AM_PATH_GTK_2_0(2.18.0,,
-        AC_MSG_ERROR([GTK not found])
-      )
-
-    elif test "$gtk3" = auto; then
-      PKG_CHECK_MODULES([GTK], [gtk+-3.0], [gtk3=yes], [true])
-
-      if test "$gtk3" = auto; then
-        AM_PATH_GTK_2_0(2.18.0,
-          gtk3=no,
-          AC_MSG_WARN([GTK not found. Reverting to Xlib])
-          gtk3=no
-          gtk=no
-        )
-      fi
-    fi
-
-  fi
-
-  if test "$gtk" = yes; then
-    AC_DEFINE([UI_GTK], 1, [Defined if GTK UI is in use])
-    UI=gtk;
-    AC_MSG_CHECKING(whether GTK supports x11 backend)
-    ac_save_CPPFLAGS="$CPPFLAGS"
-    CPPFLAGS="$CPPFLAGS $GTK_CFLAGS"
-    AC_COMPILE_IFELSE(
-      [AC_LANG_PROGRAM(
-        [[
-          #include <gdk/gdk.h>
-          #include <stdlib.h>
-        ]],
-        [[
-          #ifndef GDK_WINDOWING_X11
-            #error "X11 backend not supported"
-          #endif
-        ]])
-      ],
-      [LIBS="$LIBS -lX11"; AC_MSG_RESULT(yes)],
-      [AC_MSG_RESULT(no)]
-    )
-    CPPFLAGS="$ac_save_CPPFLAGS"
-  fi
-fi
-
-AM_CONDITIONAL(HAVE_GTK2, test "$gtk3" != yes)
-
-if test "$UI" = gtk; then
-  AC_PATH_XTRA
-fi
-
-dnl Look for Xlib UI (default=yes)
-if test -z "$UI"; then
-  if test "$with_x" = no; then
-    AC_MSG_ERROR([Please specify --with-svgalib or --with-fb, not --without-x.])
-  fi
-  AC_PATH_XTRA
-  CFLAGS="$CFLAGS $X_CFLAGS";
-  LDFLAGS="$LDFLAGS $X_LIBS";
-  LIBS="$LIBS $X_PRE_LIBS -lX11 $X_EXTRA_LIBS";
-
-  dnl This apparently needed for SVR4 systems to link correctly
-  dnl Basically the same as a part of AC_PATH_XTRA, but using `gethostname'
-  dnl instead of `gethostbyname'.
-  dnl Thanks to Erik Kunze for pointing out this problem
-  AC_CHECK_FUNC(gethostname)
-  if test $ac_cv_func_gethostname = no; then
-    AC_CHECK_LIB(nsl, gethostname, X_EXTRA_LIBS="$X_EXTRA_LIBS -lnsl")
-  fi
-  AC_CHECK_FUNC(connect)
-  if test $ac_cv_func_connect = no; then
-    AC_CHECK_LIB(socket, connect, X_EXTRA_LIBS="-lsocket $X_EXTRA_LIBS", ,
-	         $X_EXTRA_LIBS)
-  fi
-
-  dnl Check for the MIT-SHM extension
-  AC_CHECK_HEADERS( X11/extensions/XShm.h,,,[[
-	#include <sys/ipc.h>
-	#include <sys/shm.h>
-	#include <X11/Xlib.h>
-	]])
-  AC_CHECK_LIB( Xext, XShmAttach, LIBS="$LIBS -lXext" )
-
-  AC_DEFINE([UI_X], 1, [Defined if Xlib UI in use])
-  UI=xlib; WIDGET=widget;
-  AC_DEFINE([USE_WIDGET], 1, [Defined if we're using a widget-based UI])
-fi
-
-AM_CONDITIONAL(UI_FB, test "$UI" = fb)
-AM_CONDITIONAL(UI_GTK, test "$UI" = gtk)
-AM_CONDITIONAL(UI_NULL, test "$UI" = null)
 AM_CONDITIONAL(UI_SDL, test "$UI" = sdl)
-AM_CONDITIONAL(UI_SVGA, test "$UI" = svga)
-AM_CONDITIONAL(UI_WII, test "$UI" = wii)
-AM_CONDITIONAL(UI_WIN32, test "$UI" = win32)
-AM_CONDITIONAL(UI_X, test "$UI" = xlib)
 AM_CONDITIONAL(USE_WIDGET, test x$WIDGET != x)
 AC_SUBST(UI)
 
-dnl Locate common options for widget UIs
-if test -n "$WIDGET"; then
-  OPTIONS_DIR="$WIDGET"
-else
-  OPTIONS_DIR="$UI"
-fi
+dnl Locate common options for the retained downstream SDL plus widget build
+OPTIONS_DIR=widget
 AC_SUBST(OPTIONS_DIR)
 
 dnl Check whether to use zlib (the UNIX version is called z, Win32 zdll)
@@ -749,11 +494,10 @@ AC_MSG_RESULT($stick)
 if test "$stick" = yes; then
   dnl We prefer to use UI-specific joystick code. (Default.)
   dnl If there is none, or you override this here, we use libjsw.
-  dnl (svgalib appears to dislike switched joysticks on the parallel port...)
+  dnl (SDL is the only retained UI-specific joystick implementation.)
   case "$UI" in
-    svga|sdl|win32)
-      dnl Libraries such as svgalib provide their own joystick code.
-      AC_MSG_CHECKING([whether to use $UI's joystick support])
+    sdl)
+      AC_MSG_CHECKING([whether to use SDL's joystick support])
       AC_ARG_ENABLE(ui-joystick,
       AS_HELP_STRING([--disable-ui-joystick], [use libjsw joystick code (where supported)]),
       if test "$enableval" = no; then libjsw=yes; else libjsw=no; fi,
@@ -764,31 +508,6 @@ if test "$stick" = yes; then
         AC_MSG_RESULT(yes)
         AC_DEFINE([USE_JOYSTICK], 1, [Defined if we're using hardware joysticks])
       fi
-      ;;
-    gtk|xlib)
-      dnl These UIs could use SDL library for handling joysticks
-      AC_MSG_CHECKING([whether to use $UI's joystick support])
-      AC_ARG_ENABLE(ui-joystick,
-      AS_HELP_STRING([--disable-ui-joystick], [use libjsw joystick code (where supported)]),
-      if test "$enableval" = no; then libjsw=yes; else libjsw=no; fi,
-      libjsw=no)
-      if test "$libjsw" = yes; then
-        AC_MSG_RESULT([no, use libjsw])
-      else
-        if test "$sdl_available" = yes; then
-          AC_MSG_RESULT(yes)
-          AC_DEFINE([USE_JOYSTICK], 1, [Defined if we're using hardware joysticks])
-          use_sdl=yes
-        else
-          AC_MSG_WARN([SDL3 not found - joystick support disabled])
-          stick=no
-        fi
-      fi
-      ;;
-    wii)
-      dnl Wii UI check this elsewhere
-      AC_MSG_RESULT(yes)
-      libjsw=no
       ;;
     *)
       dnl Our only option is libjsw.

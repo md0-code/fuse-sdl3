@@ -30,22 +30,8 @@
 
 #include "ui/scaler/scaler.h"
 
-#ifdef UI_GTK
-
-#include "compat.h"
-#include <gtk/gtk.h>
-
-#define MENU_CALLBACK( name ) \
-  void name( GtkAction *gtk_action GCC_UNUSED, gpointer data GCC_UNUSED )
-#define MENU_CALLBACK_WITH_ACTION( name ) \
-  void name( GtkAction *gtk_action GCC_UNUSED, guint action )
-
-#else			/* #ifdef UI_GTK */
-
 #define MENU_CALLBACK( name ) void name( int action )
 #define MENU_CALLBACK_WITH_ACTION( name ) void name( int action )
-
-#endif			/* #ifdef UI_GTK */
 
 #define MENU_DETAIL( name ) const char* name( void )
 

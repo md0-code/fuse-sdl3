@@ -59,10 +59,8 @@ fuse_SOURCES = display.c \
 fuse_LDADD = \
              $(PTHREAD_LIBS) \
              $(LIBSPECTRUM_LIBS) \
-             $(GTK_LIBS) \
              $(GLIB_LIBS) \
              $(PNG_LIBS) \
-             $(X_LIBS) \
              $(XML_LIBS)
 
 if USE_SDL
@@ -120,7 +118,6 @@ options.h: $(srcdir)/perl/cpp-perl.pl config.h $(srcdir)/ui/@OPTIONS_DIR@/option
 
 AM_CPPFLAGS = \
               $(GLIB_CFLAGS) \
-              $(GTK_CFLAGS) \
               $(LIBSPECTRUM_CFLAGS) \
               $(XML_CFLAGS) \
               -DFUSEDATADIR="\"${pkgdatadir}\"" \
@@ -174,7 +171,6 @@ EXTRA_DIST = AUTHORS \
 	     m4/ax_create_stdint_h.m4 \
 	     m4/ax_pthread.m4 \
 	     m4/ax_string_strcasecmp.m4 \
-	     m4/gtk-2.0.m4 \
 	     m4/pkg.m4 \
 	     m4/sdl.m4 \
 	     menu_data.dat \
@@ -199,7 +195,7 @@ fuse_SOURCES += windres.rc
 fuse_LDADD += windres.o
 fuse_DEPENDENCIES += windres.o
 
-windres.o: windres.rc data/win32/winfuse.ico data/win32/fuse.manifest $(ui_win32_res)
+windres.o: windres.rc data/win32/winfuse.ico data/win32/fuse.manifest
 	$(AM_V_GEN)$(WINDRES) -I$(srcdir) -I. $(srcdir)/windres.rc $(LIBSPECTRUM_CFLAGS) $(CPPFLAGS) windres.o
 
 endif
@@ -220,15 +216,8 @@ include roms/Makefile.am
 include sound/Makefile.am
 include timer/Makefile.am
 include ui/Makefile.am
-include ui/fb/Makefile.am
-include ui/gtk/Makefile.am
-include ui/null/Makefile.am
 include ui/scaler/Makefile.am
 include ui/sdl/Makefile.am
-include ui/svga/Makefile.am
 include ui/widget/Makefile.am
-include ui/wii/Makefile.am
-include ui/win32/Makefile.am
-include ui/xlib/Makefile.am
 include unittests/Makefile.am
 include z80/Makefile.am

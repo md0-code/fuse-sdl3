@@ -179,15 +179,8 @@ sound_ay_init( void )
   ay_change_count = 0;
 }
 
-#ifndef UI_WIN32
 #define MIN_SPEED_PERCENTAGE 2
 #define MAX_SPEED_PERCENTAGE 500
-#else                        /* #ifndef UI_WIN32 */
-/* We are limiting speed until bugs in the DirectSound driver are resolved, see
-   [bugs:#364] for more details */
-#define MIN_SPEED_PERCENTAGE 50
-#define MAX_SPEED_PERCENTAGE 300
-#endif                       /* #ifndef UI_WIN32 */
 
 static int
 is_in_sound_enabled_range( void )
