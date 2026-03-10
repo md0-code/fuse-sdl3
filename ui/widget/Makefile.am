@@ -61,6 +61,11 @@ ui_widget_built = \
                   ui/widget/options.c \
                   ui/widget/options_internals.h
 
+ui_widget_generated_header_users = \
+                  ui/widget/menu_data.$(OBJEXT) \
+                  ui/widget/options.$(OBJEXT) \
+                  ui/widget/widget.$(OBJEXT)
+
 EXTRA_DIST += \
               ui/widget/fuse.font.sbf \
               ui/widget/mkfusefont.pl \
@@ -78,6 +83,8 @@ ui/widget/options.c: $(srcdir)/perl/cpp-perl.pl config.h $(srcdir)/ui/widget/opt
 ui/widget/options_internals.h: $(srcdir)/perl/cpp-perl.pl config.h $(srcdir)/ui/widget/options-header.pl $(srcdir)/ui/options.dat $(srcdir)/perl/Fuse.pm $(srcdir)/perl/Fuse/Dialog.pm
 	@$(MKDIR_P) ui/widget
 	$(AM_V_GEN)$(PERL) $(srcdir)/perl/cpp-perl.pl config.h $(srcdir)/ui/options.dat | $(PERL) -I$(srcdir)/perl $(srcdir)/ui/widget/options-header.pl - > $@.tmp && mv $@.tmp $@
+
+$(ui_widget_generated_header_users): ui/widget/options_internals.h
 
 ui/widget/fuse.font: $(srcdir)/ui/widget/mkfusefont.pl $(srcdir)/ui/widget/fuse.font.sbf
 	@$(MKDIR_P) ui/widget
