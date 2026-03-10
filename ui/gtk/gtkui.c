@@ -174,7 +174,7 @@ ui_init( int *argc, char ***argv )
 
   settings = gtk_widget_get_settings( GTK_WIDGET( gtkui_window ) );
   g_object_set( settings, "gtk-menu-bar-accel", "F1", NULL );
-  gtk_window_set_title( GTK_WINDOW(gtkui_window), "Fuse" );
+  gtk_window_set_title( GTK_WINDOW(gtkui_window), FUSE_DOWNSTREAM_NAME );
 
   g_signal_connect(G_OBJECT(gtkui_window), "delete-event",
 		   G_CALLBACK(gtkui_delete), NULL);
@@ -671,8 +671,8 @@ void
 menu_help_about( GtkAction *gtk_action GCC_UNUSED, gpointer data GCC_UNUSED )
 {
   gtk_show_about_dialog( GTK_WINDOW( gtkui_window ),
-                         "program-name", "Fuse",
-                         "comments", "The Free Unix Spectrum Emulator",
+                         "program-name", FUSE_DOWNSTREAM_NAME,
+                         "comments", "The Free Unix Spectrum Emulator (SDL3 fork)",
                          "copyright", FUSE_COPYRIGHT,
 #ifdef FUSE_ICON_AVAILABLE
                          "logo-icon-name", "fuse",
@@ -680,7 +680,7 @@ menu_help_about( GtkAction *gtk_action GCC_UNUSED, gpointer data GCC_UNUSED )
                          "logo-icon-name", NULL,
 #endif
                          "version", VERSION,
-                         "website", PACKAGE_URL,
+                         "website", FUSE_DOWNSTREAM_URL,
                          NULL );
 }
 

@@ -53,6 +53,7 @@ static SDL_Surface *tmp_screen=NULL; /* Temporary screen for scalers */
 static SDL_Surface *red_cassette[2], *green_cassette[2];
 static SDL_Surface *red_mdr[2], *green_mdr[2];
 static SDL_Surface *red_disk[2], *green_disk[2];
+static int sdldisplay_window_visible = 0;
 
 static ui_statusbar_state sdl_disk_state, sdl_mdr_state, sdl_tape_state;
 static int sdl_status_updated;
@@ -131,6 +132,8 @@ sdldisplay_free_window( void )
     SDL_DestroyWindow( sdldisplay_window );
     sdldisplay_window = NULL;
   }
+
+  sdldisplay_window_visible = 0;
 
   if( sdldisplay_gc ) {
     SDL_FreeSurface( sdldisplay_gc );
@@ -482,8 +485,8 @@ sdldisplay_load_gfx_mode( void )
 {
   SDL_DisplayMode closest_mode;
   SDL_PixelFormat pixel_format;
-  SDL_FRect render_rect;
   Uint16 *tmp_screen_pixels;
+  SDL_WindowFlags window_flags;
   int logical_width, logical_height, window_width, window_height;
 
   sdldisplay_force_full_refresh = 1;
@@ -506,16 +509,18 @@ sdldisplay_load_gfx_mode( void )
                  fullscreen_width : image_width * sdldisplay_current_size;
   window_height = settings_current.full_screen && fullscreen_width ?
                   max_fullscreen_height : image_height * sdldisplay_current_size;
+  window_flags = SDL_WINDOW_HIDDEN;
 
   sdldisplay_free_window();
 
-  sdldisplay_window = SDL_CreateWindow( "Fuse", window_width, window_height, 0 );
+  sdldisplay_window = SDL_CreateWindow( FUSE_DOWNSTREAM_NAME, window_width,
+                                        window_height, window_flags );
   if( !sdldisplay_window ) {
     fprintf( stderr, "%s: couldn't create SDL graphics context\n", fuse_progname );
     fuse_abort();
   }
 
-  SDL_WM_SetCaption( "Fuse", "Fuse" );
+  SDL_WM_SetCaption( FUSE_DOWNSTREAM_NAME, FUSE_DOWNSTREAM_NAME );
 
   if( settings_current.full_screen ) {
     if( fullscreen_width && SDL_GetClosestFullscreenDisplayMode(
@@ -588,17 +593,6 @@ sdldisplay_load_gfx_mode( void )
 
   fullscreen_x_off = 0;
   fullscreen_y_off = 0;
-
-  sdldisplay_get_render_rect( &render_rect );
-  if( sdldisplay_renderer ) {
-    SDL_SetRenderDrawColor( sdldisplay_renderer, 0, 0, 0, SDL_ALPHA_OPAQUE );
-    SDL_RenderClear( sdldisplay_renderer );
-    if( render_rect.w > 0.0f && render_rect.h > 0.0f ) {
-      SDL_RenderTexture( sdldisplay_renderer, sdldisplay_texture, NULL,
-                         &render_rect );
-    }
-    SDL_RenderPresent( sdldisplay_renderer );
-  }
 
   sdldisplay_allocate_colours( 16, colour_values, bw_values );
 
@@ -992,6 +986,11 @@ uidisplay_frame_end( void )
     }
   }
   SDL_RenderPresent( sdldisplay_renderer );
+
+  if( !sdldisplay_window_visible ) {
+    SDL_ShowWindow( sdldisplay_window );
+    sdldisplay_window_visible = 1;
+  }
 
   num_rects = 0;
   sdldisplay_force_full_refresh = 0;

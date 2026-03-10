@@ -108,19 +108,18 @@ index eb3553b3..7a0c7db3 100644
  static void
  init_scalers( void )
  {
-@@ -427,9 +482,9 @@ sdldisplay_load_gfx_mode( void )
+@@ -427,9 +482,8 @@ sdldisplay_load_gfx_mode( void )
  {
    SDL_DisplayMode closest_mode;
    SDL_PixelFormat pixel_format;
 -  const SDL_PixelFormatDetails *format_details;
-+  SDL_FRect render_rect;
    Uint16 *tmp_screen_pixels;
 -  int window_width, window_height;
 +  int logical_width, logical_height, window_width, window_height;
  
    sdldisplay_force_full_refresh = 1;
  
-@@ -481,35 +536,39 @@ sdldisplay_load_gfx_mode( void )
+@@ -481,35 +536,29 @@ sdldisplay_load_gfx_mode( void )
      }
    }
  
@@ -188,17 +187,6 @@ index eb3553b3..7a0c7db3 100644
 -                     sdldisplay_is_full_screen / 2;
 +  fullscreen_x_off = 0;
 +  fullscreen_y_off = 0;
-+
-+  sdldisplay_get_render_rect( &render_rect );
-+  if( sdldisplay_renderer ) {
-+    SDL_SetRenderDrawColor( sdldisplay_renderer, 0, 0, 0, SDL_ALPHA_OPAQUE );
-+    SDL_RenderClear( sdldisplay_renderer );
-+    if( render_rect.w > 0.0f && render_rect.h > 0.0f ) {
-+      SDL_RenderTexture( sdldisplay_renderer, sdldisplay_texture, NULL,
-+                         &render_rect );
-+    }
-+    SDL_RenderPresent( sdldisplay_renderer );
-+  }
  
    sdldisplay_allocate_colours( 16, colour_values, bw_values );
  
@@ -235,6 +223,11 @@ index eb3553b3..7a0c7db3 100644
 +    }
 +  }
 +  SDL_RenderPresent( sdldisplay_renderer );
++
++  if( !sdldisplay_window_visible ) {
++    SDL_ShowWindow( sdldisplay_window );
++    sdldisplay_window_visible = 1;
++  }
  
    num_rects = 0;
    sdldisplay_force_full_refresh = 0;
