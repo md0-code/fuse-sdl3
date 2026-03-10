@@ -418,7 +418,7 @@ creator_init( void *context )
   size_t i;
   unsigned int version[4] = { 0, 0, 0, 0 };
   char *custom, osname[ 192 ];
-  static const size_t CUSTOM_SIZE = 256;
+  int custom_length;
   
   libspectrum_error error; int sys_error;
 
@@ -445,12 +445,28 @@ creator_init( void *context )
 					 version[2] * 0x100 + version[3] );
   if( error ) { libspectrum_creator_free( fuse_creator ); return error; }
 
-  custom = libspectrum_new( char, CUSTOM_SIZE );
-
   gcrypt_version = libspectrum_gcrypt_version();
   if( !gcrypt_version ) gcrypt_version = "not available";
 
-  snprintf( custom, CUSTOM_SIZE,
+  custom_length = snprintf( NULL, 0,
+      "fork: %s %s\n"
+      "fork-url: %s\n"
+      "upstream: Fuse %s\n"
+      "gcrypt: %s\n"
+      "libspectrum: %s\n"
+      "uname: %s",
+      FUSE_DOWNSTREAM_NAME, VERSION, FUSE_DOWNSTREAM_URL,
+      FUSE_UPSTREAM_VERSION, gcrypt_version, libspectrum_version(),
+      osname );
+
+  if( custom_length < 0 ) {
+    libspectrum_creator_free( fuse_creator );
+    return LIBSPECTRUM_ERROR_UNKNOWN;
+  }
+
+  custom = libspectrum_new( char, custom_length + 1 );
+
+  snprintf( custom, custom_length + 1,
       "fork: %s %s\n"
       "fork-url: %s\n"
       "upstream: Fuse %s\n"

@@ -79,7 +79,7 @@ AC_PROG_CC
 AM_PROG_CC_C_O
 AC_PATH_PROG(PERL, perl)
 AC_SUBST(PERL)
-AM_PROG_LEX
+AC_PROG_LEX([noyywrap])
 AC_PROG_YACC
 LT_INIT
 
@@ -104,7 +104,6 @@ dnl Check for big endianness
 AC_C_BIGENDIAN
 
 dnl Checks for header files.
-AC_HEADER_STDC
 AC_CHECK_HEADERS(
   libgen.h \
   siginfo.h \

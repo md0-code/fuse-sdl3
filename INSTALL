@@ -3,7 +3,7 @@ Building Fuse
 
 SDL3 downstream note: in this repository, `--with-sdl` means the SDL3 UI and
 expects pkg-config module `sdl3`. For a full from-scratch dependency list,
-patch-replay instructions, and smoke-test commands, see `BUILD-SDL3.md`.
+smoke-test commands, and SDL3-specific notes, see `BUILD-SDL3.md`.
 
 To compile Fuse (see below for instructions for other ports):
 
