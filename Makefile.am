@@ -73,7 +73,41 @@ fuse_DEPENDENCIES =
 
 EXTRA_fuse_SOURCES =
 
-BUILT_SOURCES = options.h settings.c settings.h
+fuse_built_headers = options.h settings.h
+fuse_generated_header_users = display.$(OBJEXT) \
+	event.$(OBJEXT) \
+	fuse.$(OBJEXT) \
+	input.$(OBJEXT) \
+	keyboard.$(OBJEXT) \
+	loader.$(OBJEXT) \
+	machine.$(OBJEXT) \
+	memory_pages.$(OBJEXT) \
+	mempool.$(OBJEXT) \
+	menu.$(OBJEXT) \
+	movie.$(OBJEXT) \
+	module.$(OBJEXT) \
+	periph.$(OBJEXT) \
+	phantom_typist.$(OBJEXT) \
+	profile.$(OBJEXT) \
+	psg.$(OBJEXT) \
+	rectangle.$(OBJEXT) \
+	rzx.$(OBJEXT) \
+	screenshot.$(OBJEXT) \
+	settings.$(OBJEXT) \
+	slt.$(OBJEXT) \
+	snapshot.$(OBJEXT) \
+	sound.$(OBJEXT) \
+	spectrum.$(OBJEXT) \
+	svg.$(OBJEXT) \
+	tape.$(OBJEXT) \
+	ui.$(OBJEXT) \
+	uidisplay.$(OBJEXT) \
+	uimedia.$(OBJEXT) \
+	utils.$(OBJEXT)
+
+BUILT_SOURCES = $(fuse_built_headers) settings.c
+
+$(fuse_generated_header_users): $(fuse_built_headers)
 
 settings.c: settings.pl settings.dat
 	$(AM_V_GEN)$(PERL) -I$(srcdir)/perl $(srcdir)/settings.pl $(srcdir)/settings.dat > $@.tmp && mv $@.tmp $@
