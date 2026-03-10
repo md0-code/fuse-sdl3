@@ -424,7 +424,7 @@ creator_init( void *context )
 
   const char *gcrypt_version;
 
-  sscanf( VERSION, "%u.%u.%u.%u",
+  sscanf( FUSE_UPSTREAM_VERSION, "%u.%u.%u.%u",
 	  &version[0], &version[1], &version[2], &version[3] );
 
   for( i=0; i<4; i++ ) if( version[i] > 0xff ) version[i] = 0xff;
@@ -451,8 +451,15 @@ creator_init( void *context )
   if( !gcrypt_version ) gcrypt_version = "not available";
 
   snprintf( custom, CUSTOM_SIZE,
-	    "gcrypt: %s\nlibspectrum: %s\nuname: %s", gcrypt_version,
-	    libspectrum_version(), osname );
+      "fork: %s %s\n"
+      "fork-url: %s\n"
+      "upstream: Fuse %s\n"
+      "gcrypt: %s\n"
+      "libspectrum: %s\n"
+      "uname: %s",
+      FUSE_DOWNSTREAM_NAME, VERSION, FUSE_DOWNSTREAM_URL,
+      FUSE_UPSTREAM_VERSION, gcrypt_version, libspectrum_version(),
+      osname );
 
   error = libspectrum_creator_set_custom(
     fuse_creator, (libspectrum_byte*)custom, strlen( custom )
@@ -485,6 +492,8 @@ static void fuse_show_copyright(void)
   printf( "\n" );
   fuse_show_version();
   printf(
+  FUSE_DOWNSTREAM_NAME " GitHub: <" FUSE_DOWNSTREAM_URL ">.\n"
+  "Based on upstream Fuse " FUSE_UPSTREAM_VERSION ".\n"
    FUSE_COPYRIGHT "; see the file\n"
    "'AUTHORS' for more details.\n"
    "\n"
@@ -499,7 +508,9 @@ static void fuse_show_copyright(void)
 
 static void fuse_show_version( void )
 {
-  printf( "The Free Unix Spectrum Emulator (Fuse) version " VERSION ".\n" );
+  printf( "The Free Unix Spectrum Emulator (" FUSE_DOWNSTREAM_NAME
+          ") version " VERSION " (based on Fuse "
+          FUSE_UPSTREAM_VERSION ").\n" );
 }
 
 static void fuse_show_help( void )

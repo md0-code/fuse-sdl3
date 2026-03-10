@@ -335,7 +335,8 @@ ui_init( int *argc, char ***argv )
   }
 
   /* create the window */
-  fuse_hWnd = CreateWindow( "Fuse", "Fuse", WS_OVERLAPPED | WS_CAPTION |
+  fuse_hWnd = CreateWindow( "Fuse", FUSE_DOWNSTREAM_NAME,
+    WS_OVERLAPPED | WS_CAPTION |
     WS_SYSMENU | WS_THICKFRAME | WS_MINIMIZEBOX | WS_CLIPCHILDREN,
     CW_USEDEFAULT, CW_USEDEFAULT, CW_USEDEFAULT, CW_USEDEFAULT,
     NULL, NULL, fuse_hInstance, NULL );

@@ -19,17 +19,22 @@ dnl
 dnl E-mail: philip-fuse@shadowmagic.org.uk
 
 dnl Package version
-m4_define([fuse_version], [1.6.0])
+dnl Increment fuse_build_number for each downstream release.
+m4_define([fuse_upstream_version], [1.6.0])
+m4_define([fuse_build_number], [1])
+m4_define([fuse_version], [fuse_upstream_version.fuse_build_number])
 
 dnl Product full version
 m4_define([fuse_major_version], [1])
 m4_define([fuse_minor_version], [6])
 m4_define([fuse_micro_version], [0])
-m4_define([fuse_nano_version],  [0])
+m4_define([fuse_nano_version],  [fuse_build_number])
 m4_define([fuse_full_version], [fuse_major_version.fuse_minor_version.fuse_micro_version.fuse_nano_version])
 m4_define([fuse_rc_version], [fuse_major_version,fuse_minor_version,fuse_micro_version,fuse_nano_version])
 
 dnl Package info
+m4_define([fuse_downstream_name], ["Fuse SDL3"])
+m4_define([fuse_downstream_url], ["https://github.com/md0-code/fuse-sdl3.git"])
 m4_define([fuse_copyright], ["(c) 1999-2021 Philip Kendall and others"])
 m4_define([fuse_url], [http://fuse-emulator.sourceforge.net/])
 m4_define([fuse_bugreport], [http://sourceforge.net/p/fuse-emulator/bugs/])
@@ -47,15 +52,27 @@ AM_SILENT_RULES([yes])
 dnl Substitutions for .in files
 FUSE_FULL_VERSION=fuse_full_version
 FUSE_COPYRIGHT=fuse_copyright
+FUSE_DOWNSTREAM_NAME=fuse_downstream_name
+FUSE_DOWNSTREAM_URL=fuse_downstream_url
 FUSE_URL=fuse_url
 AC_SUBST(FUSE_FULL_VERSION)
 AC_SUBST(FUSE_COPYRIGHT)
+AC_SUBST(FUSE_DOWNSTREAM_NAME)
+AC_SUBST(FUSE_DOWNSTREAM_URL)
 AC_SUBST(FUSE_URL)
 
 dnl Definitions for config.h
 AC_DEFINE([FUSE_RC_VERSION], [fuse_rc_version],
           [Define version information for win32 executables])
 AC_DEFINE([FUSE_COPYRIGHT], [fuse_copyright], [Define copyright of Fuse])
+AC_DEFINE_UNQUOTED([FUSE_BUILD_NUMBER], [fuse_build_number],
+          [Define downstream build number of Fuse SDL3])
+AC_DEFINE_UNQUOTED([FUSE_UPSTREAM_VERSION], ["fuse_upstream_version"],
+          [Define upstream Fuse version])
+AC_DEFINE([FUSE_DOWNSTREAM_NAME], [fuse_downstream_name],
+          [Define downstream product name])
+AC_DEFINE([FUSE_DOWNSTREAM_URL], [fuse_downstream_url],
+          [Define downstream project URL])
 
 dnl Checks for programs.
 AC_PROG_CC

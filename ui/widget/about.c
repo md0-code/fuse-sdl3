@@ -25,6 +25,7 @@
 
 #include <stdio.h>
 
+#include "display.h"
 #include "widget.h"
 #include "widget_internals.h"
 
@@ -32,37 +33,41 @@ int
 widget_about_draw( void *data GCC_UNUSED )
 {
   char buffer[80];
-  int dialog_cols, string_width, margin, x, line;
+  static const char display_url[] = "github.com/md0-code/fuse-sdl3";
+  int dialog_cols, dialog_left_edge_x, string_width, x, line;
 
-  dialog_cols = 30;
-  margin = 17;
+  dialog_cols = 35;
+  dialog_left_edge_x =
+    ( DISPLAY_SCREEN_WIDTH_COLS - dialog_cols + 1 ) / 2 -
+    DISPLAY_BORDER_WIDTH_COLS;
   line = 0;
 
-  widget_dialog_with_border( 1, 2, dialog_cols, 7+2 );
-  widget_printstring( 10, 16, WIDGET_COLOUR_TITLE, "About Fuse" );
+  widget_dialog_with_border( dialog_left_edge_x, 2, dialog_cols, 7+2 );
+  widget_printstring( dialog_left_edge_x * 8 + 2, 16, WIDGET_COLOUR_TITLE,
+                      "About " FUSE_DOWNSTREAM_NAME );
 
-  string_width = widget_stringwidth( "the Free Unix Spectrum Emulator (Fuse)" );
-  x = margin - 8 + ( dialog_cols * 8 - string_width ) / 2;
+  string_width = widget_stringwidth( "The Free Unix Spectrum Emulator" );
+  x = dialog_left_edge_x * 8 + ( dialog_cols * 8 - string_width ) / 2;
   widget_printstring( x, ++line * 8 + 24, WIDGET_COLOUR_FOREGROUND,
-                      "the Free Unix Spectrum Emulator (Fuse)" );
+                      "The Free Unix Spectrum Emulator" );
 
-  snprintf( buffer, 80, "Version %s", VERSION );
+  snprintf( buffer, 80, "%s %s", FUSE_DOWNSTREAM_NAME, VERSION );
   string_width = widget_stringwidth( buffer );
-  x = margin - 8 + ( dialog_cols * 8 - string_width ) / 2;
+  x = dialog_left_edge_x * 8 + ( dialog_cols * 8 - string_width ) / 2;
   widget_printstring( x, ++line * 8 + 24, WIDGET_COLOUR_FOREGROUND, buffer );
 
   ++line;
 
   string_width = widget_stringwidth( FUSE_COPYRIGHT );
-  x = margin - 8 + ( dialog_cols * 8 - string_width ) / 2;
+  x = dialog_left_edge_x * 8 + ( dialog_cols * 8 - string_width ) / 2;
   widget_printstring( x, ++line * 8 + 24, WIDGET_COLOUR_FOREGROUND,
                       FUSE_COPYRIGHT );
 
   ++line;
 
-  string_width = widget_stringwidth( PACKAGE_URL );
-  x = margin - 8 + ( dialog_cols * 8 - string_width ) / 2;
-  widget_printstring( x, ++line * 8 + 24, 0x09, PACKAGE_URL );
+  string_width = widget_stringwidth( display_url );
+  x = dialog_left_edge_x * 8 + ( dialog_cols * 8 - string_width ) / 2;
+  widget_printstring( x, ++line * 8 + 24, 0x09, display_url );
 
   widget_display_lines( 2, line + 3 );
 

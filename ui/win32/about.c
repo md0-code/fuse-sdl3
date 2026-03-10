@@ -97,7 +97,7 @@ dialog_proc( HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM lParam )
           if( hBoldFont ) DeleteObject( hBoldFont );
           return TRUE;
         case IDC_ABOUT_STATIC_WEBSITE:
-          ShellExecute( hwndDlg, "open", PACKAGE_URL,
+          ShellExecute( hwndDlg, "open", FUSE_DOWNSTREAM_URL,
                  NULL, NULL, SW_SHOWNORMAL );
           return TRUE;
       }
