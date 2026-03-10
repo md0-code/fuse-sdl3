@@ -810,7 +810,7 @@ fi
 dnl See if libxml2 is available (for the config file handling)
 AC_MSG_CHECKING(whether libxml2 support requested)
   AC_ARG_WITH(libxml2,
-  [  --without-libxml2       use a libxml2 for settings],
+  [  --without-libxml2       build without XML settings support],
   if test "$withval" = no; then libxml2=no; else libxml2=yes; fi,
   libxml2=yes)
 AC_MSG_RESULT($libxml2)
@@ -819,8 +819,7 @@ if test "$libxml2" = yes; then
     [XML],
     [libxml-2.0 >= 2.6.0],
     [AC_DEFINE([HAVE_LIB_XML2], 1, [Defined if we've got libxml2])],
-    [AC_MSG_WARN([libxml2 not found - config file will use ini format])
-     libxml2="no"]
+    [AC_MSG_ERROR([libxml2 not found - XML config support is required for downstream builds; install libxml2 development files or pass --without-libxml2 to opt out])]
   )
 fi
 

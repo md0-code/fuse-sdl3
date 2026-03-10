@@ -123,6 +123,7 @@ print hashline( __LINE__ ), << 'CODE';
 };
 
 static int read_config_file( settings_info *settings );
+static int get_config_file_path( char *path, size_t path_length );
 
 #ifdef HAVE_LIB_XML2
 static int parse_xml( xmlDocPtr doc, settings_info *settings );
@@ -159,6 +160,38 @@ void settings_defaults( settings_info *settings )
   settings_copy_internal( settings, &settings_default );
 }
 
+static int
+get_config_file_path( char *path, size_t path_length )
+{
+  char cwd[ PATH_MAX ];
+  const char *cfgdir;
+  int length;
+
+  if( !getcwd( cwd, sizeof( cwd ) ) ) {
+    ui_error( UI_ERROR_ERROR, "error getting current working directory: %s",
+              strerror( errno ) );
+    return 1;
+  }
+
+  length = snprintf( path, path_length, "%s/%s", cwd, CONFIG_FILE_NAME );
+  if( length < 0 || (size_t)length >= path_length ) {
+    ui_error( UI_ERROR_ERROR, "config file path is too long" );
+    return 1;
+  }
+
+  if( compat_file_exists( path ) ) return 0;
+
+  cfgdir = compat_get_config_path(); if( !cfgdir ) return 1;
+
+  length = snprintf( path, path_length, "%s/%s", cfgdir, CONFIG_FILE_NAME );
+  if( length < 0 || (size_t)length >= path_length ) {
+    ui_error( UI_ERROR_ERROR, "config file path is too long" );
+    return 1;
+  }
+
+  return 0;
+}
+
 #ifdef HAVE_LIB_XML2
 
 static int
@@ -192,14 +225,12 @@ config_file_looks_like_xml( const char *path, int *looks_like_xml )
 static int
 read_config_file( settings_info *settings )
 {
-  const char *cfgdir; char path[ PATH_MAX ];
+  char path[ PATH_MAX ];
   int looks_like_xml;
 
   xmlDocPtr doc;
 
-  cfgdir = compat_get_config_path(); if( !cfgdir ) return 1;
-
-  snprintf( path, PATH_MAX, "%s/%s", cfgdir, CONFIG_FILE_NAME );
+  if( get_config_file_path( path, PATH_MAX ) ) return 1;
 
   /* See if the file exists; if doesn't, it's not a problem */
   if( !compat_file_exists( path ) ) {
@@ -366,15 +397,13 @@ CODE
 static int
 read_config_file( settings_info *settings )
 {
-  const char *cfgdir; char path[ PATH_MAX ];
+  char path[ PATH_MAX ];
   struct stat stat_info;
   int error;
 
   utils_file file;
 
-  cfgdir = compat_get_config_path(); if( !cfgdir ) return 1;
-
-  snprintf( path, PATH_MAX, "%s/%s", cfgdir, CONFIG_FILE_NAME );
+  if( get_config_file_path( path, PATH_MAX ) ) return 1;
 
   /* See if the file exists; if doesn't, it's not a problem */
   if( stat( path, &stat_info ) ) {
