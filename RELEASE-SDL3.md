@@ -35,7 +35,7 @@ validated only through the SDL UI configuration.
 Review these files whenever dependencies, build switches, or runtime behavior
 change:
 
-* `README`
+* `README.md`
 * `BUILD-SDL3.md`
 * `TESTING-SDL3.md`
 * `INSTALL`
@@ -65,7 +65,7 @@ Commit the documentation updates together with the code changes they describe,
 then push the integration branch:
 
 ```sh
-git add README BUILD-SDL3.md TESTING-SDL3.md RELEASE-SDL3.md INSTALL
+git add README.md BUILD-SDL3.md TESTING-SDL3.md RELEASE-SDL3.md INSTALL
 git commit -m "<next patch number>: describe release-facing update"
 git push origin sdl3-integration
 ```
