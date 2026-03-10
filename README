@@ -104,6 +104,8 @@ Building Fuse
 
 For this SDL3 fork, start with `BUILD-SDL3.md`, `TESTING-SDL3.md`, and
 `RELEASE-SDL3.md`, then see `INSTALL` for the upstream-oriented build notes.
+The downstream SDL3 build expects `libxml2` so XML settings support is present
+by default; use `--without-libxml2` only for an explicit reduced-feature build.
 
 Closing comments
 ----------------

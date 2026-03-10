@@ -9,11 +9,14 @@ instead of only under WSLg or CI dummy drivers.
 From the repository root:
 
 ```sh
+./configure --with-sdl
 make -j"$(nproc)" fuse
 ```
 
 The build must complete without local source edits beyond the intended branch
-contents.
+contents. Unless you intentionally configured with `--without-libxml2`, the
+`./configure` summary should report `libxml2 support: yes` so XML settings
+handling is built in.
 
 ## Basic startup smoke tests
 

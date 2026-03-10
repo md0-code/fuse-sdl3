@@ -31,11 +31,11 @@ Minimum required to build the SDL3 UI:
 * Autotools: `autoconf`, `automake`, `libtool`, `pkg-config`
 * `libspectrum >= 1.5.0`
 * `SDL3`
+* `libxml2`
 
 Recommended optional dependencies:
 
 * `libpng`
-* `libxml2`
 * `libgcrypt`
 * `zlib`
 * `glib-2.0`
@@ -73,7 +73,7 @@ sudo pacman -S --needed base-devel autoconf automake libtool pkgconf \
 Check that the required pkg-config modules are visible:
 
 ```sh
-pkg-config --modversion sdl3 libspectrum
+pkg-config --modversion sdl3 libspectrum libxml-2.0
 ```
 
 ## Build directly from this repository
@@ -86,6 +86,11 @@ cd fuse-sdl3
 ./configure --with-sdl
 make -j"$(nproc)"
 ```
+
+The downstream build now requires `libxml2` by default so XML settings support
+is always present. If you intentionally need a reduced build without XML config
+support, pass `--without-libxml2` explicitly and expect legacy INI settings
+handling instead.
 
 If you are building from a fresh git checkout and autotools complains about
 generated files, regenerate them first:
