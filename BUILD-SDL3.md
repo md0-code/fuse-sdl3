@@ -1,27 +1,25 @@
 # Building Fuse SDL3
 
-This repository publishes the SDL3 downstream fork of Fuse and the exact patch
-series used to derive it from upstream Fuse 1.6.0.
+This repository publishes the SDL3 fork of Fuse 1.6.0.
 
 What is in this repository:
 
 * the full downstream source tree;
-* the exported patch stack in `exported-patches/`; and
-* the instructions below for building either this tree directly or rebuilding
-  the same result from upstream plus patches.
+* the instructions below for building and validating this tree directly.
 
 Companion documents:
 
 * `TESTING-SDL3.md` for runtime and native-Linux validation.
-* `RELEASE-SDL3.md` for publishing updated patch exports and release artifacts.
+* `RELEASE-SDL3.md` for release preparation and validation.
 
 What is intentionally not in this repository:
 
 * a vendored read-only upstream Fuse mirror.
 
-## Supported upstream base
+## Upstream base
 
-The published patch series applies to upstream tag `fuse-1.6.0`.
+This fork started from upstream tag `fuse-1.6.0` and is now maintained
+directly in this repository.
 
 ## Required dependencies
 
@@ -107,24 +105,6 @@ Install system-wide if required:
 sudo make install
 ```
 
-## Rebuild from upstream plus the published patches
-
-If you want to reproduce the downstream fork from pristine upstream source,
-apply the exported patch series to upstream Fuse 1.6.0:
-
-```sh
-git clone https://git.code.sf.net/p/fuse-emulator/fuse fuse-upstream
-cd fuse-upstream
-git checkout fuse-1.6.0
-git am /path/to/fuse-sdl3/exported-patches/*.patch
-autoreconf -fi
-./configure --with-sdl
-make -j"$(nproc)"
-```
-
-That gives you the same SDL3 downstream code line that is published in this
-repository, without requiring a vendored upstream mirror.
-
 ## Building libspectrum from source if your distro package is too old
 
 This fork requires `libspectrum >= 1.5.0`. If your package manager does not
@@ -198,4 +178,4 @@ FUSE_SDL_SCALE_MODE=pixelart ./fuse --machine 48
 ```
 
 When preparing a public update of this fork, follow `RELEASE-SDL3.md` so the
-branch head, exported patches, and builder-facing documentation stay aligned.
+branch head, build instructions, and validation notes stay aligned.

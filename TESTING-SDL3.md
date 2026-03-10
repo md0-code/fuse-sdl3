@@ -138,4 +138,4 @@ Before calling a branch ready for distribution, keep these true:
 * windowed startup works;
 * dummy-driver startup works;
 * fullscreen works on native Linux with correct aspect ratio; and
-* `exported-patches/` still matches the current downstream branch history.
+* the checked-in build docs still match the repository as cloned.

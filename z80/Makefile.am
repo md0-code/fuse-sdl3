@@ -32,6 +32,18 @@ BUILT_SOURCES += \
                  z80/z80_ddfdcb.c \
                  z80/z80_ed.c
 
+z80_generated_sources = \
+                        z80/opcodes_base.c \
+                        z80/z80_cb.c \
+                        z80/z80_ddfd.c \
+                        z80/z80_ddfdcb.c \
+                        z80/z80_ed.c
+
+z80_generated_source_users = z80/z80_ops.$(OBJEXT) \
+                             z80/z80_coretest.o
+
+$(z80_generated_source_users): $(z80_generated_sources)
+
 z80/opcodes_base.c: $(srcdir)/z80/z80.pl $(srcdir)/z80/opcodes_base.dat
 	@$(MKDIR_P) z80
 	$(AM_V_GEN)$(PERL) -I$(srcdir)/perl $(srcdir)/z80/z80.pl $(srcdir)/z80/opcodes_base.dat > $@.tmp && mv $@.tmp $@

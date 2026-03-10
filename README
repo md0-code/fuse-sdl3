@@ -8,15 +8,11 @@ This repository is a downstream SDL3 port of Fuse 1.6.0. It is intended to be
 usable as a distribution point on its own:
 
 * the full downstream source tree is present in this repository;
-* the exact replayable delta from upstream `fuse-1.6.0` is published in
-  `exported-patches/`; and
 * detailed build, validation, and release instructions for this fork are in
   `BUILD-SDL3.md`, `TESTING-SDL3.md`, and `RELEASE-SDL3.md`.
 
-This repository intentionally does not vendor a separate pristine upstream Fuse
-mirror. If you want to rebuild the port on top of upstream yourself, apply the
-patches in `exported-patches/` to upstream tag `fuse-1.6.0` as documented in
-`BUILD-SDL3.md`.
+This repository is maintained directly as the SDL3 fork. It does not depend on
+an outer patch-export workflow or a vendored pristine upstream mirror.
 
 Fuse (the Free Unix Spectrum Emulator) was originally, and somewhat
 unsurprisingly, an emulator of the ZX Spectrum (a popular 1980s home

@@ -23,6 +23,7 @@
 if USE_WIDGET
 
 fuse_SOURCES += $(ui_widget_files)
+fuse_DEPENDENCIES += ui/widget/fuse.font
 
 BUILT_SOURCES += $(ui_widget_built)
 
