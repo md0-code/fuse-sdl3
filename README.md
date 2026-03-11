@@ -27,8 +27,20 @@ To build distributable archives with bundled runtime dependencies:
 * Linux: `sh ./scripts/build-linux.sh --package`
 * Windows PowerShell: `./scripts/build-windows.ps1 -Package`
 
-Those commands emit `.zip` and `.tar.gz` archives from the CMake install tree,
-including the runtime libraries, `roms/`, and embedded UI support assets.
+To build a Linux AppImage:
+
+* Linux: `sh ./scripts/build-linux.sh --appimage`
+
+Those commands emit one platform-specific archive from the CMake install tree:
+Linux writes `.tar.gz`, while Windows writes `.zip`. Each archive uses a
+portable root layout with the executable and bundled runtime libraries at the
+archive root, `roms/` beside them, and a default config file in the root
+(`.fuserc` on Linux, `fuse.cfg` on Windows). The non-ROM UI support assets are
+embedded, so there is no `share/` payload in the portable package.
+
+The AppImage path stages the same portable Linux layout into an AppDir, then
+builds a single `.AppImage`. If `appimagetool` is not installed, the Linux
+script downloads a suitable copy automatically.
 
 The roadmap for planned fork work is tracked in `planNewFeatures.md`.
 

@@ -83,6 +83,10 @@ static inline int setenv(const char *name, const char *value, int overwrite)
 	return _putenv_s(name, value ? value : "");
 }
 
+#else
+
+#include_next <unistd.h>
+
 #endif
 
 #endif

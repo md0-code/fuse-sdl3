@@ -109,12 +109,24 @@ Windows PowerShell:
 ./scripts/build-windows.ps1 -Package
 ```
 
-Both packaging flows emit `.zip` and `.tar.gz` archives into the selected
-build directory. The archives include the executable, bundled runtime
-libraries, and `roms/`. The non-ROM UI assets are embedded in the executable,
-so the package payload only needs the external ROM set alongside the binary.
-Packaging mode configures a `Release` build so the archive payload is suitable
-for redistribution.
+To build a Linux AppImage from the same portable layout:
+
+```sh
+sh ./scripts/build-linux.sh --appimage
+```
+
+Each packaging flow emits one platform-specific archive into the selected build
+directory: Linux writes `.tar.gz`, while Windows writes `.zip`. The archive is
+laid out as a portable bundle with the executable and bundled runtime libraries
+at the archive root, `roms/` beside them, and a default config file in the root
+(`.fuserc` on Linux, `fuse.cfg` on Windows). The non-ROM UI assets are embedded
+in the executable, so the package payload does not include a `share/`
+directory. Packaging mode configures a `Release` build so the archive payload
+is suitable for redistribution.
+
+The `--appimage` flow uses that same portable Linux layout, adds an `AppRun`
+launcher, and builds a single `.AppImage`. If `appimagetool` is not installed,
+the Linux script downloads a matching binary automatically.
 
 If you need package installation details, custom prefixes, or lower-level
 manual invocations, use the platform sections below.
@@ -251,13 +263,22 @@ cmake --install build-win-native --prefix "$PWD/dist"
 ```
 
 The install step keeps `roms/` adjacent to the executable. The remaining UI
-support assets are compiled into the binary.
+support assets are compiled into the binary. Portable package archives flatten
+the executable and runtime libraries into the archive root and include a
+default config file there as well.
 
 The `package` target uses that same install layout and writes binary
 distribution archives under the build directory:
 
-* `fuse-sdl3-<version>-<system>-<arch>.zip`
-* `fuse-sdl3-<version>-<system>-<arch>.tar.gz`
+* Linux: `fuse-sdl3-<version>-<system>-<arch>.tar.gz`
+* Windows: `fuse-sdl3-<version>-<system>-<arch>.zip`
+
+Inside those archives you should expect:
+
+* the executable at the archive root
+* bundled runtime libraries at the archive root
+* `roms/` at the archive root
+* `.fuserc` on Linux or `fuse.cfg` on Windows at the archive root
 
 You can also invoke packaging manually after a configure step:
 
