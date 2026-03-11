@@ -85,6 +85,7 @@ if [ "$build_appimage" -eq 1 ]; then
   version=$(sed -n 's/^project(fuse VERSION \([^ ]*\) LANGUAGES C)$/\1/p' "$root_dir/CMakeLists.txt")
   appimage_path="$build_dir/fuse-sdl3-${version}-${arch}.AppImage"
   desktop_source="$build_dir/data/fuse.desktop"
+  appstream_source="$build_dir/data/fuse.appdata.xml"
   icon_source="$root_dir/data/icons/256x256/fuse.png"
   appimagetool_url=""
 
@@ -123,6 +124,14 @@ if [ "$build_appimage" -eq 1 ]; then
 
   cp "$desktop_source" "$appdir/fuse.desktop"
   cp "$icon_source" "$appdir/fuse.png"
+
+  mkdir -p "$appdir/usr/share/applications" "$appdir/usr/share/icons/hicolor/256x256/apps" "$appdir/usr/share/metainfo"
+  cp "$desktop_source" "$appdir/usr/share/applications/fuse.desktop"
+  cp "$icon_source" "$appdir/usr/share/icons/hicolor/256x256/apps/fuse.png"
+
+  if [ -f "$appstream_source" ]; then
+    cp "$appstream_source" "$appdir/usr/share/metainfo/fuse.appdata.xml"
+  fi
 
   printf '%s\n' \
     '#!/usr/bin/env sh' \
