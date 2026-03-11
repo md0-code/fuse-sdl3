@@ -72,14 +72,14 @@ print hashline( __LINE__ ), << 'CODE';
 #include <sys/stat.h>
 #include <unistd.h>
 
-#ifdef HAVE_GETOPT_LONG		/* Did our libc include getopt_long? */
+#if HAVE_GETOPT_LONG		/* Did our libc include getopt_long? */
 #include <getopt.h>
-#elif defined AMIGA || defined __MORPHOS__            /* #ifdef HAVE_GETOPT_LONG */
+#elif defined AMIGA || defined __MORPHOS__            /* #if HAVE_GETOPT_LONG */
 /* The platform uses GNU getopt, but not getopt_long, so we get
    symbol clashes on this platform. Just use getopt */
-#else				/* #ifdef HAVE_GETOPT_LONG */
+#else				/* #if HAVE_GETOPT_LONG */
 #include "compat.h"		/* If not, use ours */
-#endif				/* #ifdef HAVE_GETOPT_LONG */
+#endif				/* #if HAVE_GETOPT_LONG */
 
 #ifdef HAVE_LIB_XML2
 #include <libxml/xmlmemory.h>

@@ -15,7 +15,20 @@ The main builder-facing documents are:
 * `BUILD-SDL3.md` for dependency setup and build steps;
 * `TESTING-SDL3.md` for runtime validation and smoke tests;
 * `RELEASE-SDL3.md` for release preparation; and
-* `INSTALL` for upstream-oriented installation notes that still apply.
+* `INSTALL` for the short CMake install summary.
+
+The primary short build commands are:
+
+* Linux: `sh ./scripts/build-linux.sh`
+* Windows PowerShell: `./scripts/build-windows.ps1`
+
+To build distributable archives with bundled runtime dependencies:
+
+* Linux: `sh ./scripts/build-linux.sh --package`
+* Windows PowerShell: `./scripts/build-windows.ps1 -Package`
+
+Those commands emit `.zip` and `.tar.gz` archives from the CMake install tree,
+including the runtime libraries, `roms/`, and embedded UI support assets.
 
 The roadmap for planned fork work is tracked in `planNewFeatures.md`.
 
@@ -26,10 +39,9 @@ integration directly in the main branch history.
 
 Important current fork expectations:
 
-* `--with-sdl` builds the SDL3 UI;
-* `libxml2` is enabled by default so XML settings support is always present;
-* source-tree builds are expected to work from a fresh checkout after
-  `autoreconf -fi`; and
+* CMake is the only supported build system for this fork;
+* the maintained product is the SDL3 UI build;
+* `libxml2` is enabled by default so XML settings support is always present; and
 * the repository should remain free of obsolete patch-stack artifacts.
 
 ## What Fuse provides
@@ -51,8 +63,9 @@ Highlights include:
 
 At minimum, building the SDL3 fork requires:
 
-* a C toolchain and `make`;
-* autotools plus `pkg-config`;
+* a C toolchain;
+* `cmake`;
+* `pkg-config` on non-Windows platforms;
 * `libspectrum >= 1.5.0`;
 * `SDL3`; and
 * `libxml2`.

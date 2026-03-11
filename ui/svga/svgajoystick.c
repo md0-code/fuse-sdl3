@@ -28,12 +28,12 @@
 #include <config.h>
 #include "peripherals/joystick.h"
 
-#if !defined USE_JOYSTICK || defined HAVE_JSW_H
+#if !USE_JOYSTICK || HAVE_JSW_H
 
 /* Fake joystick, or override UI-specific handling */
 #include "../uijoystick.c"
 
-#else			/* #if !defined USE_JOYSTICK || defined HAVE_JSW_H */
+#else			/* #if !USE_JOYSTICK || HAVE_JSW_H */
 
 /* Use the svgalib joystick support */
 
@@ -156,4 +156,4 @@ ui_joystick_poll( void )
 {
 }
 
-#endif			/* #if !defined USE_JOYSTICK || defined HAVE_JSW_H */
+#endif			/* #if !USE_JOYSTICK || HAVE_JSW_H */

@@ -11,85 +11,43 @@ From the repository root:
 CMake build:
 
 ```sh
-cmake -S . -B build-cmake
-cmake --build build-cmake -j"$(nproc)"
-```
-
-Autotools build:
-
-```sh
-./configure --with-sdl
-make -j"$(nproc)" fuse
+cmake -S . -B build-linux
+cmake --build build-linux -j"$(nproc)"
 ```
 
 The build must complete without local source edits beyond the intended branch
-contents. Unless you intentionally configured with `--without-libxml2`, the
-`./configure` summary should report `libxml2 support: yes` so XML settings
-handling is built in.
+contents.
 
 ## Basic startup smoke tests
 
 CMake executable, windowed startup:
 
 ```sh
-timeout -s KILL 5s ./build-cmake/fuse --no-sound --machine 48
+timeout -s KILL 5s ./build-linux/fuse --no-sound --machine 48
 ```
 
 CMake executable, headless or CI startup:
 
 ```sh
 SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy \
-  timeout -s KILL 5s ./build-cmake/fuse --no-sound --machine 48
-```
-
-Autotools executable, windowed startup:
-
-Windowed startup:
-
-```sh
-timeout -s KILL 5s ./fuse --no-sound --machine 48
-```
-
-Autotools executable, headless or CI startup:
-
-```sh
-SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy \
-  timeout -s KILL 5s ./fuse --no-sound --machine 48
+  timeout -s KILL 5s ./build-linux/fuse --no-sound --machine 48
 ```
 
 Both commands are expected to survive until timeout rather than exit early with
 an SDL initialization failure.
-
-## Non-SDL-primary build verification
-
-To confirm the shared SDL3-related changes do not break other UI selections,
-also verify at least one non-SDL-primary build. A verified path for this fork
-is an Xlib build in a clean detached worktree:
-
-```sh
-git worktree add --detach /tmp/fuse-xlib HEAD
-cd /tmp/fuse-xlib
-autoreconf -fi
-./configure --without-gtk
-make -j"$(nproc)"
-timeout -s KILL 5s ./fuse --no-sound --machine 48
-```
-
-This confirms that the non-SDL-primary Xlib configuration still configures,
-builds, and starts while sharing the same downstream source line.
 
 ## Media loading smoke tests
 
 Tape autoload:
 
 ```sh
-timeout -s KILL 5s ./fuse --no-sound --auto-load --tape /path/to/game.tap
+timeout -s KILL 5s ./build-linux/fuse --no-sound --auto-load --tape /path/to/game.tap
 ```
 
 ROM override:
 
 ```sh
-timeout -s KILL 5s ./fuse --no-sound --rom-48 /path/to/diagnostic.rom
+timeout -s KILL 5s ./build-linux/fuse --no-sound --rom-48 /path/to/diagnostic.rom
 ```
 
 These are useful for catching regressions in startup, file loading, and early
@@ -116,9 +74,9 @@ Validate all of the following:
 One Debian sid environment reproduced a crash inside `libdecor-gtk.so` during
 `SDL_Init( SDL_INIT_VIDEO )`. In that case:
 
-* `SDL_VIDEO_DRIVER=x11 ./fuse` worked;
-* `SDL_VIDEO_DRIVER=wayland ./fuse` still crashed; and
-* `LIBDECOR_PLUGIN_DIR=/nonexistent SDL_VIDEO_DRIVER=wayland ./fuse` worked.
+* `SDL_VIDEO_DRIVER=x11 ./build-linux/fuse` worked;
+* `SDL_VIDEO_DRIVER=wayland ./build-linux/fuse` still crashed; and
+* `LIBDECOR_PLUGIN_DIR=/nonexistent SDL_VIDEO_DRIVER=wayland ./build-linux/fuse` worked.
 
 That combination indicates a system `libdecor` plugin failure rather than a
 Fuse-side rendering or emulation failure. When validating Wayland on affected
@@ -130,9 +88,9 @@ treating the issue as an emulator regression.
 Run the same startup command with each texture scale mode:
 
 ```sh
-FUSE_SDL_SCALE_MODE=nearest ./fuse --machine 48
-FUSE_SDL_SCALE_MODE=linear ./fuse --machine 48
-FUSE_SDL_SCALE_MODE=pixelart ./fuse --machine 48
+FUSE_SDL_SCALE_MODE=nearest ./build-linux/fuse --machine 48
+FUSE_SDL_SCALE_MODE=linear ./build-linux/fuse --machine 48
+FUSE_SDL_SCALE_MODE=pixelart ./build-linux/fuse --machine 48
 ```
 
 Check for the following behavior:
@@ -158,7 +116,7 @@ the shortcut is wired by the active UI:
 
 Before calling a branch ready for distribution, keep these true:
 
-* `make -j"$(nproc)" fuse` succeeds from a clean tree;
+* `cmake --build build-linux -j"$(nproc)"` succeeds from a clean tree;
 * windowed startup works;
 * dummy-driver startup works;
 * fullscreen works on native Linux with correct aspect ratio; and

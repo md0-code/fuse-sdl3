@@ -37,15 +37,15 @@
 #include "menu.h"
 #include "settings.h"
 
-#if !defined USE_JOYSTICK || defined HAVE_JSW_H
+#if !USE_JOYSTICK || HAVE_JSW_H
 /* Fake joystick, or override UI-specific handling */
 #include "../uijoystick.c"
 
-#else			/* #if !defined USE_JOYSTICK || defined HAVE_JSW_H */
+#else			/* #if !USE_JOYSTICK || HAVE_JSW_H */
 
 #include "../sdl/sdljoystick.c"
 
-#endif			/* #if !defined USE_JOYSTICK || defined HAVE_JSW_H */
+#endif			/* #if !USE_JOYSTICK || HAVE_JSW_H */
 
 enum
 {

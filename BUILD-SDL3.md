@@ -25,9 +25,9 @@ directly in this repository.
 
 Minimum required to build the SDL3 UI:
 
-* C toolchain: `gcc` or `clang`, `make`
+* C toolchain: `gcc` or `clang`
 * `cmake`
-* Autotools: `autoconf`, `automake`, `libtool`, `pkg-config`
+* `pkg-config` on non-Windows platforms
 * `libspectrum >= 1.5.0`
 * `SDL3`
 * `libxml2`
@@ -38,6 +38,7 @@ Recommended optional dependencies:
 * `libgcrypt`
 * `zlib`
 * `glib-2.0`
+* `bzip2`
 
 `glib-2.0` is required when your `libspectrum` build does not provide its own
 internal GLib replacement. Installing it is the simplest option on most Linux
@@ -49,7 +50,7 @@ Debian or Ubuntu:
 
 ```sh
 sudo apt update
-sudo apt install build-essential cmake autoconf automake libtool pkg-config \
+sudo apt install build-essential cmake pkg-config \
   libspectrum-dev libsdl3-dev libglib2.0-dev libpng-dev libxml2-dev \
   libgcrypt20-dev zlib1g-dev
 ```
@@ -57,7 +58,7 @@ sudo apt install build-essential cmake autoconf automake libtool pkg-config \
 Fedora:
 
 ```sh
-sudo dnf install gcc make cmake autoconf automake libtool pkgconf-pkg-config \
+sudo dnf install gcc make cmake pkgconf-pkg-config \
   libspectrum-devel SDL3-devel glib2-devel libpng-devel libxml2-devel \
   libgcrypt-devel zlib-devel
 ```
@@ -65,7 +66,7 @@ sudo dnf install gcc make cmake autoconf automake libtool pkgconf-pkg-config \
 Arch Linux:
 
 ```sh
-sudo pacman -S --needed base-devel cmake autoconf automake libtool pkgconf \
+sudo pacman -S --needed base-devel cmake pkgconf \
   libspectrum sdl3 glib2 libpng libxml2 libgcrypt zlib
 ```
 
@@ -75,52 +76,205 @@ Check that the required pkg-config modules are visible:
 pkg-config --modversion sdl3 libspectrum libxml-2.0
 ```
 
-## Build directly from this repository with CMake
+## Primary build commands
 
-The milestone 7 CMake build models the retained downstream Linux target
+These are the supported short paths for day-to-day development:
+
+Linux:
+
+```sh
+sh ./scripts/build-linux.sh
+```
+
+Windows PowerShell:
+
+```powershell
+./scripts/build-windows.ps1
+```
+
+Both commands configure a CMake build, compile Fuse SDL3, and finish with a
+runtime smoke test using `fuse -V` or `fuse.exe -V`.
+
+To also produce binary distribution archives from the install tree:
+
+Linux:
+
+```sh
+sh ./scripts/build-linux.sh --package
+```
+
+Windows PowerShell:
+
+```powershell
+./scripts/build-windows.ps1 -Package
+```
+
+Both packaging flows emit `.zip` and `.tar.gz` archives into the selected
+build directory. The archives include the executable, bundled runtime
+libraries, and `roms/`. The non-ROM UI assets are embedded in the executable,
+so the package payload only needs the external ROM set alongside the binary.
+Packaging mode configures a `Release` build so the archive payload is suitable
+for redistribution.
+
+If you need package installation details, custom prefixes, or lower-level
+manual invocations, use the platform sections below.
+
+## Native Windows dependency path
+
+The supported Windows dependency workflow uses:
+
+* `winget` for host tools needed by this repository (`perl`, `pkg-config`,
+  `ninja`);
+* a repo-local `vcpkg` checkout for native third-party libraries; and
+* a native `clang-cl` CMake configure, optionally pointed at a prebuilt
+  `libspectrum` prefix with `FUSE_LIBSPECTRUM_ROOT`.
+
+Bootstrap the Windows host and native libraries from PowerShell:
+
+```powershell
+./scripts/bootstrap-windows-deps.ps1
+```
+
+For the standard native Windows path from a regular PowerShell prompt, use the
+single entry point:
+
+```powershell
+./scripts/build-windows.ps1
+```
+
+That script installs host tools if needed, bootstraps `external/vcpkg`,
+installs the pinned native libraries from `vcpkg.json`, builds the local
+overlay `libspectrum` port natively under Windows into the matching `vcpkg`
+triplet prefix, builds Fuse, stages the runtime DLLs, and verifies the result
+with `fuse.exe -V`.
+
+The native `libspectrum` build path for this repository is:
+
+* source checkout in `external/libspectrum`;
+* local overlay port in `vcpkg-ports/libspectrum`; and
+* `vcpkg_configure_make(... USE_WRAPPERS ...)`, which runs autotools through
+  the MSVC/clang-cl wrapper path instead of producing a MinGW-only build.
+
+If you need to build `libspectrum` by itself before configuring Fuse, run:
+
+```powershell
+./external/vcpkg/vcpkg.exe install --classic --triplet x64-windows `
+  --overlay-ports "$PWD/vcpkg-ports" libspectrum
+```
+
+That produces a native Windows prefix under:
+
+```text
+external/vcpkg/installed/x64-windows
+```
+
+The Fuse CMake build also accepts:
+
+```text
+-DFUSE_LIBSPECTRUM_ROOT=C:/path/to/libspectrum-prefix
+```
+
+where that prefix contains `include/libspectrum.h` plus a native Windows
+`libspectrum` library built with the same ABI.
+
+The Windows bootstrap installs these host-side tools when missing:
+
+* Strawberry Perl;
+* `pkg-config-lite`;
+* `ninja`; and
+* WinFlexBison (`win_flex` and `win_bison`) for debugger source generation.
+
+## Native Windows manual CMake build with clang-cl
+
+From a regular PowerShell prompt in the repository root:
+
+```powershell
+cmake -S . -B build-windows -G Ninja `
+  -DCMAKE_C_COMPILER=clang-cl `
+  -DCMAKE_TOOLCHAIN_FILE="$PWD/external/vcpkg/scripts/buildsystems/vcpkg.cmake" `
+  -DVCPKG_TARGET_TRIPLET=x64-windows `
+  -DFUSE_LIBSPECTRUM_ROOT="$PWD/external/vcpkg/installed/x64-windows"
+
+cmake --build build-windows
+```
+
+If you prefer the Visual Studio CMake generator after the command-line path is
+working, keep the same toolchain and cache variables and switch only the
+generator.
+
+Runtime expectations on Windows:
+
+* `fuse.exe` is produced under the chosen build directory;
+* `roms/` is staged next to the executable; and
+* the primary helper script also stages the dependency DLLs beside `fuse.exe`
+  before running the smoke test.
+
+## Native Linux package setup
+
+Install the required development packages, then run the primary helper:
+
+```sh
+sh ./scripts/build-linux.sh
+```
+
+That produces `build-linux/fuse` by default and verifies the executable with
+`fuse -V`.
+
+## Native Linux manual CMake build
+
+The CMake build models the retained downstream Linux target
 directly: core emulator code, retained compatibility code, SDL UI, widget UI,
 retained generated-source rules, SDL sound, and the SDL timer path.
 
 From the repository root:
 
 ```sh
-cmake -S . -B build-cmake
-cmake --build build-cmake -j"$(nproc)"
+cmake -S . -B build-linux
+cmake --build build-linux -j"$(nproc)"
 ```
 
-The generated sources stay under `build-cmake/`, so the CMake path does not
+The generated sources stay under `build-linux/`, so the CMake path does not
 depend on pre-generated outputs from removed frontend trees.
 
-## Build directly from this repository with autotools
+## Install with CMake
 
-Clone the downstream fork and build the SDL3 UI:
-
-```sh
-git clone --branch sdl3-integration https://github.com/md0-code/fuse-sdl3.git
-cd fuse-sdl3
-./configure --with-sdl
-make -j"$(nproc)"
-```
-
-The downstream build now requires `libxml2` by default so XML settings support
-is always present. If you intentionally need a reduced build without XML config
-support, pass `--without-libxml2` explicitly and expect legacy INI settings
-handling instead.
-
-If you are building from a fresh git checkout and autotools complains about
-generated files, regenerate them first:
+To install a built tree:
 
 ```sh
-autoreconf -fi
-./configure --with-sdl
-make -j"$(nproc)"
+cmake --install build-linux --prefix /usr/local
 ```
 
-Install system-wide if required:
+On Windows:
+
+```powershell
+cmake --install build-win-native --prefix "$PWD/dist"
+```
+
+The install step keeps `roms/` adjacent to the executable. The remaining UI
+support assets are compiled into the binary.
+
+The `package` target uses that same install layout and writes binary
+distribution archives under the build directory:
+
+* `fuse-sdl3-<version>-<system>-<arch>.zip`
+* `fuse-sdl3-<version>-<system>-<arch>.tar.gz`
+
+You can also invoke packaging manually after a configure step:
 
 ```sh
-sudo make install
+cmake --build build-linux --target package
 ```
+
+```powershell
+cmake --build build-windows --target package
+```
+
+On Linux, the install step also stages:
+
+* `share/applications/fuse.desktop`
+* `share/mime/packages/fuse.xml`
+* hicolor app and MIME icons under `share/icons/hicolor/`
+* the bash completion file under `share/bash-completion/completions/` when present
 
 ## Building libspectrum from source if your distro package is too old
 
@@ -141,8 +295,7 @@ Then point Fuse at that pkg-config directory:
 ```sh
 cd /path/to/fuse-sdl3
 PKG_CONFIG_PATH="$HOME/opt/libspectrum/lib/pkgconfig" \
-  ./configure --with-sdl
-make -j"$(nproc)"
+  sh ./scripts/build-linux.sh
 ```
 
 ## Minimal smoke tests
@@ -150,22 +303,20 @@ make -j"$(nproc)"
 For the CMake build:
 
 ```sh
-timeout -s KILL 5s ./build-cmake/fuse --no-sound --machine 48
+timeout -s KILL 5s ./build-linux/fuse --no-sound --machine 48
 ```
 
 On a headless system or in CI:
 
 ```sh
 SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy \
-  timeout -s KILL 5s ./build-cmake/fuse --no-sound --machine 48
+  timeout -s KILL 5s ./build-linux/fuse --no-sound --machine 48
 ```
-
-For the autotools build:
 
 After building, confirm the executable starts:
 
 ```sh
-timeout 5s ./fuse --no-sound --machine 48
+timeout 5s ./build-linux/fuse --no-sound --machine 48
 ```
 
 On a headless system or in CI, use SDL dummy drivers:

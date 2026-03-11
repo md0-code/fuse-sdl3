@@ -744,4 +744,5 @@ trap_check_rom( trap_type type )
   ui_error( UI_ERROR_ERROR, "trap_check_rom: unknown machine type %d",
             machine_current->machine );
   fuse_abort();
+  return 0;
 }

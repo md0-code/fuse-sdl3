@@ -17,18 +17,16 @@ From the repository root:
 
 ```sh
 git status --short
-make -j"$(nproc)" fuse
-timeout -s KILL 5s ./fuse --no-sound --machine 48
+cmake -S . -B build-linux
+cmake --build build-linux -j"$(nproc)"
+cmake --build build-linux --target package
+timeout -s KILL 5s ./build-linux/fuse --no-sound --machine 48
 SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy \
-  timeout -s KILL 5s ./fuse --no-sound --machine 48
+  timeout -s KILL 5s ./build-linux/fuse --no-sound --machine 48
 ```
 
 If native Linux graphics behavior changed, also run the checklist from
 `TESTING-SDL3.md`.
-
-Before calling Phase 7 verification complete, also rerun at least one
-non-SDL-primary build from `TESTING-SDL3.md` so the downstream changes are not
-validated only through the SDL UI configuration.
 
 ## Keep docs aligned with the code
 
@@ -43,7 +41,8 @@ change:
 At minimum, confirm that:
 
 * `libspectrum >= 1.5.0` is still accurate;
-* `--with-sdl` still means the SDL3 UI;
+* the documented CMake commands still work as written;
+* the documented packaging commands still produce self-contained archives;
 * any new runtime knobs are documented; and
 * the build and validation steps still match the repository as cloned.
 

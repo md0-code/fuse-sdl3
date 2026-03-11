@@ -37,7 +37,7 @@
 
 int ttx2000s_paged = 0;
 
-#ifdef BUILD_TTX2000S
+#if BUILD_TTX2000S
 static memory_page ttx2000s_memory_map_romcs_rom[ MEMORY_PAGES_IN_8K ];
 static memory_page ttx2000s_memory_map_romcs_ram[ MEMORY_PAGES_IN_8K ];
 static libspectrum_byte ttx2000s_ram[2048];
@@ -418,7 +418,7 @@ ttx2000s_to_snapshot( libspectrum_snap *snap )
   /* TODO: proper snapshot support */
 }
 
-#else /* #ifdef BUILD_TTX2000S */
+#else /* #if BUILD_TTX2000S */
 
 /* No TTX2000S support */
 
@@ -438,14 +438,14 @@ ttx2000s_sram_write( libspectrum_word address, libspectrum_byte b )
 {
 }
 
-#endif /* #ifdef BUILD_TTX2000S */
+#endif /* #if BUILD_TTX2000S */
 
 int
 ttx2000s_unittest( void )
 {
   int r = 0;
 
-  #ifdef BUILD_TTX2000S
+  #if BUILD_TTX2000S
   ttx2000s_paged = 1;
   ttx2000s_memory_map();
   machine_current->ram.romcs = 1;

@@ -21,12 +21,10 @@
 
 */
 
-#include <string.h>
-#ifdef HAVE_STRINGS_STRCASECMP
-#include <strings.h>
-#endif      /* #ifdef HAVE_STRINGS_STRCASECMP */
-
 #include <config.h>
+
+#include <string.h>
+#include <strings.h>
 
 #include <libspectrum.h>
 

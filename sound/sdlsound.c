@@ -27,7 +27,9 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <sys/types.h>
+#if HAVE_SYS_TIME_H
 #include <sys/time.h>
+#endif
 
 #include "sdlcompat.h"
 

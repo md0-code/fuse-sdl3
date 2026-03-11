@@ -24,35 +24,42 @@
 
 #include <config.h>
 
+#include <stdio.h>
 #include <windows.h>
+#include <winternl.h>
 
 #include "ui/ui.h"
 
 int compat_osname( char *osname, size_t length )
 {
-  OSVERSIONINFO buf;
-  const char *windows_name;
-  int error;
+  typedef LONG (WINAPI *rtl_get_version_fn)( PRTL_OSVERSIONINFOW );
 
+  RTL_OSVERSIONINFOW buf;
+  HMODULE ntdll;
+  rtl_get_version_fn rtl_get_version;
+  char service_pack[ 128 ] = "";
+
+  ZeroMemory( &buf, sizeof( buf ) );
   buf.dwOSVersionInfoSize = sizeof( buf );
-  error = GetVersionEx( &buf );
-  if( error == 0 ) {
+
+  ntdll = GetModuleHandleW( L"ntdll.dll" );
+  rtl_get_version = ntdll ?
+    (rtl_get_version_fn)GetProcAddress( ntdll, "RtlGetVersion" ) : NULL;
+
+  if( !rtl_get_version || rtl_get_version( &buf ) != 0 ) {
     ui_error( UI_ERROR_ERROR, "error getting system information." );
     return 1;
   }
 
-  switch( buf.dwPlatformId ) {
-  case VER_PLATFORM_WIN32_NT:	   windows_name = "NT";      break;
-  case VER_PLATFORM_WIN32_WINDOWS: windows_name = "95/98";   break;
-  case VER_PLATFORM_WIN32s:	   windows_name = "3.1";     break;
-  default:			   windows_name = "unknown"; break;
+  if( buf.szCSDVersion[ 0 ] ) {
+    WideCharToMultiByte( CP_UTF8, 0, buf.szCSDVersion, -1,
+                         service_pack, sizeof( service_pack ), NULL, NULL );
   }
 
-  /* FIXME: verify function below is unicode compliant */
-  /* The casts to int work around a suspected Wine (or MinGW) bug */
-  snprintf( osname, length, "Windows %s %i.%i build %i %s",
-	    windows_name, (int)buf.dwMajorVersion, (int)buf.dwMinorVersion,
-	    (int)buf.dwBuildNumber, buf.szCSDVersion );
+  snprintf( osname, length, "Windows NT %i.%i build %i%s%s",
+	    (int)buf.dwMajorVersion, (int)buf.dwMinorVersion,
+	    (int)buf.dwBuildNumber,
+	    service_pack[ 0 ] ? " " : "", service_pack );
 
   return 0;
 }

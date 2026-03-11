@@ -3,6 +3,13 @@
 *.orig
 .DS_Store
 .vscode
+/CMakeCache.txt
+/CMakeFiles/
+/build/
+/build-*/
+/dist-*/
+/external/
+/~shaders/
 /aclocal.m4
 /autom4te.cache
 /compile

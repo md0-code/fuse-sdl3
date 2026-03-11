@@ -40,6 +40,8 @@ int utils_open_file( const char *filename, int autoload,
 int utils_open_snap( void );
 int utils_read_auxiliary_file( const char *filename, utils_file *file,
                                utils_aux_type type );
+int utils_read_embedded_asset( const char *filename, utils_file *file,
+                               utils_aux_type type );
 
 int utils_read_file( const char *filename, utils_file *file );
 int utils_read_fd( compat_fd fd, const char *filename, utils_file *file );

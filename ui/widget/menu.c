@@ -526,6 +526,7 @@ menu_get_scaler( scaler_available_fn selector )
 
   ui_error( UI_ERROR_ERROR, "widget_select_scaler: ran out of scalers" );
   fuse_abort();
+  return SCALER_NUM;
 }
 
 void

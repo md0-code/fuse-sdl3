@@ -39,7 +39,7 @@
 
 #include "speccyboot.h"
 
-#ifdef BUILD_SPECCYBOOT
+#if BUILD_SPECCYBOOT
 
 /* Determine whether a bit has gone from high to low (or low to high) */
 #define GONE_LO(prev, curr, mask)     (((prev) & (mask)) && !((curr) & (mask)))
@@ -277,7 +277,7 @@ speccyboot_unittest( void )
   return r;
 }
 
-#else			/* #ifdef BUILD_SPECCYBOOT */
+#else			/* #if BUILD_SPECCYBOOT */
 
 /* No speccyboot support */
 
@@ -292,4 +292,4 @@ speccyboot_unittest( void )
   return 0;
 }
 
-#endif			/* #ifdef BUILD_SPECCYBOOT */
+#endif			/* #if BUILD_SPECCYBOOT */
