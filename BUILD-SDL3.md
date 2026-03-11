@@ -26,6 +26,7 @@ directly in this repository.
 Minimum required to build the SDL3 UI:
 
 * C toolchain: `gcc` or `clang`, `make`
+* `cmake`
 * Autotools: `autoconf`, `automake`, `libtool`, `pkg-config`
 * `libspectrum >= 1.5.0`
 * `SDL3`
@@ -48,7 +49,7 @@ Debian or Ubuntu:
 
 ```sh
 sudo apt update
-sudo apt install build-essential autoconf automake libtool pkg-config \
+sudo apt install build-essential cmake autoconf automake libtool pkg-config \
   libspectrum-dev libsdl3-dev libglib2.0-dev libpng-dev libxml2-dev \
   libgcrypt20-dev zlib1g-dev
 ```
@@ -56,7 +57,7 @@ sudo apt install build-essential autoconf automake libtool pkg-config \
 Fedora:
 
 ```sh
-sudo dnf install gcc make autoconf automake libtool pkgconf-pkg-config \
+sudo dnf install gcc make cmake autoconf automake libtool pkgconf-pkg-config \
   libspectrum-devel SDL3-devel glib2-devel libpng-devel libxml2-devel \
   libgcrypt-devel zlib-devel
 ```
@@ -64,7 +65,7 @@ sudo dnf install gcc make autoconf automake libtool pkgconf-pkg-config \
 Arch Linux:
 
 ```sh
-sudo pacman -S --needed base-devel autoconf automake libtool pkgconf \
+sudo pacman -S --needed base-devel cmake autoconf automake libtool pkgconf \
   libspectrum sdl3 glib2 libpng libxml2 libgcrypt zlib
 ```
 
@@ -74,7 +75,23 @@ Check that the required pkg-config modules are visible:
 pkg-config --modversion sdl3 libspectrum libxml-2.0
 ```
 
-## Build directly from this repository
+## Build directly from this repository with CMake
+
+The milestone 7 CMake build models the retained downstream Linux target
+directly: core emulator code, retained compatibility code, SDL UI, widget UI,
+retained generated-source rules, SDL sound, and the SDL timer path.
+
+From the repository root:
+
+```sh
+cmake -S . -B build-cmake
+cmake --build build-cmake -j"$(nproc)"
+```
+
+The generated sources stay under `build-cmake/`, so the CMake path does not
+depend on pre-generated outputs from removed frontend trees.
+
+## Build directly from this repository with autotools
 
 Clone the downstream fork and build the SDL3 UI:
 
@@ -128,7 +145,22 @@ PKG_CONFIG_PATH="$HOME/opt/libspectrum/lib/pkgconfig" \
 make -j"$(nproc)"
 ```
 
-## Minimal smoke test
+## Minimal smoke tests
+
+For the CMake build:
+
+```sh
+timeout -s KILL 5s ./build-cmake/fuse --no-sound --machine 48
+```
+
+On a headless system or in CI:
+
+```sh
+SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy \
+  timeout -s KILL 5s ./build-cmake/fuse --no-sound --machine 48
+```
+
+For the autotools build:
 
 After building, confirm the executable starts:
 
