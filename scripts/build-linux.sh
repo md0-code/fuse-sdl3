@@ -41,7 +41,13 @@ jobs="${JOBS:-$(cpu_count)}"
 set -- cmake -S "$root_dir" -B "$build_dir"
 
 if [ "$build_package" -eq 1 ] || [ "$build_appimage" -eq 1 ]; then
-  set -- "$@" -DCMAKE_BUILD_TYPE=Release -DFUSE_PORTABLE_PACKAGE=ON
+  set -- "$@" -DFUSE_PORTABLE_PACKAGE=ON
+else
+  set -- "$@" -DFUSE_PORTABLE_PACKAGE=OFF
+fi
+
+if [ "$build_package" -eq 1 ] || [ "$build_appimage" -eq 1 ]; then
+  set -- "$@" -DCMAKE_BUILD_TYPE=Release
 fi
 
 if [ "$build_package" -eq 1 ]; then
