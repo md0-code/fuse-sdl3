@@ -158,6 +158,7 @@ option(FUSE_WITH_SOCKETS "Enable sockets-dependent features" ON)
 option(FUSE_WITH_PTHREAD "Enable pthread-dependent features" ON)
 option(FUSE_USE_JOYSTICK "Enable SDL joystick support" ON)
 option(FUSE_SMALLMEM "Disable the large-memory Z80 opcode path" OFF)
+option(FUSE_PORTABLE_PACKAGE "Build package archives with a portable layout" OFF)
 set(FUSE_ROMSDIR "" CACHE PATH "Optional installed ROM directory override")
 
 set(FUSE_BUILD_NUMBER 1)
@@ -315,6 +316,30 @@ endif()
 set(FUSE_GENERATED_MIME_XML "${CMAKE_BINARY_DIR}/data/fuse.xml")
 set(FUSE_GENERATED_DESKTOP_FILE "${CMAKE_BINARY_DIR}/data/fuse.desktop")
 set(FUSE_RUNTIME_DEPENDENCY_SCRIPT "${CMAKE_BINARY_DIR}/cmake/InstallRuntimeDependencies.cmake")
+
+if(FUSE_PORTABLE_PACKAGE)
+  set(FUSE_RUNTIME_INSTALL_DESTINATION ".")
+  set(FUSE_ROMS_INSTALL_DESTINATION "roms")
+  set(FUSE_DESKTOP_INTEGRATION_STATUS "portable package")
+else()
+  set(FUSE_RUNTIME_INSTALL_DESTINATION "${CMAKE_INSTALL_BINDIR}")
+  set(FUSE_ROMS_INSTALL_DESTINATION "${CMAKE_INSTALL_BINDIR}/roms")
+  set(FUSE_DESKTOP_INTEGRATION_STATUS "generated")
+endif()
+
+if(WIN32)
+  set(FUSE_DEFAULT_CONFIG_NAME "fuse.cfg")
+else()
+  set(FUSE_DEFAULT_CONFIG_NAME ".fuserc")
+endif()
+
+if(HAVE_LIB_XML2)
+  set(FUSE_DEFAULT_CONFIG_FORMAT xml)
+else()
+  set(FUSE_DEFAULT_CONFIG_FORMAT ini)
+endif()
+
+set(FUSE_GENERATED_DEFAULT_CONFIG "${CMAKE_BINARY_DIR}/${FUSE_DEFAULT_CONFIG_NAME}")
 
 file(MAKE_DIRECTORY "${CMAKE_BINARY_DIR}/data")
 file(MAKE_DIRECTORY "${CMAKE_BINARY_DIR}/cmake")
@@ -606,6 +631,12 @@ fuse_command_to_file(
   "${PERL_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/ui/widget/mkfusefont.pl" "${CMAKE_SOURCE_DIR}/ui/widget/fuse.font.sbf"
 )
 
+fuse_command_to_file(
+  "${FUSE_GENERATED_DEFAULT_CONFIG}"
+  "${CMAKE_SOURCE_DIR}/scripts/generate-default-config.pl;${CMAKE_SOURCE_DIR}/settings.dat"
+  "${PERL_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/scripts/generate-default-config.pl" "${CMAKE_SOURCE_DIR}/settings.dat" "${FUSE_DEFAULT_CONFIG_FORMAT}"
+)
+
 file(WRITE "${FUSE_EMBEDDED_ASSETS_SPEC}"
   "LIB|cassette.bmp|${CMAKE_SOURCE_DIR}/lib/cassette.bmp\n"
   "LIB|keyboard.png|${CMAKE_SOURCE_DIR}/lib/keyboard.png\n"
@@ -683,6 +714,7 @@ fuse_command_to_file(
 
 set(FUSE_GENERATED_FILES
   "${CMAKE_BINARY_DIR}/config.h"
+  "${FUSE_GENERATED_DEFAULT_CONFIG}"
   "${GENERATED_SETTINGS_C}"
   "${GENERATED_SETTINGS_H}"
   "${GENERATED_OPTIONS_H}"
@@ -1011,22 +1043,30 @@ if(WIN32 AND LIBSPECTRUM_RUNTIME)
 endif()
 
 install(TARGETS fuse
-  RUNTIME DESTINATION "${CMAKE_INSTALL_BINDIR}"
+  RUNTIME DESTINATION "${FUSE_RUNTIME_INSTALL_DESTINATION}"
+  PERMISSIONS
+    OWNER_READ OWNER_WRITE OWNER_EXECUTE
+    GROUP_READ GROUP_EXECUTE
+    WORLD_READ WORLD_EXECUTE
 )
 
 install(SCRIPT "${FUSE_RUNTIME_DEPENDENCY_SCRIPT}")
 
-install(DIRECTORY "${CMAKE_SOURCE_DIR}/roms/"
-  DESTINATION "${CMAKE_INSTALL_BINDIR}/roms"
+install(FILES "${FUSE_GENERATED_DEFAULT_CONFIG}"
+  DESTINATION "${FUSE_RUNTIME_INSTALL_DESTINATION}"
 )
 
-if(EXISTS "${CMAKE_SOURCE_DIR}/man/fuse.1")
+install(DIRECTORY "${CMAKE_SOURCE_DIR}/roms/"
+  DESTINATION "${FUSE_ROMS_INSTALL_DESTINATION}"
+)
+
+if(NOT FUSE_PORTABLE_PACKAGE AND EXISTS "${CMAKE_SOURCE_DIR}/man/fuse.1")
   install(FILES "${CMAKE_SOURCE_DIR}/man/fuse.1"
     DESTINATION "${CMAKE_INSTALL_MANDIR}/man1"
   )
 endif()
 
-if(UNIX AND NOT APPLE)
+if(UNIX AND NOT APPLE AND NOT FUSE_PORTABLE_PACKAGE)
   install(FILES
     "${FUSE_GENERATED_MIME_XML}"
     DESTINATION "${CMAKE_INSTALL_DATADIR}/mime/packages"
@@ -1066,7 +1106,13 @@ set(CPACK_STRIP_FILES OFF)
 set(CPACK_VERBATIM_VARIABLES YES)
 set(CPACK_PACKAGE_FILE_NAME "fuse-sdl3-${PROJECT_VERSION}-${CMAKE_SYSTEM_NAME}-${CMAKE_SYSTEM_PROCESSOR}")
 set(CPACK_ARCHIVE_COMPONENT_INSTALL OFF)
-set(CPACK_GENERATOR "ZIP;TGZ" CACHE STRING "Archive generators" FORCE)
+if(NOT DEFINED CPACK_GENERATOR OR CPACK_GENERATOR STREQUAL "")
+  if(WIN32)
+    set(CPACK_GENERATOR "ZIP" CACHE STRING "Archive generators")
+  else()
+    set(CPACK_GENERATOR "TGZ" CACHE STRING "Archive generators")
+  endif()
+endif()
 
 include(CPack)
 
@@ -1078,5 +1124,5 @@ message(STATUS "  spectranet: ${BUILD_SPECTRANET}")
 message(STATUS "  speccyboot: ${BUILD_SPECCYBOOT}")
 message(STATUS "  libxml2: ${HAVE_LIB_XML2}")
 message(STATUS "  libpng: ${USE_LIBPNG}")
-message(STATUS "  desktop integration: generated")
+message(STATUS "  desktop integration: ${FUSE_DESKTOP_INTEGRATION_STATUS}")
 message(STATUS "  package generators: ${CPACK_GENERATOR}")

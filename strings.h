@@ -8,6 +8,10 @@
 #define strcasecmp _stricmp
 #define strncasecmp _strnicmp
 
+#else
+
+#include_next <strings.h>
+
 #endif
 
 #endif

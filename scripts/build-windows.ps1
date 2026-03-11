@@ -7,8 +7,12 @@ param(
 $ErrorActionPreference = "Stop"
 
 $buildType = ""
+$packageGenerator = ""
+$portablePackage = ""
 if ($Package) {
   $buildType = "Release"
+  $packageGenerator = "ZIP"
+  $portablePackage = "ON"
 }
 
 $buildScript = Join-Path $PSScriptRoot "build-native-win.cmd"
@@ -19,10 +23,17 @@ if ($LASTEXITCODE -ne 0) {
 }
 
 $buildDirPath = Join-Path (Resolve-Path "$PSScriptRoot/..").Path $BuildDir
+$buildArgs = @($buildDirPath, $Triplet)
 if ($buildType) {
-  & $buildScript $buildDirPath $Triplet $buildType
+  $buildArgs += $buildType
+  if ($packageGenerator) {
+    $buildArgs += ""
+    $buildArgs += $packageGenerator
+    $buildArgs += $portablePackage
+  }
+  & $buildScript @buildArgs
 } else {
-  & $buildScript $buildDirPath $Triplet
+  & $buildScript @buildArgs
 }
 if ($LASTEXITCODE -ne 0) {
   exit $LASTEXITCODE
@@ -52,7 +63,8 @@ if ($process.ExitCode -ne 0) {
 Write-Host "Runtime smoke test passed: fuse.exe -V"
 
 if ($Package) {
-  & $buildScript $buildDirPath $Triplet $buildType package
+  $packageArgs = @($buildDirPath, $Triplet, $buildType, "package", $packageGenerator, $portablePackage)
+  & $buildScript @packageArgs
   if ($LASTEXITCODE -ne 0) {
     exit $LASTEXITCODE
   }
