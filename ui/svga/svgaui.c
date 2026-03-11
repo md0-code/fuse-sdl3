@@ -27,7 +27,7 @@
 
 #include <vga.h>
 
-#if defined USE_JOYSTICK && !defined HAVE_JSW_H
+#if USE_JOYSTICK && !HAVE_JSW_H
 #include <vgajoystick.h>
 #endif
 
@@ -74,7 +74,7 @@ ui_event( void )
 
   keyboard_update();
   mouse_update();
-#if defined USE_JOYSTICK && !defined HAVE_JSW_H
+#if USE_JOYSTICK && !HAVE_JSW_H
   joystick_update();
 #endif
 

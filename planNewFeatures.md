@@ -52,6 +52,7 @@ regression risk.
    build does not silently depend on outputs from deleted frontend paths.
 
 8. Milestone 8: native Windows `clang-cl` bring-up and docs.
+   [done]
    Define a reproducible dependency-acquisition path for Windows, then make the
    CMake build compile and run natively on Windows with `clang-cl`. Treat
    compiler and runtime fixes as shared portability cleanup where possible, and
@@ -70,7 +71,9 @@ regression risk.
     renderer work lands on stable user-facing interfaces.
 
 10. Milestone 10: SDL renderer shader infrastructure.
-    Refactor `ui/sdl/sdldisplay.c` so the current
+    The app must be able to load .slangp shaders designed from retroarch
+    (examples in ~shaders). Investigate using SDL_shadercross for implementing 
+    support. Refactor `ui/sdl/sdldisplay.c` so the current
     presentation path is split cleanly into frame generation, texture upload,
     and final presentation. Add the backend capability checks, shader-loading
     path, and robust non-shader fallback needed to support externally supplied

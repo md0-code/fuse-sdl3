@@ -1,0 +1,13 @@
+{
+  "name": "fuse-sdl3",
+  "version-string": "1.6.0.1",
+  "builtin-baseline": "58950f88544e4637524dbd6a01d0317cf4cb77fc",
+  "dependencies": [
+    "bzip2",
+    "glib",
+    "libpng",
+    "libxml2",
+    "sdl3",
+    "zlib"
+  ]
+}

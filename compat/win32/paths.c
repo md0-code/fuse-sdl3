@@ -23,9 +23,9 @@
 
 #include <config.h>
 
-#ifdef HAVE_LIBGEN_H
+#if HAVE_LIBGEN_H
 #include <libgen.h>
-#endif				/* #ifdef HAVE_LIBGEN_H */
+#endif				/* #if HAVE_LIBGEN_H */
 #include <stdlib.h>
 #include <string.h>
 #include <windows.h>
@@ -117,4 +117,5 @@ compat_get_next_path( path_context *ctx )
 
   ui_error( UI_ERROR_ERROR, "unknown path_context state %d", ctx->state );
   fuse_abort();
+  return 0;
 }

@@ -25,7 +25,7 @@
 #include <config.h>
 #include <string.h>
 
-#ifdef HAVE_LIB_GLIB
+#if HAVE_LIB_GLIB
 #include <glib.h>
 #endif
 

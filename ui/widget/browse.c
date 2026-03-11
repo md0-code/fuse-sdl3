@@ -27,11 +27,11 @@
 #include <stdlib.h>
 #include <string.h>
 
-#ifdef HAVE_LIB_GLIB
+#if HAVE_LIB_GLIB
 #include <glib.h>
-#else				/* #ifdef HAVE_LIB_GLIB */
+#else				/* #if HAVE_LIB_GLIB */
 #include <libspectrum.h>
-#endif				/* #ifdef HAVE_LIB_GLIB */
+#endif				/* #if HAVE_LIB_GLIB */
 
 #include "fuse.h"
 #include "tape.h"

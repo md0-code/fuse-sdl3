@@ -100,7 +100,7 @@ ui_event( void )
       }	
       break;
 
-#if defined USE_JOYSTICK && !defined HAVE_JSW_H
+#if USE_JOYSTICK && !HAVE_JSW_H
 
     case SDL_EVENT_JOYSTICK_BUTTON_DOWN:
       sdljoystick_buttonpress( &(event.jbutton) );
@@ -115,7 +115,7 @@ ui_event( void )
       sdljoystick_hatmove( &(event.jhat) );
       break;
 
-#endif			/* if defined USE_JOYSTICK && !defined HAVE_JSW_H */
+#endif			/* if USE_JOYSTICK && !HAVE_JSW_H */
 
     case SDL_EVENT_QUIT:
       fuse_emulation_pause();

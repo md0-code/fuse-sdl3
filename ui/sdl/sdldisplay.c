@@ -24,7 +24,6 @@
 
 #include <config.h>
 
-#include <limits.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
@@ -279,22 +278,36 @@ sdl_convert_icon( SDL_Surface *source, SDL_Surface **icon, int red )
 static int
 sdl_load_status_icon( const char*filename, SDL_Surface **red, SDL_Surface **green )
 {
-  char path[ PATH_MAX ];
+  utils_file icon_file;
+  SDL_IOStream *stream;
   SDL_Surface *temp;    /* Copy of image as loaded */
 
-  if( utils_find_file_path( filename, path, UTILS_AUXILIARY_LIB ) ) {
-    fprintf( stderr, "%s: Error getting path for icons\n", fuse_progname );
+  if( utils_read_auxiliary_file( filename, &icon_file, UTILS_AUXILIARY_LIB ) ) {
+    fprintf( stderr, "%s: Error loading icon asset \"%s\"\n", fuse_progname,
+             filename );
     return -1;
   }
 
-  if((temp = SDL_LoadBMP(path)) == NULL) {
-    fprintf( stderr, "%s: Error loading icon \"%s\" text:%s\n", fuse_progname,
-             path, SDL_GetError() );
+  stream = SDL_IOFromConstMem( icon_file.buffer, icon_file.length );
+  if( !stream ) {
+    utils_close_file( &icon_file );
+    fprintf( stderr, "%s: Error creating icon stream for \"%s\": %s\n",
+             fuse_progname, filename, SDL_GetError() );
     return -1;
   }
+
+  if((temp = SDL_LoadBMP_IO( stream, true )) == NULL) {
+    utils_close_file( &icon_file );
+    fprintf( stderr, "%s: Error decoding icon \"%s\": %s\n", fuse_progname,
+             filename, SDL_GetError() );
+    return -1;
+  }
+
+  utils_close_file( &icon_file );
 
   if( SDL_GetSurfacePalette( temp ) == NULL ) {
-    fprintf( stderr, "%s: Icon \"%s\" is not paletted\n", fuse_progname, path );
+    fprintf( stderr, "%s: Icon \"%s\" is not paletted\n", fuse_progname,
+             filename );
     SDL_FreeSurface( temp );
     return -1;
   }

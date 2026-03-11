@@ -26,9 +26,9 @@
 
 #include <config.h>
 
-#ifdef HAVE_LIB_GLIB
+#if HAVE_LIB_GLIB
 #include <glib.h>
-#endif				/* #ifdef HAVE_LIB_GLIB */
+#endif				/* #if HAVE_LIB_GLIB */
 
 #include <libspectrum.h>
 

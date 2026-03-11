@@ -116,6 +116,7 @@ unaryop_precedence( int operation )
   default:
     ui_error( UI_ERROR_ERROR, "unknown unary operator %d", operation );
     fuse_abort();
+    return PRECEDENCE_ATOMIC;
   }
 }
 
@@ -144,6 +145,7 @@ binaryop_precedence( int operation )
   default:
     ui_error( UI_ERROR_ERROR, "unknown binary operator %d", operation );
     fuse_abort();
+    return PRECEDENCE_ATOMIC;
   }
 }
 
@@ -356,6 +358,7 @@ evaluate_unaryop( struct unaryop_type *unary )
 
   ui_error( UI_ERROR_ERROR, "unknown unary operator %d", unary->operation );
   fuse_abort();
+  return 0;
 }
 
 static libspectrum_dword
@@ -424,6 +427,7 @@ evaluate_binaryop( struct binaryop_type *binary )
 
   ui_error( UI_ERROR_ERROR, "unknown binary operator %d", binary->operation );
   fuse_abort();
+  return 0;
 }
 
 int
@@ -645,5 +649,6 @@ is_non_associative( int operation )
   /* Should never get here */
   ui_error( UI_ERROR_ERROR, "unknown binary operation %d", operation );
   fuse_abort();
+  return 0;
 }
 

@@ -2,9 +2,25 @@ cmake_minimum_required(VERSION 3.20)
 
 project(fuse VERSION 1.6.0.1 LANGUAGES C)
 
+include(GNUInstallDirs)
 set(CMAKE_C_STANDARD 99)
 set(CMAKE_C_STANDARD_REQUIRED ON)
 set(CMAKE_C_EXTENSIONS ON)
+
+if(WIN32)
+  add_compile_definitions(WIN32_LEAN_AND_MEAN NOMINMAX _CRT_SECURE_NO_WARNINGS _CRT_NONSTDC_NO_WARNINGS)
+  if(DEFINED ENV{ComSpec})
+    file(TO_CMAKE_PATH "$ENV{ComSpec}" FUSE_COMMAND_SHELL)
+  else()
+    set(FUSE_COMMAND_SHELL "C:/Windows/System32/cmd.exe")
+  endif()
+  set(FUSE_COMMAND_SHELL_ARG /C)
+  set(FUSE_PKG_CONFIG_PATH_SEPARATOR ";")
+else()
+  set(FUSE_COMMAND_SHELL /bin/sh)
+  set(FUSE_COMMAND_SHELL_ARG -c)
+  set(FUSE_PKG_CONFIG_PATH_SEPARATOR ":")
+endif()
 
 include(CheckCSourceCompiles)
 include(CheckFunctionExists)
@@ -13,13 +29,128 @@ include(CheckSymbolExists)
 include(CheckTypeSize)
 include(TestBigEndian)
 
-find_package(PkgConfig REQUIRED)
+find_package(PkgConfig QUIET)
 find_package(Perl REQUIRED)
 find_package(Threads)
 find_package(ZLIB)
+find_package(BZip2)
+find_program(FLEX_EXECUTABLE NAMES win_flex flex REQUIRED)
+find_program(BISON_EXECUTABLE NAMES win_bison bison REQUIRED)
 
-pkg_check_modules(LIBSPECTRUM REQUIRED IMPORTED_TARGET libspectrum>=1.5.0)
-pkg_check_modules(SDL REQUIRED IMPORTED_TARGET sdl3)
+string(TOUPPER "${CMAKE_BUILD_TYPE}" FUSE_BUILD_TYPE_UPPER)
+
+get_filename_component(BISON_REAL_EXECUTABLE "${BISON_EXECUTABLE}" REALPATH)
+get_filename_component(BISON_BIN_DIR "${BISON_REAL_EXECUTABLE}" DIRECTORY)
+set(FUSE_BISON_COMMAND "${BISON_EXECUTABLE}")
+if(EXISTS "${BISON_BIN_DIR}/data")
+  set(FUSE_BISON_COMMAND "${CMAKE_COMMAND}" -E env "BISON_PKGDATADIR=${BISON_BIN_DIR}/data" "${BISON_EXECUTABLE}")
+endif()
+
+set(FUSE_LIBSPECTRUM_ROOT "" CACHE PATH "Optional prefix containing a prebuilt libspectrum for native builds")
+
+if(DEFINED VCPKG_INSTALLED_DIR AND DEFINED VCPKG_TARGET_TRIPLET)
+  set(_fuse_pkg_config_paths
+    "${VCPKG_INSTALLED_DIR}/${VCPKG_TARGET_TRIPLET}/lib/pkgconfig"
+    "${VCPKG_INSTALLED_DIR}/${VCPKG_TARGET_TRIPLET}/share/pkgconfig"
+  )
+  set(_fuse_pkg_config_path_env "$ENV{PKG_CONFIG_PATH}")
+  foreach(_fuse_pkg_config_path IN LISTS _fuse_pkg_config_paths)
+    if(EXISTS "${_fuse_pkg_config_path}")
+      if(_fuse_pkg_config_path_env)
+        set(_fuse_pkg_config_path_env
+          "${_fuse_pkg_config_path}${FUSE_PKG_CONFIG_PATH_SEPARATOR}${_fuse_pkg_config_path_env}"
+        )
+      else()
+        set(_fuse_pkg_config_path_env "${_fuse_pkg_config_path}")
+      endif()
+    endif()
+  endforeach()
+  if(_fuse_pkg_config_path_env)
+    set(ENV{PKG_CONFIG_PATH} "${_fuse_pkg_config_path_env}")
+  endif()
+endif()
+
+if(WIN32)
+  find_package(SDL3 CONFIG REQUIRED)
+  set(FUSE_SDL_TARGET SDL3::SDL3)
+else()
+  if(NOT PkgConfig_FOUND)
+    message(FATAL_ERROR "pkg-config is required on non-Windows builds")
+  endif()
+  pkg_check_modules(SDL REQUIRED IMPORTED_TARGET sdl3)
+  set(FUSE_SDL_TARGET PkgConfig::SDL)
+endif()
+
+set(FUSE_LIBSPECTRUM_TARGET "")
+if(FUSE_LIBSPECTRUM_ROOT)
+  find_path(LIBSPECTRUM_INCLUDE_DIR
+    NAMES libspectrum.h
+    HINTS "${FUSE_LIBSPECTRUM_ROOT}/include"
+  )
+  find_library(LIBSPECTRUM_LIBRARY
+    NAMES libspectrum spectrum
+    HINTS "${FUSE_LIBSPECTRUM_ROOT}/lib" "${FUSE_LIBSPECTRUM_ROOT}/bin"
+  )
+  if(WIN32)
+    if(FUSE_BUILD_TYPE_UPPER STREQUAL "DEBUG")
+      set(_fuse_libspectrum_runtime_hints
+        "${FUSE_LIBSPECTRUM_ROOT}/debug/bin"
+        "${FUSE_LIBSPECTRUM_ROOT}/debug/lib"
+      )
+      file(GLOB LIBSPECTRUM_RUNTIME_DLLS
+        "${FUSE_LIBSPECTRUM_ROOT}/debug/bin/*.dll"
+        "${FUSE_LIBSPECTRUM_ROOT}/debug/lib/*.dll"
+      )
+    elseif(FUSE_BUILD_TYPE_UPPER STREQUAL "RELEASE" OR FUSE_BUILD_TYPE_UPPER STREQUAL "RELWITHDEBINFO" OR FUSE_BUILD_TYPE_UPPER STREQUAL "MINSIZEREL")
+      set(_fuse_libspectrum_runtime_hints
+        "${FUSE_LIBSPECTRUM_ROOT}/bin"
+        "${FUSE_LIBSPECTRUM_ROOT}/lib"
+      )
+      file(GLOB LIBSPECTRUM_RUNTIME_DLLS
+        "${FUSE_LIBSPECTRUM_ROOT}/bin/*.dll"
+        "${FUSE_LIBSPECTRUM_ROOT}/lib/*.dll"
+      )
+    else()
+      set(_fuse_libspectrum_runtime_hints
+        "${FUSE_LIBSPECTRUM_ROOT}/bin"
+        "${FUSE_LIBSPECTRUM_ROOT}/debug/bin"
+        "${FUSE_LIBSPECTRUM_ROOT}/lib"
+        "${FUSE_LIBSPECTRUM_ROOT}/debug/lib"
+      )
+      file(GLOB LIBSPECTRUM_RUNTIME_DLLS
+        "${FUSE_LIBSPECTRUM_ROOT}/bin/*.dll"
+        "${FUSE_LIBSPECTRUM_ROOT}/debug/bin/*.dll"
+        "${FUSE_LIBSPECTRUM_ROOT}/lib/*.dll"
+        "${FUSE_LIBSPECTRUM_ROOT}/debug/lib/*.dll"
+      )
+    endif()
+    find_file(LIBSPECTRUM_RUNTIME
+      NAMES spectrum-9.dll spectrum.dll libspectrum.dll
+      HINTS ${_fuse_libspectrum_runtime_hints}
+    )
+  endif()
+endif()
+
+if(LIBSPECTRUM_INCLUDE_DIR AND LIBSPECTRUM_LIBRARY)
+  add_library(FUSE::LIBSPECTRUM UNKNOWN IMPORTED)
+  set_target_properties(FUSE::LIBSPECTRUM PROPERTIES
+    IMPORTED_LOCATION "${LIBSPECTRUM_LIBRARY}"
+    INTERFACE_INCLUDE_DIRECTORIES "${LIBSPECTRUM_INCLUDE_DIR}"
+  )
+  set(LIBSPECTRUM_INCLUDE_DIRS "${LIBSPECTRUM_INCLUDE_DIR}")
+  set(FUSE_LIBSPECTRUM_TARGET FUSE::LIBSPECTRUM)
+elseif(PkgConfig_FOUND)
+  pkg_check_modules(LIBSPECTRUM QUIET IMPORTED_TARGET libspectrum>=1.5.0)
+  if(TARGET PkgConfig::LIBSPECTRUM)
+    set(FUSE_LIBSPECTRUM_TARGET PkgConfig::LIBSPECTRUM)
+  endif()
+endif()
+
+if(NOT FUSE_LIBSPECTRUM_TARGET)
+  message(FATAL_ERROR
+    "libspectrum >= 1.5.0 was not found. On Windows, run scripts/bootstrap-windows-deps.ps1 and point FUSE_LIBSPECTRUM_ROOT at a native libspectrum prefix."
+  )
+endif()
 
 option(FUSE_WITH_LIBXML2 "Build with XML settings support" ON)
 option(FUSE_WITH_PNG "Build with PNG screenshot support when available" ON)
@@ -56,8 +187,8 @@ set(NO_SOUND 0)
 set(DIRECTSOUND_VERSION "")
 set(PTHREAD_CREATE_JOINABLE "")
 set(WINVER "")
-set(_WIN32_IE "")
-set(WIN32_LEAN_AND_MEAN "")
+set(_WIN32_IE 0x0501)
+set(WIN32_LEAN_AND_MEAN 1)
 
 check_include_file(dlfcn.h HAVE_DLFCN_H)
 check_include_file(inttypes.h HAVE_INTTYPES_H)
@@ -117,29 +248,238 @@ check_c_source_compiles(
 set(CMAKE_REQUIRED_INCLUDES "${_saved_required_includes}")
 set(CMAKE_REQUIRED_FLAGS "${_saved_required_flags}")
 
+if(WIN32)
+  set(LIBSPECTRUM_HAS_INTERNAL_GLIB 1)
+endif()
+
 set(HAVE_LIB_GLIB 0)
 if(NOT LIBSPECTRUM_HAS_INTERNAL_GLIB)
+  if(NOT PkgConfig_FOUND)
+    message(FATAL_ERROR "pkg-config is required to locate glib-2.0 for this build")
+  endif()
   pkg_check_modules(GLIB REQUIRED IMPORTED_TARGET glib-2.0>=2.20.0)
   set(HAVE_LIB_GLIB 1)
 endif()
 
+set(_saved_required_includes "${CMAKE_REQUIRED_INCLUDES}")
+set(_saved_required_flags "${CMAKE_REQUIRED_FLAGS}")
+set(CMAKE_REQUIRED_INCLUDES ${LIBSPECTRUM_INCLUDE_DIRS})
+set(CMAKE_REQUIRED_FLAGS "${_libspectrum_required_flags}")
+check_c_source_compiles(
+  "#include <libspectrum.h>\nint main(void){int test = LIBSPECTRUM_SUPPORTS_ZLIB_COMPRESSION; return test ? 0 : 0;}"
+  LIBSPEC_HAVE_ZLIB)
+check_c_source_compiles(
+  "#include <libspectrum.h>\nint main(void){int test = LIBSPECTRUM_SUPPORTS_BZ2_COMPRESSION; return test ? 0 : 0;}"
+  LIBSPEC_HAVE_BZ2)
+check_c_source_compiles(
+  "#include <libspectrum.h>\nint main(void){int test = LIBSPECTRUM_SUPPORTS_AUDIOFILE; return test ? 0 : 0;}"
+  LIBSPEC_HAVE_AUDIOFILE)
+set(CMAKE_REQUIRED_INCLUDES "${_saved_required_includes}")
+set(CMAKE_REQUIRED_FLAGS "${_saved_required_flags}")
+
 set(HAVE_LIB_XML2 0)
 if(FUSE_WITH_LIBXML2)
-  pkg_check_modules(XML REQUIRED IMPORTED_TARGET libxml-2.0>=2.6.0)
+  if(WIN32)
+    find_package(LibXml2 REQUIRED)
+  else()
+    if(NOT PkgConfig_FOUND)
+      message(FATAL_ERROR "pkg-config is required to locate libxml2 on this platform")
+    endif()
+    pkg_check_modules(XML REQUIRED IMPORTED_TARGET libxml-2.0>=2.6.0)
+  endif()
   set(HAVE_LIB_XML2 1)
 endif()
 
 set(USE_LIBPNG 0)
 set(HAVE_ZLIB_H 0)
 if(FUSE_WITH_PNG)
-  pkg_check_modules(PNG IMPORTED_TARGET libpng)
-  if(PNG_FOUND)
-    set(USE_LIBPNG 1)
+  if(WIN32)
+    find_package(PNG QUIET)
+    if(PNG_FOUND)
+      set(USE_LIBPNG 1)
+    endif()
+  else()
+    if(PkgConfig_FOUND)
+      pkg_check_modules(PNG IMPORTED_TARGET libpng)
+    endif()
+    if(PNG_FOUND)
+      set(USE_LIBPNG 1)
+    endif()
   endif()
 endif()
 
 if(ZLIB_FOUND)
   set(HAVE_ZLIB_H 1)
+endif()
+
+set(FUSE_GENERATED_MIME_XML "${CMAKE_BINARY_DIR}/data/fuse.xml")
+set(FUSE_GENERATED_DESKTOP_FILE "${CMAKE_BINARY_DIR}/data/fuse.desktop")
+set(FUSE_RUNTIME_DEPENDENCY_SCRIPT "${CMAKE_BINARY_DIR}/cmake/InstallRuntimeDependencies.cmake")
+
+file(MAKE_DIRECTORY "${CMAKE_BINARY_DIR}/data")
+file(MAKE_DIRECTORY "${CMAKE_BINARY_DIR}/cmake")
+
+file(READ "${CMAKE_SOURCE_DIR}/data/fuse.xml.in" FUSE_MIME_XML_CONTENT)
+string(REPLACE "\r\n" "\n" FUSE_MIME_XML_CONTENT "${FUSE_MIME_XML_CONTENT}")
+string(REPLACE "\r" "\n" FUSE_MIME_XML_CONTENT "${FUSE_MIME_XML_CONTENT}")
+foreach(_fuse_marker IN ITEMS
+  "##LIBSPECTRUM_HAVE_AUDIOFILE_BEGIN##"
+  "##LIBSPECTRUM_HAVE_AUDIOFILE_END##"
+  "##LIBSPECTRUM_HAVE_ZLIB_BEGIN##"
+  "##LIBSPECTRUM_HAVE_ZLIB_END##"
+  "##LIBSPECTRUM_HAVE_BZ2_BEGIN##"
+  "##LIBSPECTRUM_HAVE_BZ2_END##")
+  string(REPLACE "${_fuse_marker}" "" FUSE_MIME_XML_CONTENT "${FUSE_MIME_XML_CONTENT}")
+endforeach()
+file(WRITE "${FUSE_GENERATED_MIME_XML}" "${FUSE_MIME_XML_CONTENT}")
+
+string(REGEX MATCHALL "<mime-type type=\"[^\"]+\">" FUSE_MIME_MATCHES "${FUSE_MIME_XML_CONTENT}")
+set(FUSE_DESKTOP_MIME_TYPES "")
+foreach(_fuse_mime_match IN LISTS FUSE_MIME_MATCHES)
+  if(_fuse_mime_match MATCHES "<mime-type type=\"([^\"]+)\">")
+    string(APPEND FUSE_DESKTOP_MIME_TYPES "${CMAKE_MATCH_1};")
+  endif()
+endforeach()
+
+file(READ "${CMAKE_SOURCE_DIR}/data/fuse.desktop.in" FUSE_DESKTOP_TEMPLATE_CONTENT)
+string(REPLACE "@MIME_TYPES@" "${FUSE_DESKTOP_MIME_TYPES}" FUSE_DESKTOP_CONTENT "${FUSE_DESKTOP_TEMPLATE_CONTENT}")
+file(WRITE "${FUSE_GENERATED_DESKTOP_FILE}" "${FUSE_DESKTOP_CONTENT}")
+
+set(FUSE_RUNTIME_SEARCH_DIRS "")
+if(WIN32 AND FUSE_LIBSPECTRUM_ROOT)
+  if(FUSE_BUILD_TYPE_UPPER STREQUAL "DEBUG")
+    list(APPEND FUSE_RUNTIME_SEARCH_DIRS
+      "${FUSE_LIBSPECTRUM_ROOT}/debug/bin"
+      "${FUSE_LIBSPECTRUM_ROOT}/debug/lib"
+    )
+  elseif(FUSE_BUILD_TYPE_UPPER STREQUAL "RELEASE" OR FUSE_BUILD_TYPE_UPPER STREQUAL "RELWITHDEBINFO" OR FUSE_BUILD_TYPE_UPPER STREQUAL "MINSIZEREL")
+    list(APPEND FUSE_RUNTIME_SEARCH_DIRS
+      "${FUSE_LIBSPECTRUM_ROOT}/bin"
+      "${FUSE_LIBSPECTRUM_ROOT}/lib"
+    )
+  else()
+    list(APPEND FUSE_RUNTIME_SEARCH_DIRS
+      "${FUSE_LIBSPECTRUM_ROOT}/bin"
+      "${FUSE_LIBSPECTRUM_ROOT}/debug/bin"
+      "${FUSE_LIBSPECTRUM_ROOT}/lib"
+      "${FUSE_LIBSPECTRUM_ROOT}/debug/lib"
+    )
+  endif()
+endif()
+
+set(FUSE_RUNTIME_SEARCH_DIRS_ESCAPED "")
+foreach(_fuse_runtime_dir IN LISTS FUSE_RUNTIME_SEARCH_DIRS)
+  if(EXISTS "${_fuse_runtime_dir}")
+    string(REPLACE "\\" "/" _fuse_runtime_dir_normalized "${_fuse_runtime_dir}")
+    list(APPEND FUSE_RUNTIME_SEARCH_DIRS_ESCAPED "${_fuse_runtime_dir_normalized}")
+  endif()
+endforeach()
+
+set(FUSE_RUNTIME_POST_EXCLUDE_REGEXES "")
+if(WIN32)
+  list(APPEND FUSE_RUNTIME_POST_EXCLUDE_REGEXES
+    ".*[/\\\\][Ww][Ii][Nn][Dd][Oo][Ww][Ss][/\\\\][Ss]ystem32[/\\\\].*\\.dll$"
+    ".*[/\\\\][Ww][Ii][Nn][Dd][Oo][Ww][Ss][/\\\\][Ss][Yy][Ss][Ww][Oo][Ww]64[/\\\\].*\\.dll$"
+  )
+else()
+  list(APPEND FUSE_RUNTIME_POST_EXCLUDE_REGEXES
+    ".*/ld-linux[^/]*\\.so[^/]*$"
+    ".*/libc\\.so[^/]*$"
+    ".*/libdl\\.so[^/]*$"
+    ".*/libgcc_s\\.so[^/]*$"
+    ".*/libm\\.so[^/]*$"
+    ".*/libpthread\\.so[^/]*$"
+    ".*/librt\\.so[^/]*$"
+    ".*/libutil\\.so[^/]*$"
+  )
+endif()
+
+string(REPLACE ";" "|" FUSE_RUNTIME_SEARCH_DIRS_SERIALIZED "${FUSE_RUNTIME_SEARCH_DIRS_ESCAPED}")
+string(REPLACE ";" "|" FUSE_RUNTIME_POST_EXCLUDE_SERIALIZED "${FUSE_RUNTIME_POST_EXCLUDE_REGEXES}")
+
+configure_file(
+  "${CMAKE_SOURCE_DIR}/cmake/InstallRuntimeDependencies.cmake.in"
+  "${FUSE_RUNTIME_DEPENDENCY_SCRIPT}"
+  @ONLY
+)
+
+function(fuse_shell_to_file output command deps)
+  get_filename_component(output_dir "${output}" DIRECTORY)
+  set(command_file "${output}.command")
+  file(WRITE "${command_file}" "${command}\n")
+  add_custom_command(
+    OUTPUT "${output}"
+    COMMAND "${CMAKE_COMMAND}" -E make_directory "${output_dir}"
+    COMMAND
+      "${CMAKE_COMMAND}"
+      -DOUTPUT_FILE=${output}
+      -DSHELL_EXECUTABLE=${FUSE_COMMAND_SHELL}
+      -DSHELL_ARG=${FUSE_COMMAND_SHELL_ARG}
+      -DCOMMAND_FILE=${command_file}
+      -P "${CMAKE_SOURCE_DIR}/cmake/RunShellToFile.cmake"
+    DEPENDS ${deps} "${command_file}"
+    VERBATIM
+  )
+endfunction()
+
+function(fuse_command_to_file output deps)
+  get_filename_component(output_dir "${output}" DIRECTORY)
+  set(command_file "${output}.argv")
+  file(WRITE "${command_file}" "")
+  foreach(arg IN LISTS ARGN)
+    file(APPEND "${command_file}" "${arg}\n")
+  endforeach()
+  add_custom_command(
+    OUTPUT "${output}"
+    COMMAND "${CMAKE_COMMAND}" -E make_directory "${output_dir}"
+    COMMAND
+      "${CMAKE_COMMAND}"
+      -DOUTPUT_FILE=${output}
+      -DCOMMAND_FILE=${command_file}
+      -P "${CMAKE_SOURCE_DIR}/cmake/RunProcessToFile.cmake"
+    DEPENDS ${deps} "${command_file}"
+    VERBATIM
+  )
+endfunction()
+
+function(fuse_pipeline_to_file output deps)
+  set(options)
+  set(oneValueArgs)
+  set(multiValueArgs COMMAND1 COMMAND2)
+  cmake_parse_arguments(FUSE_PIPE "${options}" "${oneValueArgs}" "${multiValueArgs}" ${ARGN})
+
+  get_filename_component(output_dir "${output}" DIRECTORY)
+  set(command1_file "${output}.command1.argv")
+  set(command2_file "${output}.command2.argv")
+
+  file(WRITE "${command1_file}" "")
+  foreach(arg IN LISTS FUSE_PIPE_COMMAND1)
+    file(APPEND "${command1_file}" "${arg}\n")
+  endforeach()
+
+  file(WRITE "${command2_file}" "")
+  foreach(arg IN LISTS FUSE_PIPE_COMMAND2)
+    file(APPEND "${command2_file}" "${arg}\n")
+  endforeach()
+
+  add_custom_command(
+    OUTPUT "${output}"
+    COMMAND "${CMAKE_COMMAND}" -E make_directory "${output_dir}"
+    COMMAND
+      "${CMAKE_COMMAND}"
+      -DOUTPUT_FILE=${output}
+      -DCOMMAND1_FILE=${command1_file}
+      -DCOMMAND2_FILE=${command2_file}
+      -P "${CMAKE_SOURCE_DIR}/cmake/RunProcessPipelineToFile.cmake"
+    DEPENDS ${deps} "${command1_file}" "${command2_file}"
+    VERBATIM
+  )
+endfunction()
+
+if(FUSE_WITH_PNG)
+  if(USE_LIBPNG)
+    set(USE_LIBPNG 1)
+  endif()
 endif()
 
 set(HAVE_PTHREAD 0)
@@ -193,111 +533,152 @@ configure_file(
   @ONLY
 )
 
-function(fuse_perl_rule output command deps)
-  get_filename_component(output_dir "${output}" DIRECTORY)
-  add_custom_command(
-    OUTPUT "${output}"
-    COMMAND "${CMAKE_COMMAND}" -E make_directory "${output_dir}"
-    COMMAND /bin/sh -c "${command}"
-    DEPENDS ${deps}
-    VERBATIM
-  )
-endfunction()
-
 set(GENERATED_SETTINGS_C "${CMAKE_BINARY_DIR}/settings.c")
 set(GENERATED_SETTINGS_H "${CMAKE_BINARY_DIR}/settings.h")
 set(GENERATED_OPTIONS_H "${CMAKE_BINARY_DIR}/options.h")
+set(GENERATED_DEBUGGER_DIR "${CMAKE_BINARY_DIR}/debugger")
+set(GENERATED_DEBUGGER_LEXER_C "${GENERATED_DEBUGGER_DIR}/commandl.c")
+set(GENERATED_DEBUGGER_PARSER_C "${GENERATED_DEBUGGER_DIR}/commandy.c")
+set(GENERATED_DEBUGGER_PARSER_H "${GENERATED_DEBUGGER_DIR}/commandy.h")
 set(GENERATED_SDL_KEYSYMS "${CMAKE_BINARY_DIR}/ui/sdl/keysyms.c")
 set(GENERATED_WIDGET_MENU_DATA "${CMAKE_BINARY_DIR}/ui/widget/menu_data.c")
 set(GENERATED_WIDGET_OPTIONS_C "${CMAKE_BINARY_DIR}/ui/widget/options.c")
 set(GENERATED_WIDGET_OPTIONS_H "${CMAKE_BINARY_DIR}/ui/widget/options_internals.h")
 set(GENERATED_WIDGET_FONT "${CMAKE_BINARY_DIR}/ui/widget/fuse.font")
+set(GENERATED_EMBEDDED_ASSETS_H "${CMAKE_BINARY_DIR}/embedded_assets.h")
+set(GENERATED_EMBEDDED_ASSETS_C "${CMAKE_BINARY_DIR}/embedded_assets.c")
+set(FUSE_EMBEDDED_ASSETS_SPEC "${CMAKE_BINARY_DIR}/embedded_assets.spec")
 set(GENERATED_Z80_OPCODES_BASE "${CMAKE_BINARY_DIR}/z80/opcodes_base.c")
 set(GENERATED_Z80_CB "${CMAKE_BINARY_DIR}/z80/z80_cb.c")
 set(GENERATED_Z80_DDFD "${CMAKE_BINARY_DIR}/z80/z80_ddfd.c")
 set(GENERATED_Z80_DDFDCB "${CMAKE_BINARY_DIR}/z80/z80_ddfdcb.c")
 set(GENERATED_Z80_ED "${CMAKE_BINARY_DIR}/z80/z80_ed.c")
 
-fuse_perl_rule(
+fuse_command_to_file(
   "${GENERATED_SETTINGS_C}"
-  "${PERL_EXECUTABLE} -I${CMAKE_SOURCE_DIR}/perl ${CMAKE_SOURCE_DIR}/settings.pl ${CMAKE_SOURCE_DIR}/settings.dat > ${GENERATED_SETTINGS_C}.tmp && mv ${GENERATED_SETTINGS_C}.tmp ${GENERATED_SETTINGS_C}"
   "${CMAKE_SOURCE_DIR}/settings.pl;${CMAKE_SOURCE_DIR}/settings.dat"
+  "${PERL_EXECUTABLE}" "-I${CMAKE_SOURCE_DIR}/perl" "${CMAKE_SOURCE_DIR}/settings.pl" "${CMAKE_SOURCE_DIR}/settings.dat"
 )
 
-fuse_perl_rule(
+fuse_command_to_file(
   "${GENERATED_SETTINGS_H}"
-  "${PERL_EXECUTABLE} -I${CMAKE_SOURCE_DIR}/perl ${CMAKE_SOURCE_DIR}/settings-header.pl ${CMAKE_SOURCE_DIR}/settings.dat > ${GENERATED_SETTINGS_H}.tmp && mv ${GENERATED_SETTINGS_H}.tmp ${GENERATED_SETTINGS_H}"
   "${CMAKE_SOURCE_DIR}/settings-header.pl;${CMAKE_SOURCE_DIR}/settings.dat"
+  "${PERL_EXECUTABLE}" "-I${CMAKE_SOURCE_DIR}/perl" "${CMAKE_SOURCE_DIR}/settings-header.pl" "${CMAKE_SOURCE_DIR}/settings.dat"
 )
 
-fuse_perl_rule(
+fuse_pipeline_to_file(
   "${GENERATED_OPTIONS_H}"
-  "${PERL_EXECUTABLE} ${CMAKE_SOURCE_DIR}/perl/cpp-perl.pl ${CMAKE_BINARY_DIR}/config.h ${CMAKE_SOURCE_DIR}/ui/options.dat | ${PERL_EXECUTABLE} -I${CMAKE_SOURCE_DIR}/perl ${CMAKE_SOURCE_DIR}/ui/widget/options-header.pl - public > ${GENERATED_OPTIONS_H}.tmp && mv ${GENERATED_OPTIONS_H}.tmp ${GENERATED_OPTIONS_H}"
   "${CMAKE_SOURCE_DIR}/perl/cpp-perl.pl;${CMAKE_BINARY_DIR}/config.h;${CMAKE_SOURCE_DIR}/ui/widget/options-header.pl;${CMAKE_SOURCE_DIR}/ui/options.dat;${CMAKE_SOURCE_DIR}/perl/Fuse.pm;${CMAKE_SOURCE_DIR}/perl/Fuse/Dialog.pm"
+  COMMAND1 "${PERL_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/perl/cpp-perl.pl" "${CMAKE_BINARY_DIR}/config.h" "${CMAKE_SOURCE_DIR}/ui/options.dat"
+  COMMAND2 "${PERL_EXECUTABLE}" "-I${CMAKE_SOURCE_DIR}/perl" "${CMAKE_SOURCE_DIR}/ui/widget/options-header.pl" - public
 )
 
-fuse_perl_rule(
+fuse_command_to_file(
   "${GENERATED_SDL_KEYSYMS}"
-  "${PERL_EXECUTABLE} -I${CMAKE_SOURCE_DIR}/perl ${CMAKE_SOURCE_DIR}/keysyms.pl sdl ${CMAKE_SOURCE_DIR}/keysyms.dat > ${GENERATED_SDL_KEYSYMS}.tmp && mv ${GENERATED_SDL_KEYSYMS}.tmp ${GENERATED_SDL_KEYSYMS}"
   "${CMAKE_SOURCE_DIR}/keysyms.pl;${CMAKE_SOURCE_DIR}/keysyms.dat"
+  "${PERL_EXECUTABLE}" "-I${CMAKE_SOURCE_DIR}/perl" "${CMAKE_SOURCE_DIR}/keysyms.pl" sdl "${CMAKE_SOURCE_DIR}/keysyms.dat"
+)
+
+fuse_pipeline_to_file(
+  "${GENERATED_WIDGET_OPTIONS_C}"
+  "${CMAKE_SOURCE_DIR}/perl/cpp-perl.pl;${CMAKE_BINARY_DIR}/config.h;${CMAKE_SOURCE_DIR}/ui/widget/options.pl;${CMAKE_SOURCE_DIR}/ui/options.dat;${CMAKE_SOURCE_DIR}/perl/Fuse.pm;${CMAKE_SOURCE_DIR}/perl/Fuse/Dialog.pm"
+  COMMAND1 "${PERL_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/perl/cpp-perl.pl" "${CMAKE_BINARY_DIR}/config.h" "${CMAKE_SOURCE_DIR}/ui/options.dat"
+  COMMAND2 "${PERL_EXECUTABLE}" "-I${CMAKE_SOURCE_DIR}/perl" "${CMAKE_SOURCE_DIR}/ui/widget/options.pl" -
+)
+
+fuse_pipeline_to_file(
+  "${GENERATED_WIDGET_OPTIONS_H}"
+  "${CMAKE_SOURCE_DIR}/perl/cpp-perl.pl;${CMAKE_BINARY_DIR}/config.h;${CMAKE_SOURCE_DIR}/ui/widget/options-header.pl;${CMAKE_SOURCE_DIR}/ui/options.dat;${CMAKE_SOURCE_DIR}/perl/Fuse.pm;${CMAKE_SOURCE_DIR}/perl/Fuse/Dialog.pm"
+  COMMAND1 "${PERL_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/perl/cpp-perl.pl" "${CMAKE_BINARY_DIR}/config.h" "${CMAKE_SOURCE_DIR}/ui/options.dat"
+  COMMAND2 "${PERL_EXECUTABLE}" "-I${CMAKE_SOURCE_DIR}/perl" "${CMAKE_SOURCE_DIR}/ui/widget/options-header.pl" -
+)
+
+fuse_pipeline_to_file(
+  "${GENERATED_WIDGET_MENU_DATA}"
+  "${CMAKE_SOURCE_DIR}/perl/cpp-perl.pl;${CMAKE_SOURCE_DIR}/menu_data.dat;${CMAKE_SOURCE_DIR}/menu_data.pl;${CMAKE_BINARY_DIR}/config.h"
+  COMMAND1 "${PERL_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/perl/cpp-perl.pl" "${CMAKE_BINARY_DIR}/config.h" "${CMAKE_SOURCE_DIR}/menu_data.dat"
+  COMMAND2 "${PERL_EXECUTABLE}" "-I${CMAKE_SOURCE_DIR}/perl" "${CMAKE_SOURCE_DIR}/menu_data.pl" widget
+)
+
+fuse_command_to_file(
+  "${GENERATED_WIDGET_FONT}"
+  "${CMAKE_SOURCE_DIR}/ui/widget/mkfusefont.pl;${CMAKE_SOURCE_DIR}/ui/widget/fuse.font.sbf"
+  "${PERL_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/ui/widget/mkfusefont.pl" "${CMAKE_SOURCE_DIR}/ui/widget/fuse.font.sbf"
+)
+
+file(WRITE "${FUSE_EMBEDDED_ASSETS_SPEC}"
+  "LIB|cassette.bmp|${CMAKE_SOURCE_DIR}/lib/cassette.bmp\n"
+  "LIB|keyboard.png|${CMAKE_SOURCE_DIR}/lib/keyboard.png\n"
+  "LIB|keyboard.scr|${CMAKE_SOURCE_DIR}/lib/keyboard.scr\n"
+  "LIB|microdrive.bmp|${CMAKE_SOURCE_DIR}/lib/microdrive.bmp\n"
+  "LIB|plus3disk.bmp|${CMAKE_SOURCE_DIR}/lib/plus3disk.bmp\n"
+  "WIDGET|fuse.font|${GENERATED_WIDGET_FONT}\n"
 )
 
 add_custom_command(
-  OUTPUT "${GENERATED_WIDGET_OPTIONS_C}" "${GENERATED_WIDGET_OPTIONS_H}"
-  COMMAND "${CMAKE_COMMAND}" -E make_directory "${CMAKE_BINARY_DIR}/ui/widget"
-  COMMAND /bin/sh -c "${PERL_EXECUTABLE} ${CMAKE_SOURCE_DIR}/perl/cpp-perl.pl ${CMAKE_BINARY_DIR}/config.h ${CMAKE_SOURCE_DIR}/ui/options.dat | ${PERL_EXECUTABLE} -I${CMAKE_SOURCE_DIR}/perl ${CMAKE_SOURCE_DIR}/ui/widget/options.pl - > ${GENERATED_WIDGET_OPTIONS_C}.tmp && mv ${GENERATED_WIDGET_OPTIONS_C}.tmp ${GENERATED_WIDGET_OPTIONS_C}"
-  COMMAND /bin/sh -c "${PERL_EXECUTABLE} ${CMAKE_SOURCE_DIR}/perl/cpp-perl.pl ${CMAKE_BINARY_DIR}/config.h ${CMAKE_SOURCE_DIR}/ui/options.dat | ${PERL_EXECUTABLE} -I${CMAKE_SOURCE_DIR}/perl ${CMAKE_SOURCE_DIR}/ui/widget/options-header.pl - > ${GENERATED_WIDGET_OPTIONS_H}.tmp && mv ${GENERATED_WIDGET_OPTIONS_H}.tmp ${GENERATED_WIDGET_OPTIONS_H}"
+  OUTPUT "${GENERATED_EMBEDDED_ASSETS_H}" "${GENERATED_EMBEDDED_ASSETS_C}"
+  COMMAND
+    "${CMAKE_COMMAND}"
+    -DINPUT_SPEC=${FUSE_EMBEDDED_ASSETS_SPEC}
+    -DOUTPUT_HEADER=${GENERATED_EMBEDDED_ASSETS_H}
+    -DOUTPUT_SOURCE=${GENERATED_EMBEDDED_ASSETS_C}
+    -P "${CMAKE_SOURCE_DIR}/cmake/GenerateEmbeddedAssets.cmake"
   DEPENDS
-    "${CMAKE_SOURCE_DIR}/perl/cpp-perl.pl"
-    "${CMAKE_BINARY_DIR}/config.h"
-    "${CMAKE_SOURCE_DIR}/ui/widget/options.pl"
-    "${CMAKE_SOURCE_DIR}/ui/widget/options-header.pl"
-    "${CMAKE_SOURCE_DIR}/ui/options.dat"
-    "${CMAKE_SOURCE_DIR}/perl/Fuse.pm"
-    "${CMAKE_SOURCE_DIR}/perl/Fuse/Dialog.pm"
+    "${FUSE_EMBEDDED_ASSETS_SPEC}"
+    "${CMAKE_SOURCE_DIR}/lib/cassette.bmp"
+    "${CMAKE_SOURCE_DIR}/lib/keyboard.png"
+    "${CMAKE_SOURCE_DIR}/lib/keyboard.scr"
+    "${CMAKE_SOURCE_DIR}/lib/microdrive.bmp"
+    "${CMAKE_SOURCE_DIR}/lib/plus3disk.bmp"
+    "${GENERATED_WIDGET_FONT}"
+    "${CMAKE_SOURCE_DIR}/cmake/GenerateEmbeddedAssets.cmake"
   VERBATIM
 )
 
-fuse_perl_rule(
-  "${GENERATED_WIDGET_MENU_DATA}"
-  "${PERL_EXECUTABLE} ${CMAKE_SOURCE_DIR}/perl/cpp-perl.pl ${CMAKE_BINARY_DIR}/config.h ${CMAKE_SOURCE_DIR}/menu_data.dat | ${PERL_EXECUTABLE} -I${CMAKE_SOURCE_DIR}/perl ${CMAKE_SOURCE_DIR}/menu_data.pl widget > ${GENERATED_WIDGET_MENU_DATA}.tmp && mv ${GENERATED_WIDGET_MENU_DATA}.tmp ${GENERATED_WIDGET_MENU_DATA}"
-  "${CMAKE_SOURCE_DIR}/perl/cpp-perl.pl;${CMAKE_SOURCE_DIR}/menu_data.dat;${CMAKE_SOURCE_DIR}/menu_data.pl;${CMAKE_BINARY_DIR}/config.h"
+add_custom_command(
+  OUTPUT "${GENERATED_DEBUGGER_PARSER_C}" "${GENERATED_DEBUGGER_PARSER_H}"
+  COMMAND "${CMAKE_COMMAND}" -E make_directory "${GENERATED_DEBUGGER_DIR}"
+  COMMAND ${FUSE_BISON_COMMAND} -d -o "${GENERATED_DEBUGGER_PARSER_C}" "${CMAKE_SOURCE_DIR}/debugger/commandy.y"
+  DEPENDS "${CMAKE_SOURCE_DIR}/debugger/commandy.y"
+  VERBATIM
 )
 
-fuse_perl_rule(
-  "${GENERATED_WIDGET_FONT}"
-  "${PERL_EXECUTABLE} ${CMAKE_SOURCE_DIR}/ui/widget/mkfusefont.pl ${CMAKE_SOURCE_DIR}/ui/widget/fuse.font.sbf > ${GENERATED_WIDGET_FONT}.tmp && mv ${GENERATED_WIDGET_FONT}.tmp ${GENERATED_WIDGET_FONT}"
-  "${CMAKE_SOURCE_DIR}/ui/widget/mkfusefont.pl;${CMAKE_SOURCE_DIR}/ui/widget/fuse.font.sbf"
+add_custom_command(
+  OUTPUT "${GENERATED_DEBUGGER_LEXER_C}"
+  COMMAND "${CMAKE_COMMAND}" -E make_directory "${GENERATED_DEBUGGER_DIR}"
+  COMMAND "${FLEX_EXECUTABLE}" -o "${GENERATED_DEBUGGER_LEXER_C}" "${CMAKE_SOURCE_DIR}/debugger/commandl.l"
+  DEPENDS "${CMAKE_SOURCE_DIR}/debugger/commandl.l" "${GENERATED_DEBUGGER_PARSER_C}" "${GENERATED_DEBUGGER_PARSER_H}"
+  VERBATIM
 )
 
-fuse_perl_rule(
+fuse_command_to_file(
   "${GENERATED_Z80_OPCODES_BASE}"
-  "${PERL_EXECUTABLE} -I${CMAKE_SOURCE_DIR}/perl ${CMAKE_SOURCE_DIR}/z80/z80.pl ${CMAKE_SOURCE_DIR}/z80/opcodes_base.dat > ${GENERATED_Z80_OPCODES_BASE}.tmp && mv ${GENERATED_Z80_OPCODES_BASE}.tmp ${GENERATED_Z80_OPCODES_BASE}"
   "${CMAKE_SOURCE_DIR}/z80/z80.pl;${CMAKE_SOURCE_DIR}/z80/opcodes_base.dat"
+  "${PERL_EXECUTABLE}" "-I${CMAKE_SOURCE_DIR}/perl" "${CMAKE_SOURCE_DIR}/z80/z80.pl" "${CMAKE_SOURCE_DIR}/z80/opcodes_base.dat"
 )
 
-fuse_perl_rule(
+fuse_command_to_file(
   "${GENERATED_Z80_CB}"
-  "${PERL_EXECUTABLE} -I${CMAKE_SOURCE_DIR}/perl ${CMAKE_SOURCE_DIR}/z80/z80.pl ${CMAKE_SOURCE_DIR}/z80/opcodes_cb.dat > ${GENERATED_Z80_CB}.tmp && mv ${GENERATED_Z80_CB}.tmp ${GENERATED_Z80_CB}"
   "${CMAKE_SOURCE_DIR}/z80/z80.pl;${CMAKE_SOURCE_DIR}/z80/opcodes_cb.dat"
+  "${PERL_EXECUTABLE}" "-I${CMAKE_SOURCE_DIR}/perl" "${CMAKE_SOURCE_DIR}/z80/z80.pl" "${CMAKE_SOURCE_DIR}/z80/opcodes_cb.dat"
 )
 
-fuse_perl_rule(
+fuse_command_to_file(
   "${GENERATED_Z80_DDFD}"
-  "${PERL_EXECUTABLE} -I${CMAKE_SOURCE_DIR}/perl ${CMAKE_SOURCE_DIR}/z80/z80.pl ${CMAKE_SOURCE_DIR}/z80/opcodes_ddfd.dat > ${GENERATED_Z80_DDFD}.tmp && mv ${GENERATED_Z80_DDFD}.tmp ${GENERATED_Z80_DDFD}"
   "${CMAKE_SOURCE_DIR}/z80/z80.pl;${CMAKE_SOURCE_DIR}/z80/opcodes_ddfd.dat"
+  "${PERL_EXECUTABLE}" "-I${CMAKE_SOURCE_DIR}/perl" "${CMAKE_SOURCE_DIR}/z80/z80.pl" "${CMAKE_SOURCE_DIR}/z80/opcodes_ddfd.dat"
 )
 
-fuse_perl_rule(
+fuse_command_to_file(
   "${GENERATED_Z80_DDFDCB}"
-  "${PERL_EXECUTABLE} -I${CMAKE_SOURCE_DIR}/perl ${CMAKE_SOURCE_DIR}/z80/z80.pl ${CMAKE_SOURCE_DIR}/z80/opcodes_ddfdcb.dat > ${GENERATED_Z80_DDFDCB}.tmp && mv ${GENERATED_Z80_DDFDCB}.tmp ${GENERATED_Z80_DDFDCB}"
   "${CMAKE_SOURCE_DIR}/z80/z80.pl;${CMAKE_SOURCE_DIR}/z80/opcodes_ddfdcb.dat"
+  "${PERL_EXECUTABLE}" "-I${CMAKE_SOURCE_DIR}/perl" "${CMAKE_SOURCE_DIR}/z80/z80.pl" "${CMAKE_SOURCE_DIR}/z80/opcodes_ddfdcb.dat"
 )
 
-fuse_perl_rule(
+fuse_command_to_file(
   "${GENERATED_Z80_ED}"
-  "${PERL_EXECUTABLE} -I${CMAKE_SOURCE_DIR}/perl ${CMAKE_SOURCE_DIR}/z80/z80.pl ${CMAKE_SOURCE_DIR}/z80/opcodes_ed.dat > ${GENERATED_Z80_ED}.tmp && mv ${GENERATED_Z80_ED}.tmp ${GENERATED_Z80_ED}"
   "${CMAKE_SOURCE_DIR}/z80/z80.pl;${CMAKE_SOURCE_DIR}/z80/opcodes_ed.dat"
+  "${PERL_EXECUTABLE}" "-I${CMAKE_SOURCE_DIR}/perl" "${CMAKE_SOURCE_DIR}/z80/z80.pl" "${CMAKE_SOURCE_DIR}/z80/opcodes_ed.dat"
 )
 
 set(FUSE_GENERATED_FILES
@@ -305,6 +686,11 @@ set(FUSE_GENERATED_FILES
   "${GENERATED_SETTINGS_C}"
   "${GENERATED_SETTINGS_H}"
   "${GENERATED_OPTIONS_H}"
+  "${GENERATED_EMBEDDED_ASSETS_H}"
+  "${GENERATED_EMBEDDED_ASSETS_C}"
+  "${GENERATED_DEBUGGER_LEXER_C}"
+  "${GENERATED_DEBUGGER_PARSER_C}"
+  "${GENERATED_DEBUGGER_PARSER_H}"
   "${GENERATED_SDL_KEYSYMS}"
   "${GENERATED_WIDGET_MENU_DATA}"
   "${GENERATED_WIDGET_OPTIONS_C}"
@@ -320,16 +706,10 @@ set(FUSE_GENERATED_FILES
 add_custom_target(fuse-generated DEPENDS ${FUSE_GENERATED_FILES})
 
 set(FUSE_SOURCES
-  compat/linux/relative_paths.c
-  compat/unix/dir.c
-  compat/unix/file.c
-  compat/unix/osname.c
-  compat/unix/paths.c
-  compat/unix/timer.c
   debugger/breakpoint.c
   debugger/command.c
-  debugger/commandl.c
-  debugger/commandy.c
+  "${GENERATED_DEBUGGER_LEXER_C}"
+  "${GENERATED_DEBUGGER_PARSER_C}"
   debugger/debugger.c
   debugger/disassemble.c
   debugger/event.c
@@ -453,10 +833,42 @@ set(FUSE_SOURCES
   "${GENERATED_SDL_KEYSYMS}"
   "${GENERATED_WIDGET_MENU_DATA}"
   "${GENERATED_WIDGET_OPTIONS_C}"
+  "${GENERATED_EMBEDDED_ASSETS_C}"
 )
 
+if(NOT HAVE_DIRNAME)
+  list(APPEND FUSE_SOURCES compat/dirname.c)
+endif()
+
+if(NOT HAVE_GETOPT_LONG)
+  list(APPEND FUSE_SOURCES compat/getopt.c compat/getopt1.c)
+endif()
+
+if(WIN32)
+  list(PREPEND FUSE_SOURCES
+    compat/unix/dir.c
+    compat/unix/file.c
+    compat/win32/osname.c
+    compat/win32/paths.c
+    compat/win32/timer.c
+  )
+else()
+  list(PREPEND FUSE_SOURCES
+    compat/linux/relative_paths.c
+    compat/unix/dir.c
+    compat/unix/file.c
+    compat/unix/osname.c
+    compat/unix/paths.c
+    compat/unix/timer.c
+  )
+endif()
+
 if(HAVE_SOCKETS)
-  list(APPEND FUSE_SOURCES compat/unix/socket.c)
+  if(WIN32)
+    list(APPEND FUSE_SOURCES compat/win32/socket.c)
+  else()
+    list(APPEND FUSE_SOURCES compat/unix/socket.c)
+  endif()
 endif()
 
 if(BUILD_SPECCYBOOT)
@@ -512,18 +924,33 @@ set_source_files_properties(
   PROPERTIES OBJECT_DEPENDS "${GENERATED_Z80_OPCODES_BASE};${GENERATED_Z80_CB};${GENERATED_Z80_DDFD};${GENERATED_Z80_DDFDCB};${GENERATED_Z80_ED}"
 )
 
+if(CMAKE_C_COMPILER_ID MATCHES "Clang")
+  set_source_files_properties(
+    compat/getopt.c
+    compat/getopt1.c
+    "${GENERATED_SETTINGS_C}"
+    PROPERTIES COMPILE_OPTIONS "-Wno-deprecated-non-prototype"
+  )
+endif()
+
 target_include_directories(fuse PRIVATE
   "${CMAKE_SOURCE_DIR}"
   "${CMAKE_BINARY_DIR}"
+  "${CMAKE_SOURCE_DIR}/compat"
   ${LIBSPECTRUM_INCLUDE_DIRS}
   ${SDL_INCLUDE_DIRS}
 )
 
+if(HAVE_LIB_GLIB)
+  target_include_directories(fuse PRIVATE ${GLIB_INCLUDE_DIRS})
+  target_compile_options(fuse PRIVATE ${GLIB_CFLAGS_OTHER})
+endif()
+
 target_compile_definitions(fuse PRIVATE HAVE_CONFIG_H FUSEDATADIR=\"${CMAKE_BINARY_DIR}\")
 
 target_link_libraries(fuse PRIVATE
-  PkgConfig::LIBSPECTRUM
-  PkgConfig::SDL
+  ${FUSE_LIBSPECTRUM_TARGET}
+  ${FUSE_SDL_TARGET}
 )
 
 if(HAVE_LIB_GLIB)
@@ -531,11 +958,19 @@ if(HAVE_LIB_GLIB)
 endif()
 
 if(HAVE_LIB_XML2)
-  target_link_libraries(fuse PRIVATE PkgConfig::XML)
+  if(WIN32)
+    target_link_libraries(fuse PRIVATE LibXml2::LibXml2)
+  else()
+    target_link_libraries(fuse PRIVATE PkgConfig::XML)
+  endif()
 endif()
 
 if(USE_LIBPNG)
-  target_link_libraries(fuse PRIVATE PkgConfig::PNG)
+  if(WIN32)
+    target_link_libraries(fuse PRIVATE PNG::PNG)
+  else()
+    target_link_libraries(fuse PRIVATE PkgConfig::PNG)
+  endif()
 endif()
 
 if(ZLIB_FOUND)
@@ -548,6 +983,10 @@ endif()
 
 if(MATH_LIBRARY)
   target_link_libraries(fuse PRIVATE "${MATH_LIBRARY}")
+endif()
+
+if(WIN32 AND HAVE_SOCKETS)
+  target_link_libraries(fuse PRIVATE ws2_32)
 endif()
 
 target_sources(fuse PRIVATE
@@ -563,6 +1002,74 @@ add_custom_command(TARGET fuse POST_BUILD
   VERBATIM
 )
 
+if(WIN32 AND LIBSPECTRUM_RUNTIME)
+  add_custom_command(TARGET fuse POST_BUILD
+    COMMAND "${CMAKE_COMMAND}" -E copy_if_different ${LIBSPECTRUM_RUNTIME_DLLS} "$<TARGET_FILE_DIR:fuse>"
+    COMMAND_EXPAND_LISTS
+    VERBATIM
+  )
+endif()
+
+install(TARGETS fuse
+  RUNTIME DESTINATION "${CMAKE_INSTALL_BINDIR}"
+)
+
+install(SCRIPT "${FUSE_RUNTIME_DEPENDENCY_SCRIPT}")
+
+install(DIRECTORY "${CMAKE_SOURCE_DIR}/roms/"
+  DESTINATION "${CMAKE_INSTALL_BINDIR}/roms"
+)
+
+if(EXISTS "${CMAKE_SOURCE_DIR}/man/fuse.1")
+  install(FILES "${CMAKE_SOURCE_DIR}/man/fuse.1"
+    DESTINATION "${CMAKE_INSTALL_MANDIR}/man1"
+  )
+endif()
+
+if(UNIX AND NOT APPLE)
+  install(FILES
+    "${FUSE_GENERATED_MIME_XML}"
+    DESTINATION "${CMAKE_INSTALL_DATADIR}/mime/packages"
+  )
+
+  install(FILES
+    "${FUSE_GENERATED_DESKTOP_FILE}"
+    DESTINATION "${CMAKE_INSTALL_DATADIR}/applications"
+  )
+
+  foreach(_icon_size IN ITEMS 16 32 48 64 128 256)
+    install(FILES "${CMAKE_SOURCE_DIR}/data/icons/${_icon_size}x${_icon_size}/fuse.png"
+      DESTINATION "${CMAKE_INSTALL_DATADIR}/icons/hicolor/${_icon_size}x${_icon_size}/apps"
+      RENAME fuse.png
+    )
+    install(FILES "${CMAKE_SOURCE_DIR}/data/icons/${_icon_size}x${_icon_size}/application-x-spectrum.png"
+      DESTINATION "${CMAKE_INSTALL_DATADIR}/icons/hicolor/${_icon_size}x${_icon_size}/mimetypes"
+      RENAME application-x-spectrum.png
+    )
+  endforeach()
+
+  if(EXISTS "${CMAKE_SOURCE_DIR}/data/shell-completion/bash/fuse")
+    install(FILES "${CMAKE_SOURCE_DIR}/data/shell-completion/bash/fuse"
+      DESTINATION "${CMAKE_INSTALL_DATADIR}/bash-completion/completions"
+    )
+  endif()
+endif()
+
+set(CPACK_PACKAGE_NAME "fuse-sdl3")
+set(CPACK_PACKAGE_VENDOR "Fuse SDL3")
+set(CPACK_PACKAGE_VERSION "${PROJECT_VERSION}")
+set(CPACK_PACKAGE_INSTALL_DIRECTORY "fuse-sdl3")
+set(CPACK_PACKAGE_CONTACT "http://sourceforge.net/p/fuse-emulator/bugs/")
+set(CPACK_MONOLITHIC_INSTALL ON)
+set(CPACK_INCLUDE_TOPLEVEL_DIRECTORY ON)
+set(CPACK_STRIP_FILES OFF)
+set(CPACK_VERBATIM_VARIABLES YES)
+set(CPACK_PACKAGE_FILE_NAME "fuse-sdl3-${PROJECT_VERSION}-${CMAKE_SYSTEM_NAME}-${CMAKE_SYSTEM_PROCESSOR}")
+set(CPACK_ARCHIVE_COMPONENT_INSTALL OFF)
+set(CPACK_GENERATOR "ZIP;TGZ" CACHE STRING "Archive generators" FORCE)
+
+include(CPack)
+
 message(STATUS "Fuse SDL3 CMake build configured")
 message(STATUS "  SDL3: enabled")
 message(STATUS "  widget UI: enabled")
@@ -571,3 +1078,5 @@ message(STATUS "  spectranet: ${BUILD_SPECTRANET}")
 message(STATUS "  speccyboot: ${BUILD_SPECCYBOOT}")
 message(STATUS "  libxml2: ${HAVE_LIB_XML2}")
 message(STATUS "  libpng: ${USE_LIBPNG}")
+message(STATUS "  desktop integration: generated")
+message(STATUS "  package generators: ${CPACK_GENERATOR}")

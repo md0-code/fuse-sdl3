@@ -1,0 +1,11 @@
+{
+  "name": "libspectrum",
+  "version-string": "1.5.0-local",
+  "homepage": "http://fuse-emulator.sourceforge.net/libspectrum.php",
+  "description": "ZX Spectrum emulator file support library used by Fuse",
+  "license": "GPL-2.0-or-later",
+  "dependencies": [
+    "bzip2",
+    "zlib"
+  ]
+}

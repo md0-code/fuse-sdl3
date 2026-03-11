@@ -252,7 +252,7 @@ fuse_window_proc( HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam )
          another window */
       return TRUE;
 
-#if defined USE_JOYSTICK && !defined HAVE_JSW_H
+#if USE_JOYSTICK && !HAVE_JSW_H
 
     case MM_JOY1BUTTONDOWN:
       win32joystick_buttonevent( 0, 1, wParam );
@@ -278,7 +278,7 @@ fuse_window_proc( HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam )
       win32joystick_move( 1, LOWORD( lParam ), HIWORD( lParam ) );
       break;
 
-#endif			/* if defined USE_JOYSTICK && !defined HAVE_JSW_H */
+#endif			/* if USE_JOYSTICK && !HAVE_JSW_H */
 
   }
   return( DefWindowProc( hWnd, msg, wParam, lParam ) );

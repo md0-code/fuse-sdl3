@@ -30,14 +30,14 @@ partially reimplemented in C by Gergely Szasz for FUSE
 
 static void _blip_synth_init( Blip_Synth_ * synth_, short *impulses );
 
-inline void
+void
 blip_buffer_set_clock_rate( Blip_Buffer * buff, long cps )
 {
   buff->factor_ = blip_buffer_clock_rate_factor( buff, buff->clock_rate_ =
                                                  cps );
 }
 
-inline long
+long
 blip_buffer_samples_avail( Blip_Buffer * buff )
 {
   return ( long )( buff->offset_ >> BLIP_BUFFER_ACCURACY );
@@ -74,7 +74,7 @@ blip_synth_set_volume( Blip_Synth * synth, double v )
 	buf[rev - r] = t0;                     \
 	buf[rev + 1 - r] = t1
 
-inline void
+void
 blip_synth_offset_resampled( Blip_Synth * synth, blip_resampled_time_t time,
                              int delta, Blip_Buffer * blip_buf )
 {
@@ -333,13 +333,13 @@ blip_buffer_end_frame( Blip_Buffer * buff, blip_time_t t )
   buff->offset_ += t * buff->factor_;
 }
 
-inline void
+void
 blip_buffer_remove_silence( Blip_Buffer * buff, long count )
 {
   buff->offset_ -= ( blip_resampled_time_t ) count << BLIP_BUFFER_ACCURACY;
 }
 
-inline void
+void
 blip_buffer_remove_samples( Blip_Buffer * buff, long count )
 {
   long remain;

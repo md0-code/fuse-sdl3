@@ -40,7 +40,7 @@
 #include "spectranet.h"
 #include "ui/ui.h"
 
-#ifdef BUILD_SPECTRANET
+#if BUILD_SPECTRANET
 
 #define SPECTRANET_PAGES 256
 #define SPECTRANET_PAGE_LENGTH 0x1000
@@ -76,7 +76,7 @@ int spectranet_programmable_trap_active;
 /* Where the programmable trap will trigger if active */
 libspectrum_word spectranet_programmable_trap;
 
-#ifdef BUILD_SPECTRANET
+#if BUILD_SPECTRANET
 
 /* True if the next write to 0x023b will set the MSB of the programmable trap */
 static int trap_write_msb;
@@ -510,7 +510,7 @@ spectranet_flash_rom_write( libspectrum_word address, libspectrum_byte b )
   }
 }
 
-#else			/* #ifdef BUILD_SPECTRANET */
+#else			/* #if BUILD_SPECTRANET */
 
 /* No spectranet support */
 
@@ -565,4 +565,4 @@ spectranet_flash_rom_write( libspectrum_word address GCC_UNUSED,
 {
 }
 
-#endif			/* #ifdef BUILD_SPECTRANET */
+#endif			/* #if BUILD_SPECTRANET */

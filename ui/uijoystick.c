@@ -39,7 +39,7 @@
 #include "input.h"
 #include "uijoystick.h"
 
-#if defined USE_JOYSTICK && defined HAVE_JSW_H
+#if USE_JOYSTICK && HAVE_JSW_H
 
 #include <stdio.h>
 #include <string.h>
@@ -262,7 +262,7 @@ do_axis( int which, double position, input_key negative, input_key positive )
   input_event( &event2 );
 }
 
-#else			/* #if defined USE_JOYSTICK && defined HAVE_JSW_H */
+#else			/* #if USE_JOYSTICK && HAVE_JSW_H */
 
 /* No joystick library */
 
@@ -282,4 +282,4 @@ ui_joystick_poll( void )
 {
 }
 
-#endif			/* #if defined USE_JOYSTICK && defined HAVE_JSW_H */
+#endif			/* #if USE_JOYSTICK && HAVE_JSW_H */

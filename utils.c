@@ -29,15 +29,16 @@
 #include <config.h>
 
 #include <errno.h>
-#ifdef HAVE_LIBGEN_H
+#if HAVE_LIBGEN_H
 #include <libgen.h>
-#endif				/* #ifdef HAVE_LIBGEN_H */
+#endif				/* #if HAVE_LIBGEN_H */
 #include <string.h>
 #include <ui/ui.h>
 #include <unistd.h>
 
 #include <libspectrum.h>
 
+#include "embedded_assets.h"
 #include "fuse.h"
 #include "machines/specplus3.h"
 #include "memory_pages.h"
@@ -404,7 +405,9 @@ utils_read_auxiliary_file( const char *filename, utils_file *file,
   compat_fd fd;
 
   fd = utils_find_auxiliary_file( filename, type );
-  if( fd == COMPAT_FILE_OPEN_FAILED ) return -1;
+  if( fd == COMPAT_FILE_OPEN_FAILED ) {
+    return utils_read_embedded_asset( filename, file, type );
+  }
 
   error = utils_read_fd( fd, filename, file );
   if( error ) return error;
@@ -420,7 +423,7 @@ utils_read_screen( const char *filename, utils_file *screen )
   error = utils_read_auxiliary_file( filename, screen, UTILS_AUXILIARY_LIB );
   if( error == -1 ) {
     ui_error( UI_ERROR_ERROR, "couldn't find screen picture ('%s')",
-	      filename );
+              filename );
     return 1;
   }
 
@@ -429,7 +432,7 @@ utils_read_screen( const char *filename, utils_file *screen )
   if( screen->length != STANDARD_SCR_SIZE ) {
     utils_close_file( screen );
     ui_error( UI_ERROR_ERROR, "screen picture ('%s') is not %d bytes long",
-	      filename, STANDARD_SCR_SIZE );
+              filename, STANDARD_SCR_SIZE );
     return 1;
   }
 
@@ -471,7 +474,7 @@ utils_save_binary( libspectrum_word start, size_t length,
 void
 utils_networking_init( void )
 {
-#ifdef HAVE_SOCKETS
+#if HAVE_SOCKETS
 
   if( !networking_init_count )
     compat_socket_networking_init();
@@ -486,7 +489,7 @@ utils_networking_end( void )
 {
   networking_init_count--;
 
-#ifdef HAVE_SOCKETS
+#if HAVE_SOCKETS
   
   if( !networking_init_count )
     compat_socket_networking_end();

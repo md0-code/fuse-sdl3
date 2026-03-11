@@ -72,13 +72,13 @@
   (sizeof(a) / sizeof(*a)) \
    + MUST_BE_ARRAY(a))
 
-#ifndef HAVE_DIRNAME
+#if !HAVE_DIRNAME
 char *dirname( char *path );
-#endif				/* #ifndef HAVE_DIRNAME */
+#endif				/* #if !HAVE_DIRNAME */
 
-#if !defined HAVE_GETOPT_LONG && !defined AMIGA && !defined __MORPHOS__
+#if !HAVE_GETOPT_LONG && !defined AMIGA && !defined __MORPHOS__
 #include "compat/getopt.h"
-#endif				/* #ifndef HAVE_GETOPT_LONG */
+#endif				/* #if !HAVE_GETOPT_LONG */
 
 #ifndef HAVE_MKSTEMP
 int mkstemp( char *templ );
@@ -176,6 +176,7 @@ int compat_get_tap( const char *interface_name );
 
 #ifdef WIN32
 #include <winsock2.h>
+#include <ws2tcpip.h>
 #define COMPAT_ENOTCONN WSAENOTCONN
 #define COMPAT_EWOULDBLOCK WSAEWOULDBLOCK
 #define COMPAT_EINPROGRESS WSAEINPROGRESS
