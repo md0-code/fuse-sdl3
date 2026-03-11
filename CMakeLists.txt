@@ -315,6 +315,7 @@ endif()
 
 set(FUSE_GENERATED_MIME_XML "${CMAKE_BINARY_DIR}/data/fuse.xml")
 set(FUSE_GENERATED_DESKTOP_FILE "${CMAKE_BINARY_DIR}/data/fuse.desktop")
+set(FUSE_GENERATED_APPSTREAM_FILE "${CMAKE_BINARY_DIR}/data/fuse.appdata.xml")
 set(FUSE_RUNTIME_DEPENDENCY_SCRIPT "${CMAKE_BINARY_DIR}/cmake/InstallRuntimeDependencies.cmake")
 
 if(FUSE_PORTABLE_PACKAGE)
@@ -369,6 +370,12 @@ endforeach()
 file(READ "${CMAKE_SOURCE_DIR}/data/fuse.desktop.in" FUSE_DESKTOP_TEMPLATE_CONTENT)
 string(REPLACE "@MIME_TYPES@" "${FUSE_DESKTOP_MIME_TYPES}" FUSE_DESKTOP_CONTENT "${FUSE_DESKTOP_TEMPLATE_CONTENT}")
 file(WRITE "${FUSE_GENERATED_DESKTOP_FILE}" "${FUSE_DESKTOP_CONTENT}")
+
+configure_file(
+  "${CMAKE_SOURCE_DIR}/data/fuse.appdata.xml.in"
+  "${FUSE_GENERATED_APPSTREAM_FILE}"
+  @ONLY
+)
 
 set(FUSE_RUNTIME_SEARCH_DIRS "")
 if(WIN32 AND FUSE_LIBSPECTRUM_ROOT)
@@ -947,6 +954,8 @@ endif()
 
 target_compile_definitions(fuse-scalers16 PRIVATE HAVE_CONFIG_H FUSEDATADIR=\"${CMAKE_BINARY_DIR}\" SCALER_DATA_SIZE=2)
 target_compile_definitions(fuse-scalers32 PRIVATE HAVE_CONFIG_H FUSEDATADIR=\"${CMAKE_BINARY_DIR}\" SCALER_DATA_SIZE=4)
+add_dependencies(fuse-scalers16 fuse-generated)
+add_dependencies(fuse-scalers32 fuse-generated)
 
 add_executable(fuse ${FUSE_SOURCES})
 add_dependencies(fuse fuse-generated)
@@ -1067,6 +1076,11 @@ if(NOT FUSE_PORTABLE_PACKAGE AND EXISTS "${CMAKE_SOURCE_DIR}/man/fuse.1")
 endif()
 
 if(UNIX AND NOT APPLE AND NOT FUSE_PORTABLE_PACKAGE)
+  install(FILES
+    "${FUSE_GENERATED_APPSTREAM_FILE}"
+    DESTINATION "${CMAKE_INSTALL_DATADIR}/metainfo"
+  )
+
   install(FILES
     "${FUSE_GENERATED_MIME_XML}"
     DESTINATION "${CMAKE_INSTALL_DATADIR}/mime/packages"
