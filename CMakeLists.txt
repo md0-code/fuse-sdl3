@@ -940,14 +940,14 @@ add_library(fuse-scalers16 OBJECT ui/scaler/scalers.c)
 add_library(fuse-scalers32 OBJECT ui/scaler/scalers.c)
 
 target_include_directories(fuse-scalers16 PRIVATE
-  "${CMAKE_SOURCE_DIR}"
   "${CMAKE_BINARY_DIR}"
+  "${CMAKE_SOURCE_DIR}"
   ${LIBSPECTRUM_INCLUDE_DIRS}
   ${SDL_INCLUDE_DIRS}
 )
 target_include_directories(fuse-scalers32 PRIVATE
-  "${CMAKE_SOURCE_DIR}"
   "${CMAKE_BINARY_DIR}"
+  "${CMAKE_SOURCE_DIR}"
   ${LIBSPECTRUM_INCLUDE_DIRS}
   ${SDL_INCLUDE_DIRS}
 )
@@ -990,8 +990,8 @@ if(CMAKE_C_COMPILER_ID MATCHES "Clang")
 endif()
 
 target_include_directories(fuse PRIVATE
-  "${CMAKE_SOURCE_DIR}"
   "${CMAKE_BINARY_DIR}"
+  "${CMAKE_SOURCE_DIR}"
   "${CMAKE_SOURCE_DIR}/compat"
   ${LIBSPECTRUM_INCLUDE_DIRS}
   ${SDL_INCLUDE_DIRS}
