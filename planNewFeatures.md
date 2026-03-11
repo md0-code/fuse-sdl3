@@ -42,6 +42,7 @@ regression risk.
    path, timer, socket, launcher, and runtime-integration helpers.
 
 7. Milestone 7: CMake build foundation for the retained SDL plus widget tree.
+   [done]
    Add a top-level CMake build that models the actual downstream target:
    retained core code, SDL frontend code, widget UI code, generated sources,
    and the platform support code that is still needed. Prove the CMake source

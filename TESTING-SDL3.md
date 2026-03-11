@@ -8,6 +8,15 @@ instead of only under WSLg or CI dummy drivers.
 
 From the repository root:
 
+CMake build:
+
+```sh
+cmake -S . -B build-cmake
+cmake --build build-cmake -j"$(nproc)"
+```
+
+Autotools build:
+
 ```sh
 ./configure --with-sdl
 make -j"$(nproc)" fuse
@@ -20,13 +29,28 @@ handling is built in.
 
 ## Basic startup smoke tests
 
+CMake executable, windowed startup:
+
+```sh
+timeout -s KILL 5s ./build-cmake/fuse --no-sound --machine 48
+```
+
+CMake executable, headless or CI startup:
+
+```sh
+SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy \
+  timeout -s KILL 5s ./build-cmake/fuse --no-sound --machine 48
+```
+
+Autotools executable, windowed startup:
+
 Windowed startup:
 
 ```sh
 timeout -s KILL 5s ./fuse --no-sound --machine 48
 ```
 
-Headless or CI startup:
+Autotools executable, headless or CI startup:
 
 ```sh
 SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy \
