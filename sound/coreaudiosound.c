@@ -124,9 +124,9 @@ sound_lowlevel_init( const char *dev, int *freqptr, int *stereoptr )
 
   deviceFormat.mFormatID =  kAudioFormatLinearPCM;
   deviceFormat.mFormatFlags =  kLinearPCMFormatFlagIsSignedInteger
-#ifdef WORDS_BIGENDIAN
+#if WORDS_BIGENDIAN
                     | kLinearPCMFormatFlagIsBigEndian
-#endif      /* #ifdef WORDS_BIGENDIAN */
+#endif      /* #if WORDS_BIGENDIAN */
                     | kLinearPCMFormatFlagIsPacked;
   deviceFormat.mBytesPerPacket = *stereoptr ? 4 : 2;
   deviceFormat.mFramesPerPacket = 1;

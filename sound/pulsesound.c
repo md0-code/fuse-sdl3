@@ -79,7 +79,7 @@ sound_lowlevel_init( const char *device, int *freqptr, int *stereoptr )
     option += n + ( tmp == ',' );
   }
 
-#if defined WORDS_BIGENDIAN
+#if WORDS_BIGENDIAN
   ss.format = PA_SAMPLE_S16BE;
 #else
   ss.format = PA_SAMPLE_S16LE;

@@ -26,10 +26,9 @@ Initialise all of the UI-specific bits except the display (keyboard, etc).
 * int ui_event( void )
 
 `ui_event()' is called at the start of every emulated Spectrum frame,
-and is the opportunity for the UI actions to happen. Some of the
-current UIs, for example the GTK UI use this to do most of their
-processing such as reading the keyboard and the like, whilst others,
-for example the SVGAlib UI do much less here.
+and is the opportunity for the UI actions to happen. Some user
+interfaces do most of their event processing here, including keyboard
+handling, whilst others keep that work more distributed.
 
 * int ui_verror( ui_error_level severity, const char *format, va_list ap )
 

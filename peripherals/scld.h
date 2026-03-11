@@ -59,7 +59,7 @@
 
 #define ALTDFILE_OFFSET 0x2000
 
-#ifdef WORDS_BIGENDIAN
+#if WORDS_BIGENDIAN
 
 typedef struct
 {
@@ -81,7 +81,7 @@ typedef struct
   unsigned scrnmode  : 3;  /* SCRNMODEMASK */
 } scld_masks;
 
-#else				/* #ifdef WORDS_BIGENDIAN */
+#else				/* #if WORDS_BIGENDIAN */
 
 typedef struct
 {
@@ -103,7 +103,7 @@ typedef struct
   unsigned b7  : 1;  /* */
 } scld_masks;
 
-#endif				/* #ifdef WORDS_BIGENDIAN */
+#endif				/* #if WORDS_BIGENDIAN */
 
 typedef union
 {

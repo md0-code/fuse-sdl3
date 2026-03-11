@@ -298,7 +298,7 @@ movie_start_fmf( const char *name )
               strerror( errno ) );
     return;
   }
-#ifdef WORDS_BIGENDIAN
+#if WORDS_BIGENDIAN
   fwrite( "FMF_V1E", 7, 1, of );	/* write magic header Fuse Movie File */
 #else	/* WORDS_BIGENDIAN */
   fwrite( "FMF_V1e", 7, 1, of );	/* write magic header Fuse Movie File */

@@ -62,6 +62,9 @@ MENU_CALLBACK_WITH_ACTION( menu_options_selectroms_machine_select );
 MENU_CALLBACK_WITH_ACTION( menu_options_selectroms_peripheral_select );
 MENU_CALLBACK( menu_options_filter );
 MENU_DETAIL( menu_filter_detail );
+MENU_CALLBACK( menu_options_shader_select );
+MENU_CALLBACK( menu_options_shader_clear );
+MENU_DETAIL( menu_shader_detail );
 MENU_CALLBACK( menu_options_fullscreen );
 MENU_CALLBACK( menu_options_save );
 
@@ -124,6 +127,7 @@ MENU_CALLBACK( menu_file_movie_record_recordfromrzx );
 MENU_CALLBACK( menu_options_general );
 MENU_CALLBACK( menu_options_media );
 MENU_CALLBACK( menu_options_sound );
+MENU_CALLBACK( menu_options_shaderparameters );
 MENU_CALLBACK( menu_options_peripherals_general );
 MENU_CALLBACK( menu_options_peripherals_disk );
 MENU_CALLBACK( menu_options_rzx );

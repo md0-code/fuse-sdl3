@@ -32,6 +32,7 @@ include(TestBigEndian)
 find_package(PkgConfig QUIET)
 find_package(Perl REQUIRED)
 find_package(Threads)
+find_package(OpenGL QUIET)
 find_package(ZLIB)
 find_package(BZip2)
 find_program(FLEX_EXECUTABLE NAMES win_flex flex REQUIRED)
@@ -73,12 +74,24 @@ endif()
 if(WIN32)
   find_package(SDL3 CONFIG REQUIRED)
   set(FUSE_SDL_TARGET SDL3::SDL3)
+  find_package(SDL3_shadercross CONFIG QUIET)
 else()
   if(NOT PkgConfig_FOUND)
     message(FATAL_ERROR "pkg-config is required on non-Windows builds")
   endif()
   pkg_check_modules(SDL REQUIRED IMPORTED_TARGET sdl3)
   set(FUSE_SDL_TARGET PkgConfig::SDL)
+  pkg_check_modules(SDLSHADERCROSS QUIET IMPORTED_TARGET sdl3-shadercross)
+endif()
+
+set(HAVE_SDL_SHADERCROSS 0)
+if(TARGET SDL3_shadercross::SDL3_shadercross OR TARGET PkgConfig::SDLSHADERCROSS)
+  set(HAVE_SDL_SHADERCROSS 1)
+endif()
+
+set(HAVE_OPENGL 0)
+if(TARGET OpenGL::GL OR OPENGL_FOUND)
+  set(HAVE_OPENGL 1)
 endif()
 
 set(FUSE_LIBSPECTRUM_TARGET "")
@@ -843,6 +856,8 @@ set(FUSE_SOURCES
   uidisplay.c
   uimedia.c
   ui/scaler/scaler.c
+  ui/sdl/sdlglsl.c
+  ui/sdl/sdlshader.c
   ui/sdl/sdldisplay.c
   ui/sdl/sdljoystick.c
   ui/sdl/sdlkeyboard.c
@@ -1026,6 +1041,10 @@ if(MATH_LIBRARY)
   target_link_libraries(fuse PRIVATE "${MATH_LIBRARY}")
 endif()
 
+if(HAVE_OPENGL)
+  target_link_libraries(fuse PRIVATE OpenGL::GL)
+endif()
+
 if(WIN32 AND HAVE_SOCKETS)
   target_link_libraries(fuse PRIVATE ws2_32)
 endif()
@@ -1068,12 +1087,6 @@ install(FILES "${FUSE_GENERATED_DEFAULT_CONFIG}"
 install(DIRECTORY "${CMAKE_SOURCE_DIR}/roms/"
   DESTINATION "${FUSE_ROMS_INSTALL_DESTINATION}"
 )
-
-if(NOT FUSE_PORTABLE_PACKAGE AND EXISTS "${CMAKE_SOURCE_DIR}/man/fuse.1")
-  install(FILES "${CMAKE_SOURCE_DIR}/man/fuse.1"
-    DESTINATION "${CMAKE_INSTALL_MANDIR}/man1"
-  )
-endif()
 
 if(UNIX AND NOT APPLE AND NOT FUSE_PORTABLE_PACKAGE)
   install(FILES

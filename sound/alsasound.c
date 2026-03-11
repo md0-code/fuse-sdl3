@@ -179,7 +179,7 @@ sound_lowlevel_init( const char *device, int *freqptr, int *stereoptr )
   
     /* Set sample format */
   if( snd_pcm_hw_params_set_format( pcm_handle, hw_params, 
-#if defined WORDS_BIGENDIAN
+#if WORDS_BIGENDIAN
 				    SND_PCM_FORMAT_S16_BE
 #else
 				    SND_PCM_FORMAT_S16_LE

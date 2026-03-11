@@ -147,7 +147,7 @@ typedef libspectrum_dword scaler_data_type;
    these as 32-bit entities, so make sure we get our masks the right
    way round. */
 
-#ifdef WORDS_BIGENDIAN
+#if WORDS_BIGENDIAN
 
 static const libspectrum_dword colorMask = 0xFEFEFE00;
 static const libspectrum_dword lowPixelMask = 0x01010100;
@@ -169,7 +169,7 @@ static const libspectrum_dword dotmatrix[16] = {
   0x3F3F3F00, 0x00000000, 0x3F3F3F00, 0x00000000
 };
 
-#else				/* #ifdef WORDS_BIGENDIAN */
+#else				/* #if WORDS_BIGENDIAN */
 
 static const libspectrum_dword colorMask = 0x00FEFEFE;
 static const libspectrum_dword lowPixelMask = 0x00010101;
@@ -191,7 +191,7 @@ static const libspectrum_dword dotmatrix[16] = {
   0x003F3F3F, 0x00000000, 0x003F3F3F, 0x00000000
 };
 
-#endif				/* #ifdef WORDS_BIGENDIAN */
+#endif				/* #if WORDS_BIGENDIAN */
 
 #else				/* #if SCALER_DATA_SIZE == 2 or 4 */
 #error Unknown SCALER_DATA_SIZE

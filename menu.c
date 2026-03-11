@@ -56,6 +56,7 @@
 #include "svg.h"
 #include "tape.h"
 #include "ui/scaler/scaler.h"
+#include "ui/uidisplay.h"
 #include "ui/ui.h"
 #include "ui/uimedia.h"
 #include "utils.h"
@@ -66,6 +67,17 @@ static int menu_select_machine_roms( libspectrum_machine machine, size_t start,
 
 static int menu_select_peripheral_roms( const char *peripheral_name,
 					size_t start, size_t n );
+
+static void menu_update_shader_menu_items( void );
+
+static void
+menu_update_shader_menu_items( void )
+{
+  int active = settings_current.startup_shader && *settings_current.startup_shader;
+
+  ui_menu_item_set_active( "/Options/Shader.../Clear", active );
+  ui_menu_item_set_active( "/Options/Shader.../Parameters...", active );
+}
 
 MENU_CALLBACK( menu_file_open )
 {
@@ -315,6 +327,43 @@ MENU_CALLBACK( menu_options_filter )
 
   /* Carry on with emulation again */
   fuse_emulation_unpause();
+}
+
+MENU_CALLBACK( menu_options_shader_select )
+{
+  char *filename;
+
+  fuse_emulation_pause();
+
+  filename = ui_get_open_filename( "Fuse - Select Shader Preset" );
+  if( !filename ) { fuse_emulation_unpause(); return; }
+
+  settings_set_string( &settings_current.startup_shader, filename );
+  settings_set_string( &settings_current.startup_shader_parameters, NULL );
+
+  libspectrum_free( filename );
+
+  menu_update_shader_menu_items();
+  fuse_emulation_unpause();
+
+  if( uidisplay_hotswap_gfx_mode() ) return;
+  display_refresh_all();
+}
+
+MENU_CALLBACK( menu_options_shader_clear )
+{
+  if( !settings_current.startup_shader || !*settings_current.startup_shader ) {
+    return;
+  }
+
+  ui_widget_finish();
+
+  settings_set_string( &settings_current.startup_shader, NULL );
+  settings_set_string( &settings_current.startup_shader_parameters, NULL );
+  menu_update_shader_menu_items();
+
+  if( uidisplay_hotswap_gfx_mode() ) return;
+  display_refresh_all();
 }
 
 MENU_CALLBACK( menu_options_fullscreen )
@@ -1074,6 +1123,23 @@ const char*
 menu_filter_detail( void )
 {
   return scaler_name(current_scaler);
+}
+
+const char*
+menu_shader_detail( void )
+{
+  const char *path, *basename;
+
+  path = settings_current.startup_shader;
+  if( !path || !*path ) return "None";
+
+  basename = strrchr( path, '/' );
+  if( basename ) return basename + 1;
+
+  basename = strrchr( path, '\\' );
+  if( basename ) return basename + 1;
+
+  return path;
 }
 
 const char*

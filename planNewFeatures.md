@@ -19,7 +19,7 @@ regression risk.
 3. Milestone 3: new joystick emulation keys and mapping groundwork.
     [done]
     
-4. Milestone 4: default settings refresh.
+4. Milestone 4: default settings refresh (includes auto save by default).
     [done]
 
 5. Milestone 5: command line overhaul.
@@ -34,12 +34,12 @@ regression risk.
 6. Milestone 6: SDL-only frontend reduction.
    [done]
    Freeze the downstream frontend scope as `ui/sdl` plus `ui/widget`, then
-   disable the GTK, Xlib, fb, svga, Wii, and legacy Win32 UI backends from the
-   active downstream build. Limit this milestone to build-surface reduction,
+   remove the retired frontend trees from the active downstream build surface
+   and supporting generators. Limit this milestone to build-surface reduction,
    generated-file dependency cleanup, and shared-interface changes required to
-   stop legacy UI types from leaking into retained code. Keep Windows platform
-   support code that is still useful for the retained SDL build, especially
-   path, timer, socket, launcher, and runtime-integration helpers.
+   stop retired UI types from leaking into retained code. Keep Windows
+   platform support code that is still useful for the retained build,
+   especially path, timer, socket, launcher, and runtime-integration helpers.
 
 7. Milestone 7: CMake build foundation for the retained SDL plus widget tree.
    [done]
@@ -64,30 +64,43 @@ regression risk.
    assumptions under native Windows.
 
 9. Milestone 9: shader settings and command-line surface.
+   [done]
     Add settings entries for external shader selection in
     `settings.dat`, including a command-line option
     for selecting or clearing a startup shader. Keep this milestone strictly about
     configuration surfaces and derived-output regeneration so the later
     renderer work lands on stable user-facing interfaces.
 
-10. Milestone 10: SDL renderer shader infrastructure.
-    The app must be able to load .slangp shaders designed from retroarch
-    (examples in ~shaders). Investigate using SDL_shadercross for implementing 
-    support. Refactor `ui/sdl/sdldisplay.c` so the current
-    presentation path is split cleanly into frame generation, texture upload,
-    and final presentation. Add the backend capability checks, shader-loading
-    path, and robust non-shader fallback needed to support externally supplied
-    GLSL shaders without destabilizing the baseline SDL3 renderer path.
+10. Milestone 10: SDL OpenGL shader backend foundation.
+   The app must be able to load RetroArch-compatible `.glslp` presets
+   (examples in `/shaders`) and drive an OpenGL-backed presentation path for
+   at least the startup-selected single-pass shader case. Refactor
+   `ui/sdl/sdldisplay.c` so the current presentation path is split cleanly
+   into frame generation, upload, and final presentation backend selection.
+   Add SDL window and OpenGL capability checks, `.glslp` preset loading,
+   GLSL shader parsing, and a robust non-shader fallback path so unsupported
+   presets, missing assets, or unavailable OpenGL contexts do not destabilize
+   the baseline SDL3 renderer.
 
-11. Milestone 11: shader menu integration and runtime switching.
-    Add menu-level control for selecting, clearing, or inspecting the active
-    shader using the established patterns in `menu.c`
-    and `ui.c`. Decide in this milestone whether runtime
-    shader changes require renderer rebuilds or can rebind presentation
-    resources in place, and keep that behavior localized to the SDL renderer
-    layer.
+11. Milestone 11: RetroArch `.glslp` compatibility expansion and runtime control.
+   Expand the shader backend beyond the startup-only single-pass case to cover
+   the practical RetroArch subset needed by the bundled presets: additional
+   passes, parameter uniforms, filter flags, and any required intermediate
+   textures. Add menu-level control for selecting, clearing, or inspecting the
+   active preset using the established patterns in `menu.c` and `ui.c`.
+   Decide in this milestone whether runtime shader changes require backend
+   rebuilds or can rebind presentation resources in place, and keep that
+   behavior localized to the SDL display backend.
 
-12. Milestone 12: testing, docs, and workflow refresh.
+12. Milestone 12: per-file-type file-selector persistence.
+   Add persistent last-directory tracking for file selectors in the retained
+   SDL plus widget frontend, keyed by logical file type rather than one global
+   working directory. Ensure snapshot, tape, recording, screenshot, shader,
+   ROM, binary, and media-insert flows reopen in their own most recently used
+   directories across restarts, while keeping the behavior localized to the
+   retained frontend path.
+
+13. Milestone 13: testing, docs, and workflow refresh.
     Update `TESTING-SDL3.md` and any published
     top-level docs to cover portable mode, fullscreen usage, x2 default
     startup, joystick mode selection, the CMake-based Windows build path, and shader
@@ -114,11 +127,12 @@ regression risk.
    confirm Visual Studio use remains a thin CMake-generator wrapper rather than
    a separately maintained project path.
 
-5. After milestones 9 through 11, validate shader selection from command line
-   and menu, confirm invalid or unsupported shaders fail cleanly, and ensure
-   non-shader rendering remains the fallback path.
+5. After milestones 9 through 11, validate `.glslp` selection from command line
+   and menu, confirm invalid or unsupported presets fail cleanly, verify the
+   OpenGL shader path works with at least one bundled single-pass preset, and
+   ensure non-shader rendering remains the fallback path.
 
-6. After milestone 12, rerun the documented SDL smoke tests and confirm the
+6. After milestone 13, rerun the documented SDL smoke tests and confirm the
    documented CMake and retained downstream build workflows still work.
 
 ## Decisions
@@ -135,14 +149,17 @@ regression risk.
   and native Windows `clang-cl` bring-up third.
 - Keep the retained frontend target explicit: `ui/sdl` plus `ui/widget`, not a
    widget rewrite.
-- Land shader configuration surfaces before shader renderer internals so the
-  user-facing contract stabilizes early.
+- Land shader configuration surfaces before shader backend internals so the
+   user-facing contract stabilizes early.
+- Target RetroArch `.glslp` plus GLSL/OpenGL compatibility instead of
+   `SDL_shadercross` so the shader asset format matches the backend we can
+   implement directly.
 
 ## Risks And Split Points
 
-1. If SDL3 cannot support external GLSL injection portably through the current
-   renderer abstraction, split milestone 9 into a renderer-backend milestone and a
-   shader-application milestone.
+1. If the SDL renderer abstraction cannot host RetroArch-compatible GLSL
+   presentation cleanly, keep the OpenGL backend and shader-application work as
+   separate milestones so fallback and non-shader behavior remain stable.
 
 2. If the final fire-key choice is ambiguous across platforms, make it
    explicitly configurable instead of hard-coding a single default; treat

@@ -27,26 +27,6 @@
 
 win32_icon ICON "data/win32/winfuse.ico"
 
-#ifdef UI_WIN32
-
-#include "ui/win32/about.rc"            /* reserved ids: 1800 - 1899 */
-#include "ui/win32/binary.rc"           /* reserved ids: 1300 - 1399 */
-#include "ui/win32/browse.rc"           /* reserved ids: 1400 - 1499 */
-#include "ui/win32/debugger.rc"         /* reserved ids: 2000 - 2099 */
-#include "ui/win32/memorybrowser.rc"    /* reserved ids: 4000 - 4099 */
-#include "ui/win32/menu_data.rc"        /* reserved ids: 100  - 899  */
-#include "ui/win32/options.rc"          /* reserved ids: 3000 - 3099 */
-#include "ui/win32/picture.rc"          /* reserved ids: 1200 - 1299 */
-#include "ui/win32/pokefinder.rc"       /* reserved ids: 1500 - 1599 */
-#include "ui/win32/pokemem.rc"          /* reserved ids: 1900 - 1999 */
-#include "ui/win32/rollback.rc"         /* reserved ids: 1600 - 1699 */
-#include "ui/win32/roms.rc"             /* reserved ids: 1100 - 1199 */
-#include "ui/win32/select_template.rc"  /* reserved ids: 1000 - 1099 */
-#include "ui/win32/statusbar.rc"        /* reserved ids: 900         */
-#include "ui/win32/win32joystick.rc"    /* reserved ids: 1700 - 1799 */
-
-#endif
-
 /* VERSIONINFO specs: http://msdn.microsoft.com/en-us/library/aa381058%28VS.85%29.aspx */
 VS_VERSION_INFO VERSIONINFO
 FILEVERSION    	FUSE_RC_VERSION
@@ -68,7 +48,7 @@ BEGIN
       VALUE "LegalCopyright",   FUSE_COPYRIGHT##"\0"
       VALUE "License",          "Fuse is licensed under the GNU General Public License, version 2 or later\0"
       VALUE "OriginalFilename", "fuse.exe\0"
-      VALUE "ProductName",      "Fuse - the Free Unix Spectrum Emulator\0"
+      VALUE "ProductName",      "Fuse SDL3\0"
       VALUE "ProductVersion",   VERSION##"\0"
     END
  END

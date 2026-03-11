@@ -27,6 +27,7 @@
 
 #include <sys/types.h>
 #include <errno.h>
+#include <ctype.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
@@ -43,6 +44,7 @@
 #endif				/* #ifdef WIN32 */
 
 #include "fuse.h"
+#include "settings.h"
 #include "ui/ui.h"
 #include "utils.h"
 #include "widget_internals.h"
@@ -115,6 +117,13 @@ static void widget_filesel_drvlist( void );
 #endif				/* #ifdef WIN32 */
 static int widget_filesel_chdir( void );
 
+static const char *widget_filesel_category_for_title( const char *title );
+static char *widget_filesel_get_saved_directory( const char *category );
+static void widget_filesel_set_saved_directory( const char *category,
+                                                const char *directory );
+static char *widget_filesel_escape( const char *text );
+static char *widget_filesel_unescape( const char *text, size_t length );
+
 /* The filename to return */
 char* widget_filesel_name;
 
@@ -124,9 +133,23 @@ static int exit_all_widgets;
 static char *
 widget_get_filename( const char *title, int saving )
 {
+  const char *category;
+  char *initial_directory;
+  char *original_directory;
+  char *final_directory;
   char *filename = NULL;
 
   widget_filesel_data data;
+
+  category = widget_filesel_category_for_title( title );
+  original_directory = widget_getcwd();
+
+  initial_directory = widget_filesel_get_saved_directory( category );
+  if( initial_directory && chdir( initial_directory ) ) {
+    free( initial_directory );
+    initial_directory = NULL;
+  }
+  free( initial_directory );
 
   data.exit_all_widgets = 1;
   data.title = title;
@@ -139,8 +162,271 @@ widget_get_filename( const char *title, int saving )
   if( widget_filesel_name )
     filename = utils_safe_strdup( widget_filesel_name );
 
+  final_directory = widget_getcwd();
+  if( category && final_directory ) {
+    widget_filesel_set_saved_directory( category, final_directory );
+  }
+
+  if( original_directory ) {
+    chdir( original_directory );
+    free( original_directory );
+  }
+  free( final_directory );
+
   return filename;
   
+}
+
+static const char *
+widget_filesel_category_for_title( const char *title )
+{
+  if( !title ) return "general";
+
+  if( !strcmp( title, "Fuse - Open Spectrum File" ) ) return "open-spectrum";
+
+  if( !strcmp( title, "Fuse - Load Snapshot" ) ||
+      !strcmp( title, "Fuse - Load Snapshot " ) ||
+      !strcmp( title, "Fuse - Save Snapshot" ) ) {
+    return "snapshot";
+  }
+
+  if( !strcmp( title, "Fuse - Open Tape" ) ||
+      !strcmp( title, "Fuse - Write Tape" ) ) {
+    return "tape";
+  }
+
+  if( !strcmp( title, "Fuse - Start Replay" ) ||
+      !strcmp( title, "Fuse - Finalise Recording" ) ||
+      !strcmp( title, "Fuse - Load RZX" ) ||
+      !strcmp( title, "Fuse - Continue Recording" ) ||
+      !strcmp( title, "Fuse - Start Recording" ) ) {
+    return "recording";
+  }
+
+  if( !strcmp( title, "Fuse - Record Movie File" ) ) return "movie";
+  if( !strcmp( title, "Fuse - Start AY Log" ) ) return "aylog";
+  if( !strcmp( title, "Fuse - Save Profile Data" ) ) return "profile";
+  if( !strcmp( title, "Fuse - Select Shader Preset" ) ) return "shader";
+  if( !strcmp( title, "Fuse - Select ROM" ) ) return "rom";
+
+  if( !strcmp( title, "Fuse - Load Binary Data" ) ||
+      !strcmp( title, "Fuse - Save Binary Data" ) ) {
+    return "binary";
+  }
+
+  if( !strcmp( title, "Fuse - Open SCR Screenshot" ) ||
+      !strcmp( title, "Fuse - Open MLT Screenshot" ) ||
+      !strcmp( title, "Fuse - Save Screenshot as SCR" ) ||
+      !strcmp( title, "Fuse - Save Screenshot as MLT" ) ||
+      !strcmp( title, "Fuse - Save Screenshot as PNG" ) ) {
+    return "screenshot";
+  }
+
+  if( !strcmp( title, "Fuse - Capture to SVG File" ) ) return "svg";
+  if( !strcmp( title, "Fuse - Select File for Communication" ) ) return "communication";
+  if( !strcmp( title, "Fuse - Insert Hard Disk File" ) ) return "harddisk";
+
+  if( !strcmp( title, "Fuse - Insert Timex Dock Cartridge" ) ||
+      !strcmp( title, "Fuse - Insert Interface 2 Cartridge" ) ) {
+    return "cartridge";
+  }
+
+  return "general";
+}
+
+static int
+widget_filesel_needs_escape( unsigned char c )
+{
+  return c == '%' || c == '=' || c == ';' || c < 0x20;
+}
+
+static char *
+widget_filesel_escape( const char *text )
+{
+  static const char hex[] = "0123456789ABCDEF";
+  const unsigned char *cursor;
+  char *result, *output;
+  size_t length = 1;
+
+  if( !text ) return NULL;
+
+  for( cursor = (const unsigned char *)text; *cursor; cursor++ ) {
+    length += widget_filesel_needs_escape( *cursor ) ? 3 : 1;
+  }
+
+  result = libspectrum_new( char, length );
+  output = result;
+
+  for( cursor = (const unsigned char *)text; *cursor; cursor++ ) {
+    if( widget_filesel_needs_escape( *cursor ) ) {
+      *output++ = '%';
+      *output++ = hex[ ( *cursor >> 4 ) & 0x0f ];
+      *output++ = hex[ *cursor & 0x0f ];
+    } else {
+      *output++ = (char)*cursor;
+    }
+  }
+
+  *output = '\0';
+  return result;
+}
+
+static int
+widget_filesel_hex_value( char c )
+{
+  if( c >= '0' && c <= '9' ) return c - '0';
+  if( c >= 'a' && c <= 'f' ) return c - 'a' + 10;
+  if( c >= 'A' && c <= 'F' ) return c - 'A' + 10;
+
+  return -1;
+}
+
+static char *
+widget_filesel_unescape( const char *text, size_t length )
+{
+  char *result, *output;
+  size_t i;
+
+  result = libspectrum_new( char, length + 1 );
+  output = result;
+
+  for( i = 0; i < length; i++ ) {
+    if( text[i] == '%' && i + 2 < length ) {
+      int hi = widget_filesel_hex_value( text[i + 1 ] );
+      int lo = widget_filesel_hex_value( text[i + 2 ] );
+
+      if( hi >= 0 && lo >= 0 ) {
+        *output++ = (char)( ( hi << 4 ) | lo );
+        i += 2;
+        continue;
+      }
+    }
+
+    *output++ = text[i];
+  }
+
+  *output = '\0';
+  return result;
+}
+
+static char *
+widget_filesel_get_saved_directory( const char *category )
+{
+  const char *serialized = settings_current.file_selection_directories;
+  const char *cursor;
+
+  if( !category || !serialized ) return NULL;
+
+  cursor = serialized;
+  while( *cursor ) {
+    const char *entry_end = strchr( cursor, ';' );
+    const char *equals = strchr( cursor, '=' );
+    char *decoded_category;
+
+    if( !entry_end ) entry_end = cursor + strlen( cursor );
+    if( !equals || equals > entry_end ) break;
+
+    decoded_category = widget_filesel_unescape( cursor, equals - cursor );
+    if( decoded_category && !strcmp( decoded_category, category ) ) {
+      char *directory = widget_filesel_unescape( equals + 1,
+                                                 entry_end - equals - 1 );
+      libspectrum_free( decoded_category );
+      return directory;
+    }
+
+    if( decoded_category ) libspectrum_free( decoded_category );
+    cursor = *entry_end ? entry_end + 1 : entry_end;
+  }
+
+  return NULL;
+}
+
+static void
+widget_filesel_set_saved_directory( const char *category, const char *directory )
+{
+  const char *serialized = settings_current.file_selection_directories;
+  char *escaped_category = NULL;
+  char *escaped_directory = NULL;
+  char *result;
+  char *output;
+  size_t length = 1;
+  int replaced = 0;
+
+  if( !category || !directory || !*directory ) return;
+
+  escaped_category = widget_filesel_escape( category );
+  escaped_directory = widget_filesel_escape( directory );
+  if( !escaped_category || !escaped_directory ) goto done;
+
+  if( serialized ) {
+    const char *cursor = serialized;
+
+    while( *cursor ) {
+      const char *entry_end = strchr( cursor, ';' );
+      const char *equals = strchr( cursor, '=' );
+      char *decoded_category;
+
+      if( !entry_end ) entry_end = cursor + strlen( cursor );
+      if( !equals || equals > entry_end ) break;
+
+      decoded_category = widget_filesel_unescape( cursor, equals - cursor );
+      if( decoded_category && !strcmp( decoded_category, category ) ) {
+        length += strlen( escaped_category ) + strlen( escaped_directory ) + 2;
+        replaced = 1;
+      } else {
+        length += entry_end - cursor + 1;
+      }
+      if( decoded_category ) libspectrum_free( decoded_category );
+
+      cursor = *entry_end ? entry_end + 1 : entry_end;
+    }
+  }
+
+  if( !replaced ) {
+    length += strlen( escaped_category ) + strlen( escaped_directory ) + 2;
+  }
+
+  result = libspectrum_new( char, length );
+  output = result;
+  output[0] = '\0';
+
+  if( serialized ) {
+    const char *cursor = serialized;
+
+    while( *cursor ) {
+      const char *entry_end = strchr( cursor, ';' );
+      const char *equals = strchr( cursor, '=' );
+      char *decoded_category;
+
+      if( !entry_end ) entry_end = cursor + strlen( cursor );
+      if( !equals || equals > entry_end ) break;
+
+      decoded_category = widget_filesel_unescape( cursor, equals - cursor );
+      if( decoded_category && !strcmp( decoded_category, category ) ) {
+        output += sprintf( output, "%s=%s;", escaped_category,
+                           escaped_directory );
+      } else {
+        memcpy( output, cursor, entry_end - cursor );
+        output += entry_end - cursor;
+        *output++ = ';';
+        *output = '\0';
+      }
+      if( decoded_category ) libspectrum_free( decoded_category );
+
+      cursor = *entry_end ? entry_end + 1 : entry_end;
+    }
+  }
+
+  if( !replaced ) {
+    output += sprintf( output, "%s=%s;", escaped_category, escaped_directory );
+  }
+
+  settings_set_string( &settings_current.file_selection_directories, result );
+  libspectrum_free( result );
+
+done:
+  if( escaped_category ) libspectrum_free( escaped_category );
+  if( escaped_directory ) libspectrum_free( escaped_directory );
 }
 
 char *
