@@ -79,14 +79,6 @@ _fuse()
             _filedir '@(dck|DCK)'
             return 0
             ;;
-        --doublescan-mode|-D)
-            COMPREPLY=( $( compgen -W '0 1 2' -- "$cur" ) )
-            return 0
-            ;;
-        --fbmode|-v)
-            COMPREPLY=( $( compgen -W '320 640' -- "$cur" ) )
-            return 0
-            ;;
         --graphics-filter|-g)
             COMPREPLY=( $( compgen -W '2x 2xsai 3x 4x advmame2x
                 advmame3x dotmatrix half halfskip hq2x hq3x hq4x normal
@@ -170,7 +162,7 @@ _fuse()
         --joystick-keyboard-output|--joystick-keyboard-right| \
         --joystick-keyboard-up|--mdr-len|--rate| \
         --sdl-fullscreen-mode|--snet|--sound-device|-d| \
-        --sound-freq|-f|--speccyboot-tap|--speed|--svga-modes| \
+        --sound-freq|-f|--speccyboot-tap|--speed| \
         --teletext-addr-[1-4]|--teletext-port-[1-4]|--volume-ay| \
         --volume-beeper|--volume-covox|--volume-specdrum)
             # argument required but no completions available
@@ -179,7 +171,7 @@ _fuse()
     esac
 
     if [[ "$cur" == -* ]]; then
-        COMPREPLY=( $( compgen -W '--accelerate-loader --aspect-hint
+        COMPREPLY=( $( compgen -W '--accelerate-loader
             --auto-load --autosave-settings --beta128 --beta128-48boot
             --betadisk --bw-tv --cmos-z80 --competition-code
             --competition-mode --compress-rzx --confirm-actions --covox
@@ -188,14 +180,14 @@ _fuse()
             --disk-try-merge --divide --divide-masterfile
             --divide-slavefile --divide-write-protect --divmmc --divmmc-file
             --divmmc-write-protect --dock
-            --doublescan-mode --drive-40-max-track
+            --drive-40-max-track
             --drive-80-max-track --drive-beta128a-type
             --drive-beta128b-type --drive-beta128c-type
             --drive-beta128d-type --drive-didaktik80a-type
             --drive-didaktik80b-type --drive-disciple1-type
             --drive-disciple2-type --drive-opus1-type --drive-opus2-type
             --drive-plus3a-type --drive-plus3b-type --drive-plusd1-type
-            --drive-plusd2-type --embed-snapshot --fastload --fbmode
+            --drive-plusd2-type --embed-snapshot --fastload
             --fuller --full-screen --graphicsfile --graphics-filter
             --help --if2cart --interface1 --interface2 --issue2
             --joystick-1 --joystick-1-fire-1 --joystick-1-fire-2
@@ -223,7 +215,7 @@ _fuse()
             --microdrive-7-file --microdrive-8-file --mouse-swap-buttons
             --movie-compr --movie-start --movie-stop-after-rzx
             --multiface1 --multiface128 --multiface3 --multiface1-stealth
-            --no-accelerate-loader --no-aspect-hint --no-auto-load
+            --no-accelerate-loader --no-auto-load
             --no-autosave-settings --no-beta128 --no-beta128-48boot
             --no-bw-tv --no-cmos-z80 --no-competition-mode
             --no-compress-rzx --no-confirm-actions --no-covox
@@ -243,7 +235,7 @@ _fuse()
             --no-rzx-autosaves --no-simpleide --no-slt --no-sound
             --no-sound-force-8bit --no-speccyboot --no-specdrum
             --no-spectranet --no-spectranet-disable --no-statusbar
-            --no-strict-aspect-hint --no-traps --no-ttx2000s --no-unittests
+            --no-traps --no-ttx2000s --no-unittests
             --no-usource --no-writable-roms --no-zxatasp --no-zxatasp-upload
             --no-zxatasp-write-protect --no-zxcf --no-zxcf-upload --no-zxmmc
             --no-zxprinter --opus --opusdisk --pal-tv2x --phantom-typist-mode
@@ -271,7 +263,7 @@ _fuse()
             --snapshot --snet --sound --sound-device --sound-force-8bit
             --sound-freq --speaker-type --speccyboot --speccyboot-tap
             --specdrum --spectranet --spectranet-disable --speed
-            --statusbar --strict-aspect-hint --svga-modes --tape
+            --statusbar --tape
             --teletext-addr-1 --teletext-addr-2 --teletext-addr-3
             --teletext-addr-4 --teletext-port-1 --teletext-port-2
             --teletext-port-3 --teletext-port-4 --textfile --traps --ttx2000s

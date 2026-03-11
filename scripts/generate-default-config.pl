@@ -2,6 +2,10 @@
 
 use strict;
 
+my %config_excluded = (
+  unittests => 1,
+);
+
 my( $settings_path, $format ) = @ARGV;
 
 die "usage: $0 <settings.dat> <xml|ini>\n"
@@ -73,6 +77,7 @@ if( $format eq 'xml' ) {
 
   foreach my $name ( sort keys %options ) {
     my $option = $options{$name};
+    next if $config_excluded{$name};
     my $config_name = $option->{configfile};
     my $type = $option->{type};
     my $default = $option->{default};
@@ -91,6 +96,7 @@ if( $format eq 'xml' ) {
 } else {
   foreach my $name ( sort keys %options ) {
     my $option = $options{$name};
+    next if $config_excluded{$name};
     my $config_name = $option->{configfile};
     my $type = $option->{type};
     my $default = $option->{default};

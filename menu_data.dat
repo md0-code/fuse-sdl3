@@ -127,6 +127,10 @@ Options/Select ROMs/Peripheral ROMs/TT_X2000S..., Item,, menu_options_selectroms
 Options/Select ROMs/Peripheral ROMs/_uSource..., Item,, menu_options_selectroms_peripheral_select,, 12
 
 Options/_Filter..., Item,,, menu_filter_detail
+Options/_Shader..., Branch,,, menu_shader_detail
+Options/Shader.../_Select..., Item,, menu_options_shader_select
+Options/Shader.../_Clear, Item,, menu_options_shader_clear
+Options/Shader.../_Parameters..., Item,, menu_options_shaderparameters
 
 #ifdef UI_SDL
 Options/F_ull screen, Item, F11

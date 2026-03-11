@@ -525,7 +525,7 @@ screenshot_mlt_write( const char *filename )
   return scr_write( filename, MLT_SIZE, &set_mlt_pixels_and_attribute );
 }
 
-#ifdef WORDS_BIGENDIAN
+#if WORDS_BIGENDIAN
 
 typedef struct {
   unsigned b0 : 1;
@@ -538,7 +538,7 @@ typedef struct {
   unsigned b7 : 1;
 } byte_field_type;
 
-#else			/* #ifdef WORDS_BIGENDIAN */
+#else			/* #if WORDS_BIGENDIAN */
 
 typedef struct {
   unsigned b7 : 1;
@@ -551,7 +551,7 @@ typedef struct {
   unsigned b0 : 1;
 } byte_field_type;
 
-#endif			/* #ifdef WORDS_BIGENDIAN */
+#endif			/* #if WORDS_BIGENDIAN */
 
 typedef union {
   libspectrum_byte byte;

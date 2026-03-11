@@ -25,6 +25,8 @@
 #include <config.h>
 
 #include <errno.h>
+#include <math.h>
+#include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
 
@@ -44,6 +46,7 @@
 #include "settings.h"
 #include "snapshot.h"
 #include "tape.h"
+#include "ui/sdl/sdldisplay.h"
 #include "ui/uidisplay.h"
 #include "utils.h"
 #include "widget_internals.h"
@@ -53,6 +56,98 @@ widget_menu_entry *menu;
 static size_t highlight_line = 0;
 static size_t count;
 static int *current_settings[ 16 ];
+static size_t shader_parameter_selection = (size_t)-1;
+static int shader_parameter_action = -1;
+
+static void menu_options_shaderparameters_select( int action );
+static void menu_options_shaderparameter_action_select( int action );
+static int menu_options_shaderparameters_parse_value( const char *text,
+                                                      float *value );
+static widget_menu_entry* menu_options_shaderparameters_build(
+  size_t parameter_count );
+static void menu_options_shaderparameters_free( widget_menu_entry *shader_menu,
+                                                size_t parameter_count );
+
+static void
+menu_options_shaderparameters_select( int action )
+{
+  shader_parameter_selection = (size_t)action;
+  widget_end_widget( WIDGET_FINISHED_OK );
+}
+
+static void
+menu_options_shaderparameter_action_select( int action )
+{
+  shader_parameter_action = action;
+  widget_end_widget( WIDGET_FINISHED_OK );
+}
+
+static int
+menu_options_shaderparameters_parse_value( const char *text, float *value )
+{
+  char *end;
+
+  errno = 0;
+  *value = strtof( text, &end );
+  if( errno || end == text ) return 1;
+
+  while( *end == ' ' || *end == '\t' ) end++;
+
+  return *end ? 1 : 0;
+}
+
+static widget_menu_entry*
+menu_options_shaderparameters_build( size_t parameter_count )
+{
+  widget_menu_entry *shader_menu;
+  size_t i;
+
+  shader_menu = calloc( parameter_count + 2, sizeof( *shader_menu ) );
+  if( !shader_menu ) return NULL;
+
+  shader_menu[0].text = "Shader parameters";
+
+  for( i = 0; i < parameter_count; i++ ) {
+    sdldisplay_shader_parameter_info info;
+    char *label;
+    int length;
+
+    if( sdldisplay_shader_parameter_get_info( i, &info ) ) continue;
+
+    length = snprintf( NULL, 0, "%s = %.6g", info.label, info.value );
+    label = malloc( length + 1 );
+    if( !label ) {
+      size_t j;
+
+      for( j = 1; j < i + 1; j++ ) free( (char*)shader_menu[j].text );
+      free( shader_menu );
+      return NULL;
+    }
+
+    snprintf( label, length + 1, "%s = %.6g", info.label, info.value );
+    shader_menu[i + 1].text = label;
+    shader_menu[i + 1].key = INPUT_KEY_NONE;
+    shader_menu[i + 1].callback = menu_options_shaderparameters_select;
+    shader_menu[i + 1].action = i;
+  }
+
+  return shader_menu;
+}
+
+static void
+menu_options_shaderparameters_free( widget_menu_entry *shader_menu,
+                                    size_t parameter_count )
+{
+  size_t i;
+
+  if( !shader_menu ) return;
+
+  for( i = 0; i < parameter_count; i++ ) {
+    free( (char*)shader_menu[i + 1].text );
+  }
+
+  free( shader_menu );
+}
 
 #define GET_SET_KEY_FUNCTIONS( which ) \
 \
@@ -581,6 +676,119 @@ void
 menu_options_sound( int action )
 {
   widget_do_sound();
+}
+
+void
+menu_options_shaderparameters( int action )
+{
+  size_t parameter_count;
+
+  parameter_count = sdldisplay_shader_parameter_count();
+  if( !parameter_count ) {
+    widget_show_transient_message( "No active shader parameters" );
+    return;
+  }
+
+  while( 1 ) {
+    widget_menu_entry *shader_menu;
+
+    shader_parameter_selection = (size_t)-1;
+    shader_menu = menu_options_shaderparameters_build( parameter_count );
+    if( !shader_menu ) {
+      ui_error( UI_ERROR_ERROR, "out of memory at %s:%d", __FILE__, __LINE__ );
+      return;
+    }
+
+    widget_do_menu( shader_menu );
+    menu_options_shaderparameters_free( shader_menu, parameter_count );
+
+    if( shader_parameter_selection >= parameter_count ) return;
+
+    {
+      sdldisplay_shader_parameter_info info;
+      static widget_menu_entry shader_parameter_actions[] = {
+        { "Shader parameter", INPUT_KEY_NONE, NULL, NULL, NULL, 0, 1 },
+        { "Set value...", INPUT_KEY_NONE, NULL, menu_options_shaderparameter_action_select, NULL, 0, 0 },
+        { "Reset to preset", INPUT_KEY_NONE, NULL, menu_options_shaderparameter_action_select, NULL, 1, 0 },
+        { "Reset to default", INPUT_KEY_NONE, NULL, menu_options_shaderparameter_action_select, NULL, 2, 0 },
+        { NULL, INPUT_KEY_NONE, NULL, NULL, NULL, 0, 0 },
+      };
+      float new_value;
+      char title[ 128 ];
+      widget_text_t text_data;
+
+      if( sdldisplay_shader_parameter_get_info( shader_parameter_selection,
+                                                &info ) ) {
+        widget_show_transient_message( "Shader parameter is no longer available" );
+        return;
+      }
+
+      shader_parameter_actions[0].text = info.label;
+      shader_parameter_action = -1;
+      widget_do_menu( shader_parameter_actions );
+
+      if( shader_parameter_action < 0 ) continue;
+
+      if( shader_parameter_action == 1 ) {
+        if( sdldisplay_shader_parameter_reset_to_preset(
+                shader_parameter_selection ) ) {
+          ui_error( UI_ERROR_ERROR, "Could not reset shader parameter" );
+        }
+        continue;
+      }
+
+      if( shader_parameter_action == 2 ) {
+        if( sdldisplay_shader_parameter_reset_to_default(
+                shader_parameter_selection ) ) {
+          ui_error( UI_ERROR_ERROR, "Could not reset shader parameter" );
+        }
+        continue;
+      }
+
+      memset( &text_data, 0, sizeof( text_data ) );
+      if( info.has_metadata ) {
+        snprintf( title, sizeof( title ), "%s [%.6g..%.6g step %.6g]",
+                  info.label, info.minimum_value, info.maximum_value,
+                  info.step_value );
+        text_data.title = title;
+      } else {
+        text_data.title = info.label;
+      }
+      text_data.allow = WIDGET_INPUT_ASCII;
+      text_data.max_length = sizeof( text_data.text ) - 1;
+      snprintf( text_data.text, sizeof( text_data.text ), "%.6g", info.value );
+
+      widget_do_text( &text_data );
+      if( !widget_text_text ) continue;
+
+      if( menu_options_shaderparameters_parse_value( widget_text_text,
+                                                     &new_value ) ) {
+        ui_error( UI_ERROR_ERROR, "Invalid value: use a floating-point number" );
+        continue;
+      }
+
+      if( info.has_metadata &&
+          ( new_value < info.minimum_value || new_value > info.maximum_value ) ) {
+        ui_error( UI_ERROR_ERROR,
+                  "Invalid value: use %.6g to %.6g",
+                  info.minimum_value, info.maximum_value );
+        continue;
+      }
+
+      if( info.has_metadata && info.step_value > 0.0f ) {
+        float steps = floorf( ( ( new_value - info.minimum_value ) /
+                                 info.step_value ) + 0.5f );
+        new_value = info.minimum_value + steps * info.step_value;
+        if( new_value < info.minimum_value ) new_value = info.minimum_value;
+        if( new_value > info.maximum_value ) new_value = info.maximum_value;
+      }
+
+      if( sdldisplay_shader_parameter_set( shader_parameter_selection,
+                                           new_value ) ) {
+        ui_error( UI_ERROR_ERROR, "Could not update shader parameter" );
+      }
+    }
+  }
 }
 
 void

@@ -24,6 +24,5 @@ Quick start on Windows PowerShell:
 cmake --install build-win-native --prefix "$PWD/dist"
 ```
 
-The maintained product in this repository is the SDL3 build of Fuse. Legacy
-autotools, GTK/Xlib/framebuffer/SVGAlib build instructions, and MinGW/Cygwin
-packaging flows are no longer supported by this fork.
+Historical autotools instructions and superseded packaging flows are no longer
+supported by this fork.

@@ -23,6 +23,8 @@
 
 #include <config.h>
 
+#include <stdlib.h>
+
 #include <libspectrum.h>
 
 #include "compat.h"

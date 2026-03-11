@@ -30,27 +30,10 @@ use lib '../../perl';
 use Fuse;
 
 my $ui = shift;
-$ui = 'gtk' unless defined $ui;
+$ui = 'sdl' unless defined $ui;
 
 die "$0: unrecognised user interface: $ui\n"
-  unless 0 < grep { $ui eq $_ } ( 'gtk', 'x', 'svga', 'fb', 'sdl', 'win32', 'wii' );
-
-sub fb_keysym ($) {
-
-    my $keysym = shift;
-
-    $keysym =~ tr/a-z/A-Z/;
-    substr( $keysym, 0, 4 ) = 'WIN' if substr( $keysym, 0, 5 ) eq 'META_';
-
-    return $keysym;
-}
-
-sub wii_keysym ($) {
-    my $keysym = shift;
-
-    $keysym =~ tr/a-z/A-Z/;
-    return "WII_KEY_$keysym";
-}
+    unless $ui eq 'sdl';
 
 sub sdl_keysym ($) {
 
@@ -80,79 +63,8 @@ sub sdl_unicode_keysym ($) {
     return $keysym;
 }
 
-sub svga_keysym ($) {
-    
-    my $keysym = shift;
-
-    $keysym =~ tr/a-z/A-Z/;
-    $keysym =~ s/(.*)_L$/LEFT$1/;
-    $keysym =~ s/(.*)_R$/RIGHT$1/;
-    $keysym =~ s/META$/WIN/;		# Fairly sensible mapping
-    $keysym =~ s/^PAGE_/PAGE/;
-
-    # All the magic #defines start with `SCANCODE_'
-    $keysym = "SCANCODE_$keysym";
-    
-    # Apart from this one :-)
-    $keysym = "127" if $keysym eq 'SCANCODE_MODE_SWITCH';
-
-    return $keysym;
-}
-
-sub win32_keysym ($) {
-
-    my $keysym = shift;
-
-    # http://msdn.microsoft.com/en-us/library/dd375731(VS.85).aspx
-
-    $keysym =~ tr/a-z/A-Z/;
-
-    if ( $keysym =~ /^[A-Z0-9]$/ ) {
-	$keysym = "'$keysym'";
-    } else {
-	$keysym =~ s/(.*)_L$/$1/;
-	$keysym =~ s/META$/LWIN/;
-	$keysym =~ s/ALT$/MENU/;	# Not a typo: the 'menu' key is VK_APPS
-
-	# All the magic #defines start with `VK_'
-	$keysym = "VK_$keysym";
-    }
-
-    return $keysym;
-}
-
 # Parameters for each UI
 my %ui_data = (
-
-    fb   => { headers => [ ],
-	      # max_length not used
-	      skips => { },
-	      translations => { 
-	          Mode_switch => 'MENU',
-	      },
-	      function => \&fb_keysym
-	    },
-
-    wii => { headers => [ 'ui/wii/wiikeysyms.h' ],
-	      max_length => 24,
-	      skips => { map { $_ => 1 } ( 'numbersign',
-					   'Shift_L', 'Shift_R',
-					   'Control_L', 'Control_R',
-					   'Alt_L', 'Alt_R',
-					   'Meta_L', 'Meta_R',
-					   'Hyper_L','Hyper_R',
-					   'Super_L','Super_R',
-					   'KP_Enter',
-					   'Mode_switch' ) },
-	      function => \&wii_keysym
-	    },
-
-    gtk  => { headers => [ 'gdk/gdkkeysyms.h', 'ui/gtk/gtkcompat.h' ],
-	      max_length => 16,
-	      skips => { },
-	      translations => { },
-	      function => sub ($) { "GDK_KEY_$_[0]" },
-    	    },
 
     sdl  => { headers => [ 'sdlcompat.h' ],
 	      max_length => 18,
@@ -218,58 +130,6 @@ my %ui_data = (
 	      },
 	      function => \&sdl_keysym,
 	      unicode_function => \&sdl_unicode_keysym,
-	    },
-
-    svga => { headers => [ 'vgakeyboard.h' ],
-	      max_length => 26,
-	      skips => { map { $_ => 1 } qw( Hyper_L Hyper_R Super_L Super_R
-                 dollar less greater exclam ampersand parenleft parenright
-                 asterisk plus colon asciicircum dead_circumflex bar ) },
-	      translations => {
-		  Caps_Lock  => 'CAPSLOCK',
-		  numbersign => 'BACKSLASH',
-		  Return     => 'ENTER',
-		  Delete     => 'REMOVE',
-		  Left       => 'CURSORBLOCKLEFT',
-		  Down       => 'CURSORBLOCKDOWN',
-		  Up         => 'CURSORBLOCKUP',
-		  Right      => 'CURSORBLOCKRIGHT',
-		  KP_Enter   => 'KEYPADENTER',
-	      },
-	      function => \&svga_keysym,
-	    },
-
-    x    => { headers => [ 'X11/keysym.h' ],
-	      max_length => 15,
-	      skips => { },
-	      translations => { },
-	      function => sub ($) { "XK_$_[0]" },
-	    },
-
-    win32 => { headers => [ 'windows.h' ],
-	      max_length => 16,
-	      skips => { map { $_ => 1 } ( 'Shift_R','Control_R',
-					   'Alt_R','Meta_R',
-					   'Hyper_L','Hyper_R',
-					   'Super_L','Super_R',
-					   'KP_Enter',
-					   'dollar','less','greater','exclam',
-					   'ampersand','parenleft','parenright',
-					   'asterisk','plus','colon','bar',
-					   'braceleft','braceright','bracketleft','bracketright',
-					   'apostrophe','asciicircum','dead_circumflex','asciitilde',
-					   'at','backslash','comma','equal','minus','numbersign',
-					   'percent','period','question','quotedbl',
-					   'semicolon','slash','underscore',
-					   'A' .. 'Z' ) },
-	      translations => { 
-		  BackSpace   => 'BACK',
-		  Page_Up     => 'PRIOR',
-		  Page_Down   => 'NEXT',
-		  Caps_Lock   => 'CAPITAL',
-	          Mode_switch => 'APPS',
-	      },
-	      function => \&win32_keysym
 	    },
 );
 
@@ -361,29 +221,8 @@ foreach( @keys ) {
 
     $ui_keysym = $ui_data{$ui}{function}->( $ui_keysym );
 
-    if( $ui eq 'svga' and $ui_keysym =~ /WIN$/ ) {
-	print "#ifdef $ui_keysym\n";
-    }
-
-    if( $ui eq 'fb' ) {
-
-	for( my $i = 0; $i <= $#cooked_keysyms; $i++ ) {
-	    next unless defined $cooked_keysyms[$i] and
-			$cooked_keysyms[$i] eq $ui_keysym;
-	    printf "  { %3i, INPUT_KEY_%-12s },\n", $i, $keysym;
-	    last;
-	}
-
-    } else {
-
 	printf "  { %-$ui_data{$ui}{max_length}s INPUT_KEY_%-12s },\n",
             "$ui_keysym,", $keysym;
-
-    }
-
-    if( $ui eq 'svga' and $ui_keysym =~ /WIN$/ ) {
-	print "#endif                          /* #ifdef $keysym */\n";
-    }
 
 }
 
@@ -418,49 +257,6 @@ print "\nkeysyms_map_t unicode_keysyms_map[] = {\n\n";
     }
 
 print << "CODE";
-
-  { 0, 0 }			/* End marker: DO NOT MOVE! */
-
-};
-
-CODE
-}
-
-if( $ui eq 'win32' ) {
-
-print << "CODE";
-keysyms_map_t oem_keysyms_map[] = {
-
-  { '&',             INPUT_KEY_ampersand    },
-  { '\\'',            INPUT_KEY_apostrophe   },
-  { '~',             INPUT_KEY_asciitilde   },
-  { '*',             INPUT_KEY_asterisk     },
-  { '\@',             INPUT_KEY_at           },
-  { '\\\\',            INPUT_KEY_backslash    },
-  { '|',             INPUT_KEY_bar          },
-  { '{',             INPUT_KEY_braceleft    },
-  { '}',             INPUT_KEY_braceright   },
-  { '[',             INPUT_KEY_bracketleft  },
-  { ']',             INPUT_KEY_bracketright },
-  { ':',             INPUT_KEY_colon        },
-  { ',',             INPUT_KEY_comma        },
-  { '\$',             INPUT_KEY_dollar       },
-  { '=',             INPUT_KEY_equal        },
-  { '!',             INPUT_KEY_exclam       },
-  { '>',             INPUT_KEY_greater      },
-  { '<',             INPUT_KEY_less         },
-  { '-',             INPUT_KEY_minus        },
-  { '#',             INPUT_KEY_numbersign   },
-  { '(',             INPUT_KEY_parenleft    },
-  { ')',             INPUT_KEY_parenright   },
-  { '%',             INPUT_KEY_percent      },
-  { '.',             INPUT_KEY_period       },
-  { '+',             INPUT_KEY_plus         },
-  { '?',             INPUT_KEY_question     },
-  { '"',             INPUT_KEY_quotedbl     },
-  { ';',             INPUT_KEY_semicolon    },
-  { '/',             INPUT_KEY_slash        },
-  { '_',             INPUT_KEY_underscore   },
 
   { 0, 0 }			/* End marker: DO NOT MOVE! */
 

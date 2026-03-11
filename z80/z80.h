@@ -26,7 +26,7 @@
 
 /* Union allowing a register pair to be accessed as bytes or as a word */
 typedef union {
-#ifdef WORDS_BIGENDIAN
+#if WORDS_BIGENDIAN
   struct { libspectrum_byte h,l; } b;
 #else
   struct { libspectrum_byte l,h; } b;

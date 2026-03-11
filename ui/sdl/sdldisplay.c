@@ -24,6 +24,9 @@
 
 #include <config.h>
 
+#include <ctype.h>
+#include <math.h>
+#include <stdarg.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
@@ -38,13 +41,18 @@
 #include "peripherals/scld.h"
 #include "screenshot.h"
 #include "settings.h"
+#include "sdldisplay.h"
 #include "ui/ui.h"
 #include "ui/scaler/scaler.h"
 #include "ui/uidisplay.h"
 #include "utils.h"
 
+#include "sdlglsl.h"
+#include "sdlshader.h"
+
 SDL_Surface *sdldisplay_gc = NULL;   /* Scaled 16-bit backbuffer */
 static SDL_Window *sdldisplay_window = NULL;
+static SDL_Surface *sdldisplay_window_surface = NULL;
 static SDL_Renderer *sdldisplay_renderer = NULL;
 static SDL_Texture *sdldisplay_texture = NULL;
 static SDL_Surface *tmp_screen=NULL; /* Temporary screen for scalers */
@@ -58,6 +66,8 @@ static ui_statusbar_state sdl_disk_state, sdl_mdr_state, sdl_tape_state;
 static int sdl_status_updated;
 
 static int tmp_screen_width;
+static int sdldisplay_window_width;
+static int sdldisplay_window_height;
 
 static Uint32 colour_values[16];
 
@@ -88,6 +98,7 @@ static Uint32 bw_values[16];
 static SDL_Rect updated_rects[MAX_UPDATE_RECT];
 static int num_rects = 0;
 static libspectrum_byte sdldisplay_force_full_refresh = 1;
+static int sdldisplay_has_rendered_content = 0;
 
 static int max_fullscreen_height;
 static int min_fullscreen_height;
@@ -104,6 +115,14 @@ static int image_width;
 static int image_height;
 
 static int timex;
+static int sdldisplay_glsl_backend_disabled;
+static int sdldisplay_use_glsl_backend;
+static sdlglsl_backend sdldisplay_glsl_backend;
+static sdlshader_preset sdldisplay_shader_preset;
+static sdlshader_parameter *sdldisplay_runtime_shader_parameters;
+static size_t sdldisplay_runtime_shader_parameter_count;
+static char *sdldisplay_runtime_shader_preset;
+static char *sdldisplay_shader_notice_preset;
 
 static void init_scalers( void );
 static void sdldisplay_free_window( void );
@@ -113,10 +132,474 @@ static int sdldisplay_allocate_colours( int numColours, Uint32 *colour_values,
                                         Uint32 *bw_values );
 
 static int sdldisplay_load_gfx_mode( void );
+static int sdldisplay_prepare_shader_pipeline( void );
+static void sdldisplay_scale_frame( void );
+static void sdldisplay_copy_frame_region( const SDL_Rect *rect,
+                                          Uint32 tmp_screen_pitch,
+                                          Uint32 dst_pitch );
+static int sdldisplay_upload_frame( void );
+static int sdldisplay_present_frame( void );
+static int sdldisplay_show_window( void );
+static void sdl_icon_overlay( Uint32 tmp_screen_pitch, Uint32 dstPitch );
+
+static void
+sdldisplay_set_shader_error( char **error_text, const char *message )
+{
+  if( !error_text ) return;
+
+  if( *error_text ) libspectrum_free( *error_text );
+  *error_text = utils_safe_strdup( message );
+}
+
+static void
+sdldisplay_update_shader_menu_items( void )
+{
+  int active = settings_current.startup_shader && *settings_current.startup_shader;
+
+  ui_menu_item_set_active( "/Options/Shader.../Clear", active );
+  ui_menu_item_set_active( "/Options/Shader.../Parameters...", active );
+}
+
+static int
+sdldisplay_shader_parameter_values_equal( float lhs, float rhs )
+{
+  return fabsf( lhs - rhs ) <= 1.0e-6f;
+}
+
+static float
+sdldisplay_shader_parameter_preset_value( const sdlshader_parameter *parameter )
+{
+  return parameter->has_preset_value ? parameter->preset_value
+                                     : parameter->default_value;
+}
+
+static int
+sdldisplay_shader_settings_hex_value( char c )
+{
+  if( c >= '0' && c <= '9' ) return c - '0';
+  if( c >= 'a' && c <= 'f' ) return c - 'a' + 10;
+  if( c >= 'A' && c <= 'F' ) return c - 'A' + 10;
+
+  return -1;
+}
+
+static int
+sdldisplay_shader_settings_needs_escape( unsigned char c )
+{
+  return c == '%' || c == '|' || c == ';' || c == '=' || c < 0x20;
+}
+
+static char*
+sdldisplay_shader_settings_escape( const char *text )
+{
+  const unsigned char *cursor;
+  char *result, *output;
+  size_t length = 1;
+  static const char hex[] = "0123456789ABCDEF";
+
+  for( cursor = (const unsigned char *)text; *cursor; cursor++ ) {
+    length += sdldisplay_shader_settings_needs_escape( *cursor ) ? 3 : 1;
+  }
+
+  result = libspectrum_new( char, length );
+  output = result;
+
+  for( cursor = (const unsigned char *)text; *cursor; cursor++ ) {
+    if( sdldisplay_shader_settings_needs_escape( *cursor ) ) {
+      *output++ = '%';
+      *output++ = hex[ ( *cursor >> 4 ) & 0x0f ];
+      *output++ = hex[ *cursor & 0x0f ];
+    } else {
+      *output++ = (char)*cursor;
+    }
+  }
+
+  *output = '\0';
+  return result;
+}
+
+static char*
+sdldisplay_shader_settings_unescape( const char *text, size_t length )
+{
+  char *result, *output;
+  size_t i;
+
+  result = libspectrum_new( char, length + 1 );
+  output = result;
+
+  for( i = 0; i < length; i++ ) {
+    if( text[i] == '%' && i + 2 < length ) {
+      int hi = sdldisplay_shader_settings_hex_value( text[i + 1] );
+      int lo = sdldisplay_shader_settings_hex_value( text[i + 2] );
+
+      if( hi >= 0 && lo >= 0 ) {
+        *output++ = (char)( ( hi << 4 ) | lo );
+        i += 2;
+        continue;
+      }
+    }
+
+    *output++ = text[i];
+  }
+
+  *output = '\0';
+  return result;
+}
+
+static void
+sdldisplay_clear_runtime_shader_parameters( void )
+{
+  size_t i;
+
+  for( i = 0; i < sdldisplay_runtime_shader_parameter_count; i++ ) {
+    sdlshader_parameter_free( &sdldisplay_runtime_shader_parameters[i] );
+  }
+
+  free( sdldisplay_runtime_shader_parameters );
+  sdldisplay_runtime_shader_parameters = NULL;
+  sdldisplay_runtime_shader_parameter_count = 0;
+
+  if( sdldisplay_runtime_shader_preset ) {
+    libspectrum_free( sdldisplay_runtime_shader_preset );
+    sdldisplay_runtime_shader_preset = NULL;
+  }
+}
+
+static int
+sdldisplay_find_shader_parameter_index( const sdlshader_parameter *parameters,
+                                        size_t parameter_count,
+                                        const char *name )
+{
+  size_t i;
+
+  for( i = 0; i < parameter_count; i++ ) {
+    if( !strcmp( parameters[i].name, name ) ) return (int)i;
+  }
+
+  return -1;
+}
+
+static int
+sdldisplay_find_backend_shader_parameter_index( const char *name )
+{
+  return sdldisplay_find_shader_parameter_index( sdldisplay_glsl_backend.parameters,
+                                                 sdldisplay_glsl_backend.parameter_count,
+                                                 name );
+}
+
+static int
+sdldisplay_store_runtime_shader_parameter_value( const char *preset_path,
+                                                 const char *name, float value,
+                                                 char **error_text )
+{
+  int parameter_index;
+
+  if( !preset_path || !*preset_path ) {
+    sdldisplay_set_shader_error( error_text,
+                                 "no startup shader preset is active" );
+    return 1;
+  }
+
+  if( sdldisplay_runtime_shader_preset &&
+      strcmp( sdldisplay_runtime_shader_preset, preset_path ) ) {
+    sdldisplay_clear_runtime_shader_parameters();
+  }
+
+  if( !sdldisplay_runtime_shader_preset ) {
+    sdldisplay_runtime_shader_preset = utils_safe_strdup( preset_path );
+  }
+
+  parameter_index = sdldisplay_find_shader_parameter_index(
+                      sdldisplay_runtime_shader_parameters,
+                      sdldisplay_runtime_shader_parameter_count, name );
+
+  if( parameter_index < 0 ) {
+    sdlshader_parameter *new_parameters;
+    size_t new_count = sdldisplay_runtime_shader_parameter_count + 1;
+
+    new_parameters = realloc( sdldisplay_runtime_shader_parameters,
+                              new_count * sizeof( *new_parameters ) );
+    if( !new_parameters ) {
+      sdldisplay_set_shader_error( error_text,
+                                   "could not store runtime shader parameter" );
+      return 1;
+    }
+
+    sdldisplay_runtime_shader_parameters = new_parameters;
+    parameter_index = (int)sdldisplay_runtime_shader_parameter_count;
+    sdlshader_parameter_init(
+      &sdldisplay_runtime_shader_parameters[ parameter_index ] );
+    sdldisplay_runtime_shader_parameters[ parameter_index ].name =
+      utils_safe_strdup( name );
+    sdldisplay_runtime_shader_parameter_count = new_count;
+  }
+
+  sdldisplay_runtime_shader_parameters[ parameter_index ].initial_value = value;
+  sdldisplay_runtime_shader_parameters[ parameter_index ].has_value = 1;
+
+  return 0;
+}
+
+static int
+sdldisplay_remove_runtime_shader_parameter_value( const char *name )
+{
+  int parameter_index;
+
+  parameter_index = sdldisplay_find_shader_parameter_index(
+                      sdldisplay_runtime_shader_parameters,
+                      sdldisplay_runtime_shader_parameter_count, name );
+  if( parameter_index < 0 ) return 0;
+
+  sdlshader_parameter_free( &sdldisplay_runtime_shader_parameters[ parameter_index ] );
+
+  memmove( &sdldisplay_runtime_shader_parameters[ parameter_index ],
+           &sdldisplay_runtime_shader_parameters[ parameter_index + 1 ],
+           ( sdldisplay_runtime_shader_parameter_count - parameter_index - 1 ) *
+             sizeof( *sdldisplay_runtime_shader_parameters ) );
+  sdldisplay_runtime_shader_parameter_count--;
+
+  return 0;
+}
+
+static void
+sdldisplay_sync_shader_parameter_settings( void )
+{
+  char *escaped_preset = NULL;
+  char *serialized = NULL;
+  char *cursor;
+  size_t i;
+  size_t count = 0;
+  size_t length = 0;
+
+  if( !settings_current.startup_shader || !*settings_current.startup_shader ||
+      !sdldisplay_runtime_shader_preset ||
+      strcmp( settings_current.startup_shader, sdldisplay_runtime_shader_preset ) ) {
+    settings_set_string( &settings_current.startup_shader_parameters, NULL );
+    return;
+  }
+
+  for( i = 0; i < sdldisplay_runtime_shader_parameter_count; i++ ) {
+    char *escaped_name;
+
+    if( !sdldisplay_runtime_shader_parameters[i].has_value ) continue;
+    escaped_name = sdldisplay_shader_settings_escape(
+                     sdldisplay_runtime_shader_parameters[i].name );
+    if( !escaped_name ) return;
+    length += strlen( escaped_name ) + 32;
+    libspectrum_free( escaped_name );
+    count++;
+  }
+
+  if( !count ) {
+    settings_set_string( &settings_current.startup_shader_parameters, NULL );
+    return;
+  }
+
+  escaped_preset = sdldisplay_shader_settings_escape(
+                     sdldisplay_runtime_shader_preset );
+  if( !escaped_preset ) return;
+
+  length += strlen( escaped_preset ) + 2;
+  serialized = libspectrum_new( char, length );
+  cursor = serialized;
+  cursor += snprintf( cursor, length, "%s|", escaped_preset );
+  libspectrum_free( escaped_preset );
+
+  for( i = 0; i < sdldisplay_runtime_shader_parameter_count; i++ ) {
+    char *escaped_name;
+
+    if( !sdldisplay_runtime_shader_parameters[i].has_value ) continue;
+    escaped_name = sdldisplay_shader_settings_escape(
+                     sdldisplay_runtime_shader_parameters[i].name );
+    if( !escaped_name ) {
+      libspectrum_free( serialized );
+      return;
+    }
+
+    cursor += snprintf( cursor, length - ( cursor - serialized ),
+                        "%s%s=%.9g",
+                        count > 0 && cursor[-1] != '|' ? ";" : "",
+                        escaped_name,
+                        sdldisplay_runtime_shader_parameters[i].initial_value );
+    libspectrum_free( escaped_name );
+  }
+
+  settings_set_string( &settings_current.startup_shader_parameters, serialized );
+  libspectrum_free( serialized );
+}
+
+static int
+sdldisplay_set_runtime_shader_parameter_value( const char *name, float value,
+                                               int persist_setting,
+                                               char **error_text )
+{
+  const char *preset_path = settings_current.startup_shader;
+  int backend_index;
+  float preset_value;
+
+  if( !preset_path || !*preset_path ) {
+    preset_path = sdldisplay_shader_preset.preset_path;
+  }
+
+  backend_index = sdldisplay_find_backend_shader_parameter_index( name );
+  if( backend_index < 0 ) {
+    sdldisplay_set_shader_error( error_text,
+                                 "shader parameter is no longer available" );
+    return 1;
+  }
+
+  preset_value = sdldisplay_shader_parameter_preset_value(
+                   &sdldisplay_glsl_backend.parameters[ backend_index ] );
+
+  if( sdldisplay_shader_parameter_values_equal( value, preset_value ) ) {
+    sdldisplay_remove_runtime_shader_parameter_value( name );
+  } else if( sdldisplay_store_runtime_shader_parameter_value( preset_path, name,
+                                                              value, error_text ) ) {
+    return 1;
+  }
+
+  if( persist_setting ) sdldisplay_sync_shader_parameter_settings();
+
+  return 0;
+}
+
+static void
+sdldisplay_restore_saved_shader_parameter_overrides( void )
+{
+  const char *preset_path = settings_current.startup_shader;
+  const char *serialized = settings_current.startup_shader_parameters;
+  const char *separator;
+  char *decoded_preset;
+  char *payload;
+  char *cursor;
+
+  if( !preset_path || !*preset_path ) {
+    sdldisplay_clear_runtime_shader_parameters();
+    return;
+  }
+
+  if( sdldisplay_runtime_shader_preset &&
+      !strcmp( sdldisplay_runtime_shader_preset, preset_path ) ) {
+    return;
+  }
+
+  sdldisplay_clear_runtime_shader_parameters();
+
+  if( !serialized || !*serialized ) return;
+
+  separator = strchr( serialized, '|' );
+  if( !separator ) return;
+
+  decoded_preset = sdldisplay_shader_settings_unescape( serialized,
+                                                        separator - serialized );
+  if( !decoded_preset ) return;
+
+  if( strcmp( decoded_preset, preset_path ) ) {
+    libspectrum_free( decoded_preset );
+    return;
+  }
+
+  sdldisplay_runtime_shader_preset = decoded_preset;
+  payload = utils_safe_strdup( separator + 1 );
+  if( !payload ) return;
+
+  cursor = payload;
+  while( cursor && *cursor ) {
+    char *entry_end = strchr( cursor, ';' );
+    char *equals = strchr( cursor, '=' );
+
+    if( entry_end ) *entry_end = '\0';
+
+    if( equals ) {
+      char *decoded_name;
+      char *end;
+      float value;
+
+      *equals = '\0';
+      decoded_name = sdldisplay_shader_settings_unescape( cursor,
+                                                          strlen( cursor ) );
+      if( decoded_name ) {
+        value = strtof( equals + 1, &end );
+        if( end != equals + 1 && !*end ) {
+          sdldisplay_store_runtime_shader_parameter_value( preset_path,
+                                                           decoded_name, value,
+                                                           NULL );
+        }
+        libspectrum_free( decoded_name );
+      }
+    }
+
+    if( !entry_end ) break;
+    cursor = entry_end + 1;
+  }
+
+  libspectrum_free( payload );
+}
+
+static int
+sdldisplay_apply_runtime_shader_parameter_overrides( char **error_text )
+{
+  size_t i;
+  const char *preset_path = settings_current.startup_shader;
+
+  (void)error_text;
+
+  if( !preset_path || !*preset_path ) {
+    preset_path = sdldisplay_shader_preset.preset_path;
+  }
+
+  if( !sdldisplay_runtime_shader_preset || !preset_path ||
+      strcmp( sdldisplay_runtime_shader_preset, preset_path ) ) {
+    return 0;
+  }
+
+  for( i = 0; i < sdldisplay_runtime_shader_parameter_count; i++ ) {
+    int parameter_index;
+
+    if( !sdldisplay_runtime_shader_parameters[i].has_value ) continue;
+
+    parameter_index = sdldisplay_find_backend_shader_parameter_index(
+                        sdldisplay_runtime_shader_parameters[i].name );
+    if( parameter_index < 0 ) continue;
+
+    sdldisplay_glsl_backend.parameters[ parameter_index ].initial_value =
+      sdldisplay_runtime_shader_parameters[i].initial_value;
+  }
+
+  return 0;
+}
+
+static void
+sdldisplay_report_shader_notice( const char *format, ... )
+{
+  va_list ap;
+
+  if( settings_current.startup_shader && sdldisplay_shader_notice_preset &&
+      !strcmp( settings_current.startup_shader,
+               sdldisplay_shader_notice_preset ) ) {
+    return;
+  }
+
+  if( sdldisplay_shader_notice_preset ) {
+    libspectrum_free( sdldisplay_shader_notice_preset );
+    sdldisplay_shader_notice_preset = NULL;
+  }
+
+  if( settings_current.startup_shader ) {
+    sdldisplay_shader_notice_preset =
+      utils_safe_strdup( settings_current.startup_shader );
+  }
+
+  va_start( ap, format );
+  vfprintf( stderr, format, ap );
+  va_end( ap );
+}
 
 static void
 sdldisplay_free_window( void )
 {
+  sdlglsl_backend_free( sdldisplay_window, &sdldisplay_glsl_backend );
+
   if( sdldisplay_texture ) {
     SDL_DestroyTexture( sdldisplay_texture );
     sdldisplay_texture = NULL;
@@ -131,6 +614,10 @@ sdldisplay_free_window( void )
     SDL_DestroyWindow( sdldisplay_window );
     sdldisplay_window = NULL;
   }
+
+  sdldisplay_window_surface = NULL;
+
+  sdlshader_preset_free( &sdldisplay_shader_preset );
 
   sdldisplay_window_visible = 0;
 
@@ -165,6 +652,12 @@ sdldisplay_get_render_rect( SDL_FRect *rect )
                                        &output_height ) ) {
     output_width = sdldisplay_gc ? sdldisplay_gc->w : 0;
     output_height = sdldisplay_gc ? sdldisplay_gc->h : 0;
+  } else if( sdldisplay_use_glsl_backend && !sdldisplay_window_visible ) {
+    output_width = sdldisplay_window_width;
+    output_height = sdldisplay_window_height;
+  } else if( sdldisplay_window ) {
+    SDL_GetWindowSizeInPixels( sdldisplay_window, &output_width,
+                               &output_height );
   }
 
   if( !sdldisplay_gc || output_width <= 0 || output_height <= 0 ) {
@@ -221,6 +714,55 @@ init_scalers( void )
   } else {
     scaler_select_scaler( SCALER_NORMAL );
   }
+}
+
+static int
+sdldisplay_prepare_shader_pipeline( void )
+{
+  char *error_text = NULL;
+  const char *reason;
+
+  sdldisplay_use_glsl_backend = 0;
+  sdlshader_preset_free( &sdldisplay_shader_preset );
+  sdldisplay_update_shader_menu_items();
+
+  if( !settings_current.startup_shader || !*settings_current.startup_shader ) {
+    return 0;
+  }
+
+  if( sdldisplay_glsl_backend_disabled ) {
+    return 0;
+  }
+
+  if( sdlshader_preset_load( settings_current.startup_shader,
+                             &sdldisplay_shader_preset, &error_text ) ) {
+    sdldisplay_report_shader_notice(
+             "%s: startup shader preset '%s' ignored: %s\n",
+             fuse_progname, settings_current.startup_shader,
+             error_text ? error_text : "unknown error" );
+    if( error_text ) libspectrum_free( error_text );
+    return 0;
+  }
+
+  sdldisplay_restore_saved_shader_parameter_overrides();
+
+#if HAVE_OPENGL
+  if( sdldisplay_shader_preset.shader_pass_count >= 1 ) {
+    sdldisplay_use_glsl_backend = 1;
+    return 0;
+  }
+
+  reason = "no RetroArch GLSL shader passes were loaded";
+#else
+  reason = "this build does not include OpenGL support for RetroArch GLSL presets";
+#endif
+
+  sdldisplay_report_shader_notice(
+           "%s: startup shader preset '%s' resolved shader0 '%s', but shader execution is unavailable: %s; falling back to the standard SDL renderer path\n",
+           fuse_progname, sdldisplay_shader_preset.preset_path,
+           sdldisplay_shader_preset.passes[0].shader_path, reason );
+
+  return 0;
 }
 
 static int
@@ -403,6 +945,9 @@ uidisplay_init( int width, int height )
   image_height = height;
 
   timex = machine_current->timex;
+  sdldisplay_glsl_backend_disabled = 0;
+  sdlshader_preset_init( &sdldisplay_shader_preset );
+  sdlglsl_backend_init( &sdldisplay_glsl_backend );
 
   init_scalers();
 
@@ -494,15 +1039,29 @@ sdldisplay_find_best_fullscreen_scaler( void )
 }
 
 static int
+sdldisplay_show_window( void )
+{
+  if( !sdldisplay_window || sdldisplay_window_visible ) return 0;
+
+  if( !SDL_ShowWindow( sdldisplay_window ) ) return 1;
+  if( !SDL_SyncWindow( sdldisplay_window ) ) return 1;
+
+  sdldisplay_window_visible = 1;
+  return 0;
+}
+
+static int
 sdldisplay_load_gfx_mode( void )
 {
   SDL_DisplayMode closest_mode;
   SDL_PixelFormat pixel_format;
   Uint16 *tmp_screen_pixels;
   SDL_WindowFlags window_flags;
+  char *error_text = NULL;
   int logical_width, logical_height, window_width, window_height;
 
   sdldisplay_force_full_refresh = 1;
+  sdldisplay_has_rendered_content = 0;
 
   /* Free the old surface */
   if( tmp_screen ) {
@@ -522,9 +1081,38 @@ sdldisplay_load_gfx_mode( void )
                  fullscreen_width : image_width * sdldisplay_current_size;
   window_height = settings_current.full_screen && fullscreen_width ?
                   max_fullscreen_height : image_height * sdldisplay_current_size;
-  window_flags = SDL_WINDOW_HIDDEN;
+  sdldisplay_window_width = window_width;
+  sdldisplay_window_height = window_height;
+  window_flags = 0;
+
+  pixel_format = SDL_PIXELFORMAT_RGB565;
+  scaler_select_bitformat( 565 );
 
   sdldisplay_free_window();
+
+  if( sdldisplay_prepare_shader_pipeline() ) {
+    fprintf( stderr, "%s: couldn't prepare SDL shader pipeline\n",
+             fuse_progname );
+    fuse_abort();
+  }
+
+  if( sdldisplay_use_glsl_backend ) {
+    logical_width = image_width;
+    logical_height = image_height;
+  } else {
+    logical_width = image_width * sdldisplay_current_size + 0.5f;
+    logical_height = image_height * sdldisplay_current_size + 0.5f;
+  }
+
+  if( sdldisplay_use_glsl_backend ) {
+    SDL_GL_SetAttribute( SDL_GL_CONTEXT_PROFILE_MASK,
+                         SDL_GL_CONTEXT_PROFILE_COMPATIBILITY );
+    SDL_GL_SetAttribute( SDL_GL_CONTEXT_MAJOR_VERSION, 2 );
+    SDL_GL_SetAttribute( SDL_GL_CONTEXT_MINOR_VERSION, 1 );
+    SDL_GL_SetAttribute( SDL_GL_DOUBLEBUFFER, 1 );
+    SDL_GL_SetAttribute( SDL_GL_ALPHA_SIZE, 8 );
+    window_flags |= SDL_WINDOW_OPENGL | SDL_WINDOW_HIDDEN;
+  }
 
   sdldisplay_window = SDL_CreateWindow( FUSE_DOWNSTREAM_NAME, window_width,
                                         window_height, window_flags );
@@ -532,6 +1120,8 @@ sdldisplay_load_gfx_mode( void )
     fprintf( stderr, "%s: couldn't create SDL graphics context\n", fuse_progname );
     fuse_abort();
   }
+
+  sdldisplay_window_visible = 0;
 
   SDL_WM_SetCaption( FUSE_DOWNSTREAM_NAME, FUSE_DOWNSTREAM_NAME );
 
@@ -548,23 +1138,17 @@ sdldisplay_load_gfx_mode( void )
     }
 
     if( !SDL_SetWindowFullscreen( sdldisplay_window, true ) ||
-        !SDL_SyncWindow( sdldisplay_window ) ) {
+        ( !sdldisplay_use_glsl_backend &&
+          !SDL_SyncWindow( sdldisplay_window ) ) ) {
       fprintf( stderr, "%s: couldn't enable SDL fullscreen mode\n", fuse_progname );
       fuse_abort();
     }
   }
 
-  sdldisplay_renderer = SDL_CreateRenderer( sdldisplay_window, NULL );
-  if( !sdldisplay_renderer ) {
-    fprintf( stderr, "%s: couldn't create SDL renderer\n", fuse_progname );
+  if( !sdldisplay_use_glsl_backend && sdldisplay_show_window() ) {
+    fprintf( stderr, "%s: couldn't show SDL window\n", fuse_progname );
     fuse_abort();
   }
-
-  pixel_format = SDL_PIXELFORMAT_RGB565;
-  scaler_select_bitformat( 565 );
-
-  logical_width = image_width * sdldisplay_current_size + 0.5f;
-  logical_height = image_height * sdldisplay_current_size + 0.5f;
 
   sdldisplay_gc = SDL_CreateSurface( logical_width, logical_height,
                                      pixel_format );
@@ -573,18 +1157,38 @@ sdldisplay_load_gfx_mode( void )
     fuse_abort();
   }
 
-  sdldisplay_texture = SDL_CreateTexture( sdldisplay_renderer, pixel_format,
-                                          SDL_TEXTUREACCESS_STREAMING,
-                                          logical_width, logical_height );
-  if( !sdldisplay_texture ) {
-    fprintf( stderr, "%s: couldn't create SDL texture\n", fuse_progname );
-    fuse_abort();
-  }
+  if( sdldisplay_use_glsl_backend ) {
+    if( sdlglsl_backend_create( sdldisplay_window, logical_width,
+                                logical_height, &sdldisplay_shader_preset,
+                                &sdldisplay_glsl_backend, &error_text ) ) {
+      sdldisplay_report_shader_notice(
+               "%s: startup shader preset '%s' OpenGL setup failed: %s; falling back to the standard SDL renderer path\n",
+               fuse_progname, sdldisplay_shader_preset.preset_path,
+               error_text ? error_text : "unknown error" );
+      if( error_text ) libspectrum_free( error_text );
+      sdldisplay_glsl_backend_disabled = 1;
+      sdldisplay_use_glsl_backend = 0;
+      sdldisplay_free_window();
+      return sdldisplay_load_gfx_mode();
+    }
 
-  if( !SDL_SetTextureScaleMode( sdldisplay_texture,
-                                sdldisplay_get_scale_mode() ) ) {
-    fprintf( stderr, "%s: couldn't set SDL texture scale mode\n", fuse_progname );
-    fuse_abort();
+    if( sdldisplay_apply_runtime_shader_parameter_overrides( &error_text ) ) {
+      sdldisplay_report_shader_notice(
+               "%s: startup shader preset '%s' ignored: %s\n",
+               fuse_progname, sdldisplay_shader_preset.preset_path,
+               error_text ? error_text : "unknown error" );
+      if( error_text ) libspectrum_free( error_text );
+      sdldisplay_glsl_backend_disabled = 1;
+      sdldisplay_use_glsl_backend = 0;
+      sdldisplay_free_window();
+      return sdldisplay_load_gfx_mode();
+    }
+  } else {
+    sdldisplay_window_surface = SDL_GetWindowSurface( sdldisplay_window );
+    if( !sdldisplay_window_surface ) {
+      fprintf( stderr, "%s: couldn't get SDL window surface\n", fuse_progname );
+      fuse_abort();
+    }
   }
 
   sdldisplay_is_full_screen = settings_current.full_screen;
@@ -611,6 +1215,172 @@ sdldisplay_load_gfx_mode( void )
 
   /* Redraw the entire screen... */
   display_refresh_all();
+
+  return 0;
+}
+
+static void
+sdldisplay_copy_frame_region( const SDL_Rect *rect, Uint32 tmp_screen_pitch,
+                              Uint32 dst_pitch )
+{
+  const int bytes_per_pixel = SDL_BYTESPERPIXEL( tmp_screen->format );
+  const libspectrum_byte *src =
+    (libspectrum_byte*)tmp_screen->pixels +
+    ( rect->x + 1 ) * bytes_per_pixel + ( rect->y + 1 ) * tmp_screen_pitch;
+  libspectrum_byte *dst =
+    (libspectrum_byte*)sdldisplay_gc->pixels +
+    rect->x * bytes_per_pixel + rect->y * dst_pitch;
+  int row;
+
+  for( row = 0; row < rect->h; row++ ) {
+    memcpy( dst, src, rect->w * bytes_per_pixel );
+    src += tmp_screen_pitch;
+    dst += dst_pitch;
+  }
+}
+
+static void
+sdldisplay_scale_frame( void )
+{
+  SDL_Rect *r;
+  Uint32 tmp_screen_pitch, dstPitch;
+  SDL_Rect *last_rect;
+
+  tmp_screen_pitch = tmp_screen->pitch;
+  dstPitch = sdldisplay_gc->pitch;
+  last_rect = updated_rects + num_rects;
+
+  if( sdldisplay_use_glsl_backend ) {
+    for( r = updated_rects; r != last_rect; r++ ) {
+      sdldisplay_copy_frame_region( r, tmp_screen_pitch, dstPitch );
+    }
+
+    sdl_status_updated = 0;
+    return;
+  }
+
+  for( r = updated_rects; r != last_rect; r++ ) {
+
+    int dst_y = r->y * sdldisplay_current_size + fullscreen_y_off;
+    int dst_h = r->h;
+    int dst_x = r->x * sdldisplay_current_size + fullscreen_x_off;
+
+    scaler_proc16(
+      (libspectrum_byte*)tmp_screen->pixels +
+                    (r->x+1) * SDL_BYTESPERPIXEL( tmp_screen->format ) +
+                    (r->y+1)*tmp_screen_pitch,
+      tmp_screen_pitch,
+      (libspectrum_byte*)sdldisplay_gc->pixels +
+                     dst_x * SDL_BYTESPERPIXEL( sdldisplay_gc->format ) +
+                     dst_y*dstPitch,
+      dstPitch, r->w, dst_h
+    );
+
+    r->x = dst_x;
+    r->y = dst_y;
+    r->w *= sdldisplay_current_size;
+    r->h = dst_h * sdldisplay_current_size;
+  }
+
+  if( settings_current.statusbar ) {
+    sdl_icon_overlay( tmp_screen_pitch, dstPitch );
+  }
+}
+
+static int
+sdldisplay_upload_frame( void )
+{
+  char *error_text = NULL;
+
+  if( sdldisplay_use_glsl_backend ) {
+    if( sdlglsl_backend_upload( sdldisplay_window, &sdldisplay_glsl_backend,
+                                sdldisplay_gc, &error_text ) ) {
+      if( error_text ) {
+        fprintf( stderr, "%s: %s\n", fuse_progname, error_text );
+        libspectrum_free( error_text );
+      }
+      return 1;
+    }
+
+    return 0;
+  }
+
+  return 0;
+}
+
+static int
+sdldisplay_present_frame( void )
+{
+  SDL_Rect dst_rect;
+  SDL_FRect render_rect;
+  char *error_text = NULL;
+  int was_window_visible = sdldisplay_window_visible;
+
+  sdldisplay_get_render_rect( &render_rect );
+
+  if( sdldisplay_use_glsl_backend ) {
+    if( render_rect.w <= 0.0f || render_rect.h <= 0.0f ) return 0;
+
+    if( sdlglsl_backend_present( sdldisplay_window, &sdldisplay_glsl_backend,
+                   sdldisplay_window_visible ? 0 : sdldisplay_window_width,
+                   sdldisplay_window_visible ? 0 : sdldisplay_window_height,
+                                 render_rect.x + 0.5f, render_rect.y + 0.5f,
+                                 render_rect.w + 0.5f, render_rect.h + 0.5f,
+                                 &error_text ) ) {
+      if( error_text ) {
+        fprintf( stderr, "%s: %s\n", fuse_progname, error_text );
+        libspectrum_free( error_text );
+      }
+      return 1;
+    }
+
+    if( sdldisplay_show_window() ) {
+      return 1;
+    }
+
+    if( !was_window_visible && sdldisplay_window_visible ) {
+      if( sdlglsl_backend_present( sdldisplay_window, &sdldisplay_glsl_backend,
+                                   0, 0,
+                                   render_rect.x + 0.5f, render_rect.y + 0.5f,
+                                   render_rect.w + 0.5f, render_rect.h + 0.5f,
+                                   &error_text ) ) {
+        if( error_text ) {
+          fprintf( stderr, "%s: %s\n", fuse_progname, error_text );
+          libspectrum_free( error_text );
+        }
+        return 1;
+      }
+    }
+
+    if( !sdldisplay_window_visible ) return 0;
+
+    return 0;
+  }
+
+  sdldisplay_window_surface = SDL_GetWindowSurface( sdldisplay_window );
+  if( !sdldisplay_window_surface ) {
+    return 1;
+  }
+
+  if( !SDL_ClearSurface( sdldisplay_window_surface, 0.0f, 0.0f, 0.0f, 1.0f ) ) {
+    return 1;
+  }
+
+  if( render_rect.w > 0.0f && render_rect.h > 0.0f ) {
+    dst_rect.x = render_rect.x + 0.5f;
+    dst_rect.y = render_rect.y + 0.5f;
+    dst_rect.w = render_rect.w + 0.5f;
+    dst_rect.h = render_rect.h + 0.5f;
+
+    if( !SDL_BlitSurfaceScaled( sdldisplay_gc, NULL, sdldisplay_window_surface,
+                                &dst_rect, sdldisplay_get_scale_mode() ) ) {
+      return 1;
+    }
+  }
+
+  if( !SDL_UpdateWindowSurface( sdldisplay_window ) ) {
+    return 1;
+  }
 
   return 0;
 }
@@ -661,6 +1431,7 @@ uidisplay_frame_restore( void )
 {
   if( saved ) {
     SDL_BlitSurface( saved, NULL, tmp_screen, NULL );
+    sdldisplay_has_rendered_content = 1;
     sdldisplay_force_full_refresh = 1;
   }
 }
@@ -686,7 +1457,7 @@ sdl_blit_icon( SDL_Surface **icon,
   r->x++;
   r->y++;
 
-  if( SDL_BlitSurface( icon[timex], NULL, tmp_screen, r ) ) return;
+  if( !SDL_BlitSurface( icon[timex], NULL, tmp_screen, r ) ) return;
 
   /* Extend the dirty region by 1 pixel for scalers
      that "smear" the screen, e.g. 2xSAI */
@@ -782,6 +1553,8 @@ uidisplay_putpixel( int x, int y, int colour )
 
   Uint32 palette_colour = palette_values[ colour ];
 
+  sdldisplay_has_rendered_content = 1;
+
   if( machine_current->timex ) {
     x <<= 1; y <<= 1;
     dest_base = dest =
@@ -817,6 +1590,8 @@ uidisplay_plot8( int x, int y, libspectrum_byte data,
 
   Uint32 palette_ink = palette_values[ ink ];
   Uint32 palette_paper = palette_values[ paper ];
+
+  sdldisplay_has_rendered_content = 1;
 
   if( machine_current->timex ) {
     int i;
@@ -883,6 +1658,9 @@ uidisplay_plot16( int x, int y, libspectrum_word data,
                            colour_values;
   Uint32 palette_ink = palette_values[ ink ];
   Uint32 palette_paper = palette_values[ paper ];
+
+  sdldisplay_has_rendered_content = 1;
+
   x <<= 4; y <<= 1;
 
   dest_base =
@@ -918,11 +1696,6 @@ uidisplay_plot16( int x, int y, libspectrum_word data,
 void
 uidisplay_frame_end( void )
 {
-  SDL_FRect render_rect;
-  SDL_Rect *r;
-  Uint32 tmp_screen_pitch, dstPitch;
-  SDL_Rect *last_rect;
-
   /* We check for a switch to fullscreen here to give systems with a
      windowed-only UI a chance to free menu etc. resources before
      the switch to fullscreen (e.g. Mac OS X) */
@@ -945,64 +1718,22 @@ uidisplay_frame_end( void )
   if ( !(ui_widget_level >= 0) && num_rects == 0 && !sdl_status_updated )
     return;
 
+  if( sdldisplay_use_glsl_backend && !sdldisplay_has_rendered_content )
+    return;
+
   if( SDL_MUSTLOCK( sdldisplay_gc ) ) SDL_LockSurface( sdldisplay_gc );
-
-  tmp_screen_pitch = tmp_screen->pitch;
-
-  dstPitch = sdldisplay_gc->pitch;
-
-  last_rect = updated_rects + num_rects;
-
-  for( r = updated_rects; r != last_rect; r++ ) {
-
-    int dst_y = r->y * sdldisplay_current_size + fullscreen_y_off;
-    int dst_h = r->h;
-    int dst_x = r->x * sdldisplay_current_size + fullscreen_x_off;
-
-    scaler_proc16(
-      (libspectrum_byte*)tmp_screen->pixels +
-	                (r->x+1) * SDL_BYTESPERPIXEL( tmp_screen->format ) +
-	                (r->y+1)*tmp_screen_pitch,
-      tmp_screen_pitch,
-      (libspectrum_byte*)sdldisplay_gc->pixels +
-	                 dst_x * SDL_BYTESPERPIXEL( sdldisplay_gc->format ) +
-			 dst_y*dstPitch,
-      dstPitch, r->w, dst_h
-    );
-
-    /* Adjust rects for the destination rect size */
-    r->x = dst_x;
-    r->y = dst_y;
-    r->w *= sdldisplay_current_size;
-    r->h = dst_h * sdldisplay_current_size;
-  }
-
-  if ( settings_current.statusbar )
-    sdl_icon_overlay( tmp_screen_pitch, dstPitch );
+  sdldisplay_scale_frame();
 
   if( SDL_MUSTLOCK( sdldisplay_gc ) ) SDL_UnlockSurface( sdldisplay_gc );
 
-  if( !SDL_UpdateTexture( sdldisplay_texture, NULL, sdldisplay_gc->pixels,
-                          sdldisplay_gc->pitch ) ) {
+  if( sdldisplay_upload_frame() ) {
     fprintf( stderr, "%s: couldn't update SDL texture\n", fuse_progname );
     fuse_abort();
   }
 
-  sdldisplay_get_render_rect( &render_rect );
-  SDL_SetRenderDrawColor( sdldisplay_renderer, 0, 0, 0, SDL_ALPHA_OPAQUE );
-  SDL_RenderClear( sdldisplay_renderer );
-  if( render_rect.w > 0.0f && render_rect.h > 0.0f ) {
-    if( !SDL_RenderTexture( sdldisplay_renderer, sdldisplay_texture, NULL,
-                            &render_rect ) ) {
-      fprintf( stderr, "%s: couldn't render SDL texture\n", fuse_progname );
-      fuse_abort();
-    }
-  }
-  SDL_RenderPresent( sdldisplay_renderer );
-
-  if( !sdldisplay_window_visible ) {
-    SDL_ShowWindow( sdldisplay_window );
-    sdldisplay_window_visible = 1;
+  if( sdldisplay_present_frame() ) {
+    fprintf( stderr, "%s: couldn't render SDL texture\n", fuse_progname );
+    fuse_abort();
   }
 
   num_rects = 0;
@@ -1051,6 +1782,13 @@ uidisplay_end( void )
     SDL_FreeSurface( saved ); saved = NULL;
   }
 
+  if( sdldisplay_shader_notice_preset ) {
+    libspectrum_free( sdldisplay_shader_notice_preset );
+    sdldisplay_shader_notice_preset = NULL;
+  }
+
+  sdldisplay_clear_runtime_shader_parameters();
+
   for( i=0; i<2; i++ ) {
     if ( red_cassette[i] ) {
       SDL_FreeSurface( red_cassette[i] ); red_cassette[i] = NULL;
@@ -1072,6 +1810,117 @@ uidisplay_end( void )
     }
   }
 
+  return 0;
+}
+
+size_t
+sdldisplay_shader_parameter_count( void )
+{
+  if( !sdldisplay_use_glsl_backend || !sdldisplay_glsl_backend.active ) return 0;
+
+  return sdldisplay_glsl_backend.parameter_count;
+}
+
+int
+sdldisplay_shader_parameter_get_info( size_t index,
+                                      sdldisplay_shader_parameter_info *info )
+{
+  if( !sdldisplay_use_glsl_backend || !sdldisplay_glsl_backend.active ||
+      !info || index >= sdldisplay_glsl_backend.parameter_count ) {
+    return 1;
+  }
+
+  info->name = sdldisplay_glsl_backend.parameters[index].name;
+  info->label = sdldisplay_glsl_backend.parameters[index].label ?
+                  sdldisplay_glsl_backend.parameters[index].label :
+                  sdldisplay_glsl_backend.parameters[index].name;
+  info->value = sdldisplay_glsl_backend.parameters[index].initial_value;
+  info->default_value = sdldisplay_glsl_backend.parameters[index].default_value;
+  info->preset_value = sdldisplay_shader_parameter_preset_value(
+                         &sdldisplay_glsl_backend.parameters[index] );
+  info->minimum_value = sdldisplay_glsl_backend.parameters[index].minimum_value;
+  info->maximum_value = sdldisplay_glsl_backend.parameters[index].maximum_value;
+  info->step_value = sdldisplay_glsl_backend.parameters[index].step_value;
+  info->has_metadata = sdldisplay_glsl_backend.parameters[index].has_metadata;
+
+  return 0;
+}
+
+int
+sdldisplay_shader_parameter_set( size_t index, float value )
+{
+  char *error_text = NULL;
+  const char *name;
+
+  if( !sdldisplay_use_glsl_backend || !sdldisplay_glsl_backend.active ||
+      index >= sdldisplay_glsl_backend.parameter_count ) {
+    return 1;
+  }
+
+  name = sdldisplay_glsl_backend.parameters[index].name;
+  sdldisplay_glsl_backend.parameters[index].initial_value = value;
+
+  if( sdldisplay_set_runtime_shader_parameter_value( name, value, 1,
+                                                     &error_text ) ) {
+    if( error_text ) libspectrum_free( error_text );
+    return 1;
+  }
+
+  sdldisplay_force_full_refresh = 1;
+
+  return 0;
+}
+
+int
+sdldisplay_shader_parameter_reset_to_default( size_t index )
+{
+  char *error_text = NULL;
+  const char *name;
+  float value;
+
+  if( !sdldisplay_use_glsl_backend || !sdldisplay_glsl_backend.active ||
+      index >= sdldisplay_glsl_backend.parameter_count ) {
+    return 1;
+  }
+
+  name = sdldisplay_glsl_backend.parameters[index].name;
+  value = sdldisplay_glsl_backend.parameters[index].default_value;
+  sdldisplay_glsl_backend.parameters[index].initial_value = value;
+
+  if( sdldisplay_set_runtime_shader_parameter_value( name, value, 1,
+                                                     &error_text ) ) {
+    if( error_text ) libspectrum_free( error_text );
+    return 1;
+  }
+
+  sdldisplay_force_full_refresh = 1;
+  return 0;
+}
+
+int
+sdldisplay_shader_parameter_reset_to_preset( size_t index )
+{
+  char *error_text = NULL;
+  const char *name;
+  float value;
+
+  if( !sdldisplay_use_glsl_backend || !sdldisplay_glsl_backend.active ||
+      index >= sdldisplay_glsl_backend.parameter_count ) {
+    return 1;
+  }
+
+  name = sdldisplay_glsl_backend.parameters[index].name;
+  value = sdldisplay_shader_parameter_preset_value(
+            &sdldisplay_glsl_backend.parameters[index] );
+  sdldisplay_glsl_backend.parameters[index].initial_value = value;
+
+  if( sdldisplay_set_runtime_shader_parameter_value( name, value, 1,
+                                                     &error_text ) ) {
+    if( error_text ) libspectrum_free( error_text );
+    return 1;
+  }
+
+  sdldisplay_force_full_refresh = 1;
   return 0;
 }
 

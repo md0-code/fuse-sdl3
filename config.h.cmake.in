@@ -54,6 +54,12 @@
 /* Define to 1 if you have the `getopt_long' function. */
 #cmakedefine01 HAVE_GETOPT_LONG
 
+/* Defined if OpenGL is available to the build. */
+#cmakedefine01 HAVE_OPENGL
+
+/* Defined if SDL_shadercross is available to the build. */
+#cmakedefine01 HAVE_SDL_SHADERCROSS
+
 /* Define to 1 if you have the <inttypes.h> header file. */
 #cmakedefine01 HAVE_INTTYPES_H
 
@@ -181,7 +187,7 @@
 #define VERSION "@VERSION@"
 
 /* Define WORDS_BIGENDIAN to 1 if your processor stores words with the most significant byte first. */
-#cmakedefine01 WORDS_BIGENDIAN
+#cmakedefine WORDS_BIGENDIAN 1
 
 /* Define to 1 if lex declares yytext as a char pointer by default. */
 #cmakedefine01 YYTEXT_POINTER

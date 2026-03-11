@@ -28,6 +28,9 @@ use Fuse;
 sub hashline ($) { '#line ', $_[0] + 1, '"', __FILE__, "\"\n" }
 
 my %options;
+my %config_excluded = (
+  unittests => 1,
+);
 
 while(<>) {
 
@@ -124,6 +127,7 @@ print hashline( __LINE__ ), << 'CODE';
 
 static int read_config_file( settings_info *settings );
 static int get_config_file_path( char *path, size_t path_length );
+static int config_setting_is_ignored( const char *name, size_t length );
 
 #ifdef HAVE_LIB_XML2
 static int parse_xml( xmlDocPtr doc, settings_info *settings );
@@ -136,6 +140,25 @@ static int settings_command_line( settings_info *settings, int *first_arg,
 				  int argc, char **argv );
 
 static void settings_copy_internal( settings_info *dest, settings_info *src );
+
+static int
+config_setting_is_ignored( const char *name, size_t length )
+{
+CODE
+
+foreach my $name ( sort keys %options ) {
+  next unless $config_excluded{$name};
+
+  my $config_name = $options{$name}->{configfile};
+  my $len = length $config_name;
+
+  print qq{  if( length == $len && !strncmp( name, "$config_name", length ) ) return 1;\n};
+}
+
+print hashline( __LINE__ ), << 'CODE';
+
+  return 0;
+}
 
 /* Called on emulator startup */
 int
@@ -284,6 +307,8 @@ CODE
 
 foreach my $name ( sort keys %options ) {
 
+  next if $config_excluded{$name};
+
     my $type = $options{$name}->{type};
 
     if( $type eq 'boolean' or $type eq 'numeric' ) {
@@ -327,6 +352,9 @@ CODE
 print hashline( __LINE__ ), << 'CODE';
     if( !strcmp( (const char*)node->name, "text" ) ) {
       /* Do nothing */
+    } else if( config_setting_is_ignored( (const char*)node->name,
+                                          strlen( (const char*)node->name ) ) ) {
+      /* Do nothing */
     } else {
       ui_error( UI_ERROR_WARNING, "Unknown setting '%s' in config file",
 		node->name );
@@ -357,6 +385,8 @@ settings_write_config( settings_info *settings )
 CODE
 
 foreach my $name ( sort keys %options ) {
+
+  next if $config_excluded{$name};
 
     my $type = $options{$name}->{type};
 
@@ -462,6 +492,8 @@ settings_var( settings_info *settings, unsigned char *name, unsigned char *last,
 CODE
 my %type = ('null' => 0, 'boolean' => 1, 'numeric' => 1, 'string' => 2 );
 foreach my $name ( sort keys %options ) {
+  next if $config_excluded{$name};
+
     my $len = length $options{$name}->{configfile};
 
     print << "CODE";
@@ -483,6 +515,7 @@ static int
 parse_ini( utils_file *file, settings_info *settings )
 {
   unsigned char *cpos, *cpos_new;
+  unsigned char *name_end;
   int *val_int;
   char **val_char;
 
@@ -492,6 +525,21 @@ parse_ini( utils_file *file, settings_info *settings )
   while( cpos < file->buffer + file->length ) {
     if( settings_var( settings, cpos, file->buffer + file->length, &val_int,
                       &val_char, &cpos_new ) ) {
+      unsigned char *name_start = cpos;
+
+      name_end = cpos;
+      while( name_end < file->buffer + file->length &&
+             *name_end != '=' && *name_end != ' ' && *name_end != '\t' &&
+             *name_end != '\r' && *name_end != '\n' ) {
+        name_end++;
+      }
+
+      if( config_setting_is_ignored( (const char*)name_start,
+                                     name_end - name_start ) ) {
+        cpos = cpos_new + 1;
+        continue;
+      }
+
       /* error in name or something else ... */
       cpos = cpos_new + 1;
       ui_error( UI_ERROR_WARNING,
@@ -584,6 +632,8 @@ CODE
 
 foreach my $name ( sort keys %options ) {
 
+  next if $config_excluded{$name};
+
     my $type = $options{$name}->{type};
     my $len = length "$options{$name}->{configfile}";
 
@@ -641,6 +691,10 @@ settings_command_line( settings_info *settings, int *first_arg,
 
 #if !defined AMIGA && !defined __MORPHOS__
 
+  enum {
+    OPTION_CLEAR_STARTUP_SHADER = 0x1000
+  };
+
   struct option long_options[] = {
 
 CODE
@@ -673,6 +727,7 @@ CODE
 
 print hashline( __LINE__ ), << 'CODE';
 
+  { "clear-startup-shader", 0, NULL, OPTION_CLEAR_STARTUP_SHADER },
     { "help", 0, NULL, 'h' },
     { "version", 0, NULL, 'V' },
 
@@ -722,6 +777,11 @@ foreach my $name ( sort keys %options ) {
 }
 
 print hashline( __LINE__ ), << 'CODE';
+
+    case OPTION_CLEAR_STARTUP_SHADER:
+      settings_set_string( &settings->startup_shader, NULL );
+      settings_set_string( &settings->startup_shader_parameters, NULL );
+      break;
 
     case 'h': settings->show_help = 1; break;
     case 'V': settings->show_version = 1; break;
@@ -853,7 +913,7 @@ settings_set_string( char **string_setting, const char *value )
   if( *string_setting == value ) return;
 
   if( *string_setting ) libspectrum_free( *string_setting );
-  *string_setting = utils_safe_strdup( value );
+  *string_setting = value ? utils_safe_strdup( value ) : NULL;
 }
 
 int

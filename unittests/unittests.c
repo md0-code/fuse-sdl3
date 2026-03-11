@@ -48,7 +48,10 @@
 #include "peripherals/ula.h"
 #include "peripherals/usource.h"
 #include "settings.h"
+#include "ui/sdl/sdlglsl.h"
+#include "ui/sdl/sdlshader.h"
 #include "unittests.h"
+#include "utils.h"
 
 static int
 contention_test( void )
@@ -305,6 +308,187 @@ mempool_test( void )
 
   TEST_ASSERT( mempool_get_pool_size( pool1 ) == 0 );
   TEST_ASSERT( mempool_get_pool_size( pool2 ) == 0 );
+
+  return 0;
+}
+
+static int
+sdlshader_parse_test( void )
+{
+  static const char preset_text[] =
+    "shaders = \"1\"\n"
+    "shader0 = \"passes/crt-pass.glsl\"\n"
+    "filter_linear0 = true\n"
+    "scale_type0 = viewport\n"
+    "scale0 = 1.5\n";
+  static const char multipass_preset_text[] =
+    "shaders = \"2\"\n"
+    "shader0 = \"passes/linearize.glsl\"\n"
+    "filter_linear0 = false\n"
+    "scale_type0 = source\n"
+    "scale0 = 2.0\n"
+    "shader1 = \"passes/crt-pass.glsl\"\n"
+    "filter_linear1 = true\n"
+    "scale_type_x1 = absolute\n"
+    "scale_x1 = 320\n"
+    "scale_type_y1 = viewport\n"
+    "scale_y1 = 0.5\n";
+  static const char parameter_override_preset_text[] =
+    "shaders = \"1\"\n"
+    "shader0 = \"passes/crt-pass.glsl\"\n"
+    "parameters = \"screenscale_x;screenscale_y;ygain_r\"\n"
+    "screenscale_x = 1.25\n"
+    "ygain_r = 0.1875\n";
+  static const char texture_preset_text[] =
+    "shaders = \"2\"\n"
+    "shader0 = \"passes/linearize.glsl\"\n"
+    "shader1 = \"passes/crt-pass.glsl\"\n"
+    "mipmap_input1 = true\n"
+    "textures = \"MaskTexture;NoiseTexture\"\n"
+    "MaskTexture = \"resources/mask.png\"\n"
+    "NoiseTexture = \"resources/noise.png\"\n";
+  static const char invalid_preset_text[] =
+    "shader0 = \"passes/crt-pass.glsl\"\n";
+  static const char shader_text[] =
+    "#version 110\n"
+    "#pragma parameter test_param \"Test Param\" 1.5 0.0 2.0 0.1\n"
+    "#if defined(VERTEX)\nvoid main(){}\n#endif\n"
+    "#if defined(FRAGMENT)\nvoid main(){}\n#endif\n";
+  sdlshader_preset preset;
+  sdlshader_source source;
+  char *stage_source = NULL;
+  char *error_text = NULL;
+
+  sdlshader_preset_init( &preset );
+  sdlshader_source_init( &source );
+
+  TEST_ASSERT( !sdlshader_preset_parse( "/tmp/test-preset.glslp",
+                                        preset_text, &preset,
+                                        &error_text ) );
+  TEST_ASSERT( error_text == NULL );
+  TEST_ASSERT( preset.shader_pass_count == 1 );
+  TEST_ASSERT( preset.passes != NULL );
+  TEST_ASSERT( preset.passes[0].filter_linear == 1 );
+  TEST_ASSERT( preset.passes[0].scale_type_x == SDLSHADER_PASS_SCALE_VIEWPORT );
+  TEST_ASSERT( preset.passes[0].scale_type_y == SDLSHADER_PASS_SCALE_VIEWPORT );
+  TEST_ASSERT( preset.passes[0].scale_x == 1.5f );
+  TEST_ASSERT( preset.passes[0].scale_y == 1.5f );
+  TEST_ASSERT( !strcmp( preset.passes[0].shader_path,
+                        "/tmp/passes/crt-pass.glsl" ) );
+
+  sdlshader_preset_free( &preset );
+
+  TEST_ASSERT( !sdlshader_preset_parse( "/tmp/test-preset.glslp",
+                                        multipass_preset_text, &preset,
+                                        &error_text ) );
+  TEST_ASSERT( error_text == NULL );
+  TEST_ASSERT( preset.shader_pass_count == 2 );
+  TEST_ASSERT( !strcmp( preset.passes[0].shader_path,
+                        "/tmp/passes/linearize.glsl" ) );
+  TEST_ASSERT( preset.passes[0].filter_linear == 0 );
+  TEST_ASSERT( preset.passes[0].scale_type_x == SDLSHADER_PASS_SCALE_SOURCE );
+  TEST_ASSERT( preset.passes[0].scale_type_y == SDLSHADER_PASS_SCALE_SOURCE );
+  TEST_ASSERT( preset.passes[0].scale_x == 2.0f );
+  TEST_ASSERT( preset.passes[0].scale_y == 2.0f );
+  TEST_ASSERT( !strcmp( preset.passes[1].shader_path,
+                        "/tmp/passes/crt-pass.glsl" ) );
+  TEST_ASSERT( preset.passes[1].filter_linear == 1 );
+  TEST_ASSERT( preset.passes[1].scale_type_x == SDLSHADER_PASS_SCALE_ABSOLUTE );
+  TEST_ASSERT( preset.passes[1].scale_type_y == SDLSHADER_PASS_SCALE_VIEWPORT );
+  TEST_ASSERT( preset.passes[1].scale_x == 320.0f );
+  TEST_ASSERT( preset.passes[1].scale_y == 0.5f );
+
+  sdlshader_preset_free( &preset );
+
+  TEST_ASSERT( !sdlshader_preset_parse( "/tmp/test-preset.glslp",
+                                        parameter_override_preset_text,
+                                        &preset, &error_text ) );
+  TEST_ASSERT( error_text == NULL );
+  TEST_ASSERT( preset.parameter_count == 3 );
+  TEST_ASSERT( !strcmp( preset.parameters[0].name, "screenscale_x" ) );
+  TEST_ASSERT( preset.parameters[0].has_value == 1 );
+  TEST_ASSERT( preset.parameters[0].initial_value == 1.25f );
+  TEST_ASSERT( !strcmp( preset.parameters[1].name, "screenscale_y" ) );
+  TEST_ASSERT( preset.parameters[1].has_value == 0 );
+  TEST_ASSERT( !strcmp( preset.parameters[2].name, "ygain_r" ) );
+  TEST_ASSERT( preset.parameters[2].has_value == 1 );
+  TEST_ASSERT( preset.parameters[2].initial_value == 0.1875f );
+
+  sdlshader_preset_free( &preset );
+
+  TEST_ASSERT( !sdlshader_preset_parse( "/tmp/test-preset.glslp",
+                                        texture_preset_text,
+                                        &preset, &error_text ) );
+  TEST_ASSERT( error_text == NULL );
+  TEST_ASSERT( preset.shader_pass_count == 2 );
+  TEST_ASSERT( preset.passes[1].mipmap_input == 1 );
+  TEST_ASSERT( preset.texture_count == 2 );
+  TEST_ASSERT( !strcmp( preset.textures[0].name, "MaskTexture" ) );
+  TEST_ASSERT( !strcmp( preset.textures[0].path, "/tmp/resources/mask.png" ) );
+  TEST_ASSERT( !strcmp( preset.textures[1].name, "NoiseTexture" ) );
+  TEST_ASSERT( !strcmp( preset.textures[1].path, "/tmp/resources/noise.png" ) );
+
+  sdlshader_preset_free( &preset );
+
+  TEST_ASSERT( sdlshader_preset_parse( "/tmp/test-preset.glslp",
+                                       invalid_preset_text, &preset,
+                                       &error_text ) );
+  TEST_ASSERT( error_text != NULL );
+
+  libspectrum_free( error_text );
+  error_text = NULL;
+  sdlshader_preset_free( &preset );
+
+  source.path = utils_safe_strdup( "/tmp/test-shader.glsl" );
+  source.source = utils_safe_strdup( shader_text );
+  TEST_ASSERT( !sdlshader_source_load( "/home/mateid/refactored/fuse-sdl3/shaders/shaders/m-crt.glsl",
+                                       &source, &error_text ) );
+  TEST_ASSERT( error_text == NULL );
+  TEST_ASSERT( source.parameter_count > 0 );
+  TEST_ASSERT( !strcmp( source.parameters[0].name, "OVERSCAN_X" ) );
+  TEST_ASSERT( !sdlshader_source_build_stage( &source, "VERTEX", &stage_source,
+                                              &error_text ) );
+  TEST_ASSERT( stage_source != NULL );
+  TEST_ASSERT( strstr( stage_source, "#define VERTEX\n#define PARAMETER_UNIFORM\n" ) != NULL );
+
+  libspectrum_free( stage_source );
+  sdlshader_source_free( &source );
+
+  return 0;
+}
+
+static int
+sdlglsl_orientation_test( void )
+{
+  TEST_ASSERT( sdlglsl_pass_uses_flipped_input( 0 ) == 1 );
+  TEST_ASSERT( sdlglsl_pass_uses_flipped_input( 1 ) == 0 );
+  TEST_ASSERT( sdlglsl_pass_uses_flipped_input( 2 ) == 0 );
+
+  return 0;
+}
+
+static int
+sdlglsl_pass_size_test( void )
+{
+  int width = 0, height = 0;
+
+  TEST_ASSERT( !sdlglsl_calculate_pass_size( SDLSHADER_PASS_SCALE_SOURCE,
+                                             SDLSHADER_PASS_SCALE_SOURCE,
+                                             2.0f, 0.5f,
+                                             320, 240,
+                                             640, 480,
+                                             &width, &height ) );
+  TEST_ASSERT( width == 640 );
+  TEST_ASSERT( height == 120 );
+
+  TEST_ASSERT( !sdlglsl_calculate_pass_size( SDLSHADER_PASS_SCALE_VIEWPORT,
+                                             SDLSHADER_PASS_SCALE_ABSOLUTE,
+                                             0.5f, 200.0f,
+                                             320, 240,
+                                             800, 600,
+                                             &width, &height ) );
+  TEST_ASSERT( width == 400 );
+  TEST_ASSERT( height == 200 );
 
   return 0;
 }
@@ -786,6 +970,9 @@ unittests_run( void )
   r += floating_bus_test();
   r += floating_bus_merge_test();
   r += mempool_test();
+  r += sdlshader_parse_test();
+  r += sdlglsl_orientation_test();
+  r += sdlglsl_pass_size_test();
   r += paging_test();
   r += debugger_disassemble_unittest();
 
