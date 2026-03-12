@@ -42,28 +42,19 @@ widget_about_draw( void *data GCC_UNUSED )
     DISPLAY_BORDER_WIDTH_COLS;
   line = 0;
 
-  widget_dialog_with_border( dialog_left_edge_x, 2, dialog_cols, 7+2 );
+  widget_dialog_with_border( dialog_left_edge_x, 2, dialog_cols, 4+2 );
   widget_printstring( dialog_left_edge_x * 8 + 2, 16, WIDGET_COLOUR_TITLE,
-                      "About " FUSE_DOWNSTREAM_NAME );
+                      "About " FUSE_NAME );
 
-  string_width = widget_stringwidth( "The Free Unix Spectrum Emulator" );
+  string_width = widget_stringwidth( FUSE_NAME );
   x = dialog_left_edge_x * 8 + ( dialog_cols * 8 - string_width ) / 2;
   widget_printstring( x, ++line * 8 + 24, WIDGET_COLOUR_FOREGROUND,
-                      "The Free Unix Spectrum Emulator" );
+                      FUSE_NAME );
 
-  snprintf( buffer, 80, "%s %s", FUSE_DOWNSTREAM_NAME, VERSION );
+  snprintf( buffer, 80, "Version %s", FUSE_VERSION );
   string_width = widget_stringwidth( buffer );
   x = dialog_left_edge_x * 8 + ( dialog_cols * 8 - string_width ) / 2;
   widget_printstring( x, ++line * 8 + 24, WIDGET_COLOUR_FOREGROUND, buffer );
-
-  ++line;
-
-  string_width = widget_stringwidth( FUSE_COPYRIGHT );
-  x = dialog_left_edge_x * 8 + ( dialog_cols * 8 - string_width ) / 2;
-  widget_printstring( x, ++line * 8 + 24, WIDGET_COLOUR_FOREGROUND,
-                      FUSE_COPYRIGHT );
-
-  ++line;
 
   string_width = widget_stringwidth( display_url );
   x = dialog_left_edge_x * 8 + ( dialog_cols * 8 - string_width ) / 2;

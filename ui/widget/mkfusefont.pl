@@ -26,6 +26,7 @@ use strict;
 use POSIX;
 
 die "sorry, I output binary data\n" if isatty( *STDOUT );
+binmode STDOUT;
 
 my $line;
 

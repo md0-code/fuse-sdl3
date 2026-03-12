@@ -54,6 +54,19 @@ compat_get_config_path( void )
 }
 
 int
+compat_get_executable_path( char *buffer, size_t length )
+{
+  if( compat_is_absolute_path( fuse_progname ) ) {
+    strncpy( buffer, fuse_progname, length );
+    buffer[ length - 1 ] = '\0';
+    return 0;
+  }
+
+  get_relative_directory( buffer, length );
+  return 0;
+}
+
+int
 compat_is_absolute_path( const char *path )
 {
   return path[0] == '/';
@@ -84,12 +97,7 @@ compat_get_next_path( path_context *ctx )
       return 0;
     }
 
-    if( compat_is_absolute_path( fuse_progname ) ) {
-      strncpy( buffer, fuse_progname, PATH_MAX );
-      buffer[ PATH_MAX - 1 ] = '\0';
-    } else {
-      get_relative_directory( buffer, PATH_MAX );
-    }
+    if( compat_get_executable_path( buffer, sizeof( buffer ) ) ) return 0;
 
     path2 = dirname( buffer );
     snprintf( ctx->path, PATH_MAX, "%s" FUSE_DIR_SEP_STR "%s", path2,

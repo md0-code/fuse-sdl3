@@ -340,6 +340,7 @@ debugger_expression_evaluate( debugger_expression *exp )
 
   ui_error( UI_ERROR_ERROR, "unknown expression type %d", exp->type );
   fuse_abort();
+  return 0;
 }
 
 static libspectrum_dword
@@ -462,6 +463,7 @@ debugger_expression_deparse( char *buffer, size_t length,
 
   ui_error( UI_ERROR_ERROR, "unknown expression type %d", exp->type );
   fuse_abort();
+  return 0;
 }
   
 static int

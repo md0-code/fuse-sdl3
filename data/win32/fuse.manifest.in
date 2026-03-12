@@ -6,7 +6,7 @@
   name="fuse.exe"
   type="win32"
 />
-<description>Fuse (Free Unix Spectrum Emulator)</description>
+<description>Fuse SDL3</description>
 <dependency>
   <dependentAssembly>
     <assemblyIdentity

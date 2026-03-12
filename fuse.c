@@ -25,6 +25,7 @@
 
 #include <errno.h>
 #include <limits.h>
+#include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -39,7 +40,11 @@
 
 /* SDL needs to redefine main on some platforms during startup. */
 #ifdef UI_SDL
+#ifdef WIN32
+#define SDL_MAIN_HANDLED 1
+#endif
 #include "sdlcompat.h"		/* Needed on MacOS X and Windows */
+#include <SDL3/SDL_main.h>
 #endif				/* #ifdef UI_SDL */
 
 #ifdef GEKKO
@@ -63,6 +68,7 @@
 #include "movie.h"
 #include "mempool.h"
 #include "peripherals/ay.h"
+#include "peripherals/dandanator.h"
 #include "peripherals/dck.h"
 #include "peripherals/disk/beta.h"
 #include "peripherals/disk/didaktik.h"
@@ -133,6 +139,7 @@ typedef struct start_files_t {
   const char *disk_didaktik80;
   const char *disk_disciple;
   const char *dock;
+  const char *dandanator;
   const char *if2;
   const char *playback;
   const char *recording;
@@ -159,20 +166,110 @@ static void creator_register_startup( void );
 static void fuse_show_copyright(void);
 static void fuse_show_version( void );
 static void fuse_show_help( void );
+static void fuse_stdout( const char *format, ... ) GCC_PRINTF( 1, 2 );
+static void fuse_stderr( const char *format, ... ) GCC_PRINTF( 1, 2 );
 
 static int setup_start_files( start_files_t *start_files );
 static int parse_nonoption_args( int argc, char **argv, int first_arg,
 				 start_files_t *start_files );
 static int do_start_files( start_files_t *start_files );
 
+static int fuse_run( int argc, char **argv );
 static int fuse_end(void);
 
-int main(int argc, char **argv)
+#ifdef WIN32
+static void
+fuse_attach_parent_console( void )
+{
+  HANDLE stdout_handle, stderr_handle;
+
+  stdout_handle = GetStdHandle( STD_OUTPUT_HANDLE );
+  stderr_handle = GetStdHandle( STD_ERROR_HANDLE );
+
+  if( ( stdout_handle && stdout_handle != INVALID_HANDLE_VALUE ) ||
+      ( stderr_handle && stderr_handle != INVALID_HANDLE_VALUE ) ) return;
+
+  if( !AttachConsole( ATTACH_PARENT_PROCESS ) ) {
+    DWORD error = GetLastError();
+
+    if( error != ERROR_ACCESS_DENIED ) {
+      return;
+    }
+  }
+}
+#endif
+
+static void
+fuse_stream_vprintf( FILE *stream, const char *format, va_list ap,
+                     int is_stderr )
+{
+#ifdef WIN32
+  DWORD written;
+  HANDLE handle;
+  char *buffer;
+  int length;
+  va_list ap_copy;
+
+  handle = GetStdHandle( is_stderr ? STD_ERROR_HANDLE : STD_OUTPUT_HANDLE );
+
+  if( handle && handle != INVALID_HANDLE_VALUE ) {
+    va_copy( ap_copy, ap );
+    length = _vscprintf( format, ap_copy );
+    va_end( ap_copy );
+
+    if( length >= 0 ) {
+      buffer = libspectrum_new( char, length + 1 );
+
+      va_copy( ap_copy, ap );
+      vsnprintf( buffer, length + 1, format, ap_copy );
+      va_end( ap_copy );
+
+      if( WriteFile( handle, buffer, (DWORD)length, &written, NULL ) ) {
+        libspectrum_free( buffer );
+        return;
+      }
+
+      libspectrum_free( buffer );
+    }
+  }
+#endif
+
+  vfprintf( stream, format, ap );
+  fflush( stream );
+}
+
+static void
+fuse_stdout( const char *format, ... )
+{
+  va_list ap;
+
+  va_start( ap, format );
+  fuse_stream_vprintf( stdout, format, ap, 0 );
+  va_end( ap );
+}
+
+static void
+fuse_stderr( const char *format, ... )
+{
+  va_list ap;
+
+  va_start( ap, format );
+  fuse_stream_vprintf( stderr, format, ap, 1 );
+  va_end( ap );
+}
+
+static int
+fuse_run( int argc, char **argv )
 {
   int r;
 
 #ifdef WIN32
   SetErrorMode( SEM_FAILCRITICALERRORS | SEM_NOOPENFILEERRORBOX );
+  fuse_attach_parent_console();
+#endif
+
+#ifdef UI_SDL
+  SDL_SetMainReady();
 #endif
 
 #ifdef GEKKO
@@ -180,7 +277,7 @@ int main(int argc, char **argv)
 #endif				/* #ifdef GEKKO */
   
   if(fuse_init(argc,argv)) {
-    fprintf(stderr,"%s: error initialising -- giving up!\n", fuse_progname);
+      fuse_stderr( "%s: error initialising -- giving up!\n", fuse_progname );
     return 1;
   }
 
@@ -201,6 +298,30 @@ int main(int argc, char **argv)
   
   return r;
 }
+
+  #ifdef WIN32
+  int main( int argc, char **argv )
+  {
+    return fuse_run( argc, argv );
+  }
+
+  int WINAPI
+  WinMain( HINSTANCE instance, HINSTANCE previous_instance, LPSTR command_line,
+           int show_command )
+  {
+    (void)instance;
+    (void)previous_instance;
+    (void)command_line;
+    (void)show_command;
+
+    return fuse_run( __argc, __argv );
+  }
+  #else
+  int main(int argc, char **argv)
+  {
+    return fuse_run( argc, argv );
+  }
+  #endif
 
 static int
 fuse_libspectrum_init( void *context )
@@ -291,6 +412,7 @@ run_startup_manager( int *argc, char ***argv )
   beta_register_startup();
   creator_register_startup();
   covox_register_startup();
+  dandanator_register_startup();
   debugger_register_startup();
   didaktik80_register_startup();
   disciple_register_startup();
@@ -417,7 +539,7 @@ creator_init( void *context )
 
   const char *gcrypt_version;
 
-  sscanf( FUSE_UPSTREAM_VERSION, "%u.%u.%u.%u",
+  sscanf( FUSE_VERSION, "%u.%u.%u.%u",
 	  &version[0], &version[1], &version[2], &version[3] );
 
   for( i=0; i<4; i++ ) if( version[i] > 0xff ) version[i] = 0xff;
@@ -427,7 +549,7 @@ creator_init( void *context )
 
   fuse_creator = libspectrum_creator_alloc();
 
-  error = libspectrum_creator_set_program( fuse_creator, "Fuse" );
+  error = libspectrum_creator_set_program( fuse_creator, FUSE_NAME );
   if( error ) { libspectrum_creator_free( fuse_creator ); return error; }
 
   error = libspectrum_creator_set_major( fuse_creator,
@@ -442,14 +564,14 @@ creator_init( void *context )
   if( !gcrypt_version ) gcrypt_version = "not available";
 
   custom_length = snprintf( NULL, 0,
-      "fork: %s %s\n"
-      "fork-url: %s\n"
-      "upstream: Fuse %s\n"
+      "program: %s\n"
+      "version: %s\n"
+      "home: %s\n"
       "gcrypt: %s\n"
       "libspectrum: %s\n"
       "uname: %s",
-      FUSE_DOWNSTREAM_NAME, VERSION, FUSE_DOWNSTREAM_URL,
-      FUSE_UPSTREAM_VERSION, gcrypt_version, libspectrum_version(),
+      FUSE_NAME, FUSE_VERSION, FUSE_URL,
+      gcrypt_version, libspectrum_version(),
       osname );
 
   if( custom_length < 0 ) {
@@ -460,14 +582,14 @@ creator_init( void *context )
   custom = libspectrum_new( char, custom_length + 1 );
 
   snprintf( custom, custom_length + 1,
-      "fork: %s %s\n"
-      "fork-url: %s\n"
-      "upstream: Fuse %s\n"
+      "program: %s\n"
+      "version: %s\n"
+      "home: %s\n"
       "gcrypt: %s\n"
       "libspectrum: %s\n"
       "uname: %s",
-      FUSE_DOWNSTREAM_NAME, VERSION, FUSE_DOWNSTREAM_URL,
-      FUSE_UPSTREAM_VERSION, gcrypt_version, libspectrum_version(),
+      FUSE_NAME, FUSE_VERSION, FUSE_URL,
+      gcrypt_version, libspectrum_version(),
       osname );
 
   error = libspectrum_creator_set_custom(
@@ -498,16 +620,12 @@ creator_register_startup( void )
 
 static void fuse_show_copyright(void)
 {
-  printf( "\n" );
+  fuse_stdout( "\n" );
   fuse_show_version();
-  printf(
-  FUSE_DOWNSTREAM_NAME " GitHub: <" FUSE_DOWNSTREAM_URL ">.\n"
-  "Based on upstream Fuse " FUSE_UPSTREAM_VERSION ".\n"
-   FUSE_COPYRIGHT "; see the file\n"
-   "'AUTHORS' for more details.\n"
-   "\n"
-   "For help, please mail <fuse-emulator-devel@lists.sf.net> or use\n"
-   "the forums at <http://sourceforge.net/p/fuse-emulator/discussion/>.\n"
+  fuse_stdout(
+  "Project home: <" FUSE_URL ">\n"
+  "A modernized and enhanced SDL3-based ZX Spectrum emulator.\n"
+   FUSE_COPYRIGHT "\n"
    "\n"
    "This program is distributed in the hope that it will be useful,\n"
    "but WITHOUT ANY WARRANTY; without even the implied warranty of\n"
@@ -517,16 +635,14 @@ static void fuse_show_copyright(void)
 
 static void fuse_show_version( void )
 {
-  printf( "The Free Unix Spectrum Emulator (" FUSE_DOWNSTREAM_NAME
-          ") version " VERSION " (based on Fuse "
-          FUSE_UPSTREAM_VERSION ").\n" );
+  fuse_stdout( FUSE_NAME " version " FUSE_VERSION "\n" );
 }
 
 static void fuse_show_help( void )
 {
-  printf( "\n" );
+  fuse_stdout( "\n" );
   fuse_show_version();
-  printf(
+  fuse_stdout(
   "\nCommon command-line options:\n\n"
   "Boolean options (use --no-<option> to turn off):\n\n"
   "--auto-load            Automatically load tape files when opened.\n"
@@ -558,9 +674,8 @@ static void fuse_show_help( void )
   "--speed <percentage>   Set the emulation speed percentage.\n"
   "--separation <type>    Use ACB/ABC stereo for the AY-3-8912 sound chip.\n"
    "\n"
-   "For help, please mail <fuse-emulator-devel@lists.sf.net> or use\n"
-   "the forums at <http://sourceforge.net/p/fuse-emulator/discussion/>.\n"
-  "For the complete command-line reference, see the manual page of Fuse.\n\n" );
+   "Project home: <" FUSE_URL ">.\n"
+ );
 }
 
 /* Stop all activities associated with actual Spectrum emulation */
@@ -613,6 +728,7 @@ setup_start_files( start_files_t *start_files )
   start_files->disk_disciple = settings_current.discipledisk_file;
   start_files->disk_beta = settings_current.betadisk_file;
   start_files->dock = settings_current.dck_file;
+  start_files->dandanator = NULL;
   start_files->if2 = settings_current.if2_file;
   start_files->playback = settings_current.playback_file;
   start_files->recording = settings_current.record_file;
@@ -676,6 +792,12 @@ parse_nonoption_args( int argc, char **argv, int first_arg,
 
     error = utils_read_file( filename, &file );
     if( error ) return error;
+
+    if( dandanator_detect_buffer( file.buffer, file.length ) ) {
+      start_files->dandanator = filename;
+      utils_close_file( &file );
+      continue;
+    }
 
     error = libspectrum_identify_file_with_class( &type, &class, filename,
 						  file.buffer, file.length );
@@ -829,6 +951,23 @@ do_start_files( start_files_t *start_files )
 
   /* Can't use disks and the Interface 2 simultaneously */
   if( ( start_files->disk_plus3 || start_files->disk_beta ) &&
+      start_files->dandanator                                  ) {
+    ui_error(
+      UI_ERROR_WARNING,
+      "can't use disks and the Dandanator simultaneously; cartridge ignored"
+    );
+    start_files->dandanator = NULL;
+  }
+
+  if( start_files->if2 && start_files->dandanator ) {
+    ui_error(
+      UI_ERROR_WARNING,
+      "can't use the Interface 2 and the Dandanator simultaneously; Interface 2 cartridge ignored"
+    );
+    start_files->if2 = NULL;
+  }
+
+  if( ( start_files->disk_plus3 || start_files->disk_beta ) &&
       start_files->if2                                          ) {
     ui_error(
       UI_ERROR_WARNING,
@@ -878,6 +1017,11 @@ do_start_files( start_files_t *start_files )
 
   if( start_files->dock ) {
     error = utils_open_file( start_files->dock, autoload, NULL );
+    if( error ) return error;
+  }
+
+  if( start_files->dandanator ) {
+    error = utils_open_file( start_files->dandanator, autoload, NULL );
     if( error ) return error;
   }
 

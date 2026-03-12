@@ -55,8 +55,12 @@
   #define GNUC_PREREQ(maj, min) 0
 #endif
 
+#ifdef _MSC_VER
+#define BUILD_BUG_ON_ZERO(e) 0
+#else
 #define BUILD_BUG_ON_ZERO(e) \
   (sizeof(struct { int:-!!(e) * 1234; }))
+#endif
 
 #if !GNUC_PREREQ(3, 1) || defined( __STRICT_ANSI__ )
   #define MUST_BE_ARRAY(a) \
@@ -125,6 +129,7 @@ typedef struct path_context {
 int compat_osname( char *buffer, size_t length );
 const char* compat_get_temp_path( void );
 const char* compat_get_config_path( void );
+int compat_get_executable_path( char *buffer, size_t length );
 int compat_is_absolute_path( const char *path );
 int compat_get_next_path( path_context *ctx );
 

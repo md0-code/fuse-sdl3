@@ -30,6 +30,7 @@
 #include "event.h"
 #include "fuse.h"
 #include "periph.h"
+#include "peripherals/dandanator.h"
 #include "peripherals/if1.h"
 #include "peripherals/multiface.h"
 #include "peripherals/ula.h"
@@ -409,16 +410,18 @@ writeport_internal( libspectrum_word port, libspectrum_byte b )
 static void
 update_cartridge_menu( void )
 {
-  int cartridge, dock, if2;
+  int cartridge, dock, dandanator, if2;
 
   dock = machine_current->capabilities &
          LIBSPECTRUM_MACHINE_CAPABILITY_TIMEX_DOCK;
+  dandanator = dandanator_available();
   if2 = periph_is_active( PERIPH_TYPE_INTERFACE2 );
 
-  cartridge = dock || if2;
+  cartridge = dock || dandanator || if2;
 
   ui_menu_activate( UI_MENU_ITEM_MEDIA_CARTRIDGE, cartridge );
   ui_menu_activate( UI_MENU_ITEM_MEDIA_CARTRIDGE_DOCK, dock );
+  ui_menu_activate( UI_MENU_ITEM_MEDIA_CARTRIDGE_DANDANATOR, dandanator );
   ui_menu_activate( UI_MENU_ITEM_MEDIA_CARTRIDGE_IF2, if2 );
 }
 

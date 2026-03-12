@@ -1,28 +1,28 @@
 # Fuse SDL3
 
-This repository is a directly maintained SDL3 fork of Fuse 1.6.0.
+This repository contains the directly maintained Fuse SDL3 codebase.
 
-It is intended to stand on its own as the main fork repository:
+It is intended to stand on its own as the main project repository:
 
 * the full source tree lives here;
 * build, validation, and release instructions live alongside the code; and
-* there is no outer patch-export workflow or vendored pristine upstream mirror.
+* there is no outer patch-export workflow or vendored pristine source mirror.
 
 ## Repository layout
 
 The main builder-facing documents are:
 
-* `BUILD-SDL3.md` for dependency setup and build steps;
-* `CHANGELOG-SDL3.md` for a high-level summary of downstream features since
-  Fuse 1.6.0;
-* `TESTING-SDL3.md` for runtime validation and smoke tests;
-* `RELEASE-SDL3.md` for release preparation; and
+* `BUILD.md` for dependency setup and build steps;
+* `CHANGELOG.md` for a high-level summary of project changes;
 * `INSTALL` for the short CMake install summary.
 
 The primary short build commands are:
 
 * Linux: `sh ./scripts/build-linux.sh`
 * Windows PowerShell: `./scripts/build-windows.ps1`
+
+The Windows script does not run smoke tests unless you request them explicitly
+with `-RuntimeSmokeTest` or `-ShaderSmokeTest`.
 
 To build distributable archives with bundled runtime dependencies:
 
@@ -46,25 +46,23 @@ The AppImage path stages the same portable Linux layout into an AppDir, then
 builds a single `.AppImage`. If `appimagetool` is not installed, the Linux
 script downloads a suitable copy automatically.
 
-The roadmap for planned fork work is tracked in `planNewFeatures.md`.
+The roadmap for planned project work is tracked in `planNewFeatures.md`.
 
-## Fork behavior
+## Project behavior
 
-This fork keeps the upstream Fuse codebase as its base and carries the SDL3
-integration directly in the main branch history.
+Fuse SDL3 carries the SDL3 integration directly in the main branch history.
 
-Important current fork expectations:
+Important current project expectations:
 
-* CMake is the only supported build system for this fork;
+* CMake is the only supported build system for this project;
 * the maintained product is the SDL3 UI build;
 * `libxml2` is enabled by default so XML settings support is always present; and
 * the repository should remain free of obsolete patch-stack artifacts.
 
-## What Fuse provides
+## What Fuse SDL3 provides
 
-Fuse is an emulator of the ZX Spectrum family and several related machines.
-This fork preserves the upstream emulation scope while updating the SDL UI to
-SDL3.
+Fuse SDL3 is an emulator of the ZX Spectrum family and several related
+machines with an SDL3 user interface.
 
 Highlights include:
 
@@ -73,11 +71,11 @@ Highlights include:
   Scorpion ZS 256 support;
 * tape loading, snapshots, and RZX input recording support;
 * multiple joystick, printer, storage, audio, and network peripherals; and
-* SDL-based audio and video presentation with the downstream SDL3 port.
+* SDL3-based audio and video presentation.
 
 ## Dependencies
 
-At minimum, building the SDL3 fork requires:
+At minimum, building Fuse SDL3 requires:
 
 * a C toolchain;
 * `cmake`;
@@ -91,14 +89,14 @@ Optional libraries such as `libpng`, `libgcrypt`, `zlib`, `glib-2.0`, and
 
 See `BUILD-SDL3.md` for exact package names and build commands.
 
-## Help and upstream context
+## Help and project context
 
-Upstream Fuse project resources are still relevant for emulator behavior,
+Related project resources are still relevant for emulator behavior,
 machine support, and general community help:
 
 * mailing list: <fuse-emulator-devel@lists.sf.net>
 * forums: <http://sourceforge.net/p/fuse-emulator/discussion/>
-* upstream project page: <http://fuse-emulator.sourceforge.net/>
+* original project page: <http://fuse-emulator.sourceforge.net/>
 
-This fork keeps the original upstream project context intact while maintaining
-the SDL3-specific integration and release flow directly in this repository.
+Fuse SDL3 keeps the broader emulator context available while maintaining the
+SDL3-specific integration and release flow directly in this repository.

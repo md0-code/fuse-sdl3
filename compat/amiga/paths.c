@@ -47,6 +47,31 @@ compat_get_config_path( void )
 }
 
 int
+compat_get_executable_path( char *buffer, size_t length )
+{
+  if( compat_is_absolute_path( fuse_progname ) ) {
+    strncpy( buffer, fuse_progname, length );
+    buffer[ length - 1 ] = '\0';
+    return 0;
+  }
+
+  if( !getcwd( buffer, length ) ) {
+    ui_error( UI_ERROR_ERROR, "error getting current working directory: %s",
+              strerror( errno ) );
+    return 1;
+  }
+
+  if( strlen( buffer ) + strlen( FUSE_DIR_SEP_STR ) + strlen( fuse_progname ) + 1 > length ) {
+    ui_error( UI_ERROR_ERROR, "executable path is too long" );
+    return 1;
+  }
+
+  strcat( buffer, FUSE_DIR_SEP_STR );
+  strcat( buffer, fuse_progname );
+  return 0;
+}
+
+int
 compat_is_absolute_path( const char *path )
 {
   return strchr(path,':');
@@ -77,20 +102,7 @@ compat_get_next_path( path_context *ctx )
       return 0;
     }
 
-    if( compat_is_absolute_path( fuse_progname ) ) {
-      strncpy( buffer, fuse_progname, PATH_MAX );
-      buffer[ PATH_MAX - 1 ] = '\0';
-    } else {
-      size_t len;
-      len = PATH_MAX - strlen( fuse_progname ) - strlen( FUSE_DIR_SEP_STR );
-      if( !getcwd( buffer, len ) ) {
-        ui_error( UI_ERROR_ERROR, "error getting current working directory: %s",
-	          strerror( errno ) );
-        return 0;
-      }
-      strcat( buffer, FUSE_DIR_SEP_STR );
-      strcat( buffer, fuse_progname );
-    }
+    if( compat_get_executable_path( buffer, sizeof( buffer ) ) ) return 0;
 
     path2 = dirname( buffer );
     snprintf( ctx->path, PATH_MAX, "%s" FUSE_DIR_SEP_STR "%s", path2,

@@ -42,6 +42,7 @@
 #include "fuse.h"
 #include "machines/specplus3.h"
 #include "memory_pages.h"
+#include "peripherals/dandanator.h"
 #include "peripherals/dck.h"
 #include "peripherals/ide/divide.h"
 #include "peripherals/ide/divmmc.h"
@@ -81,6 +82,13 @@ utils_open_file( const char *filename, int autoload,
 
   /* Read the file into a buffer */
   if( utils_read_file( filename, &file ) ) return 1;
+
+  if( dandanator_detect_buffer( file.buffer, file.length ) ) {
+    error = dandanator_insert( filename );
+    utils_close_file( &file );
+    if( type_ptr ) *type_ptr = LIBSPECTRUM_ID_UNKNOWN;
+    return error;
+  }
 
   /* See if we can work out what it is */
   if( libspectrum_identify_file_with_class( &type, &class, filename,
@@ -249,7 +257,7 @@ utils_open_snap( void )
   char *filename;
   int error;
 
-  filename = ui_get_open_filename( "Fuse - Load Snapshot" );
+  filename = ui_get_open_filename( "Fuse SDL3 - Load Snapshot" );
   if( !filename ) return -1;
 
   error = snapshot_read( filename );

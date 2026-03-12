@@ -52,6 +52,8 @@ typedef struct sdlglsl_history_texture {
 typedef struct sdlglsl_backend {
 
   int active;
+  sdlshader_parameter *parameters;
+  size_t parameter_count;
 
 #if HAVE_OPENGL
 #define SDLGLSL_HISTORY_TEXTURE_COUNT 7
@@ -66,8 +68,6 @@ typedef struct sdlglsl_backend {
   sdlglsl_texture *textures;
   size_t texture_count;
   sdlglsl_history_texture history_textures[ SDLGLSL_HISTORY_TEXTURE_COUNT ];
-  sdlshader_parameter *parameters;
-  size_t parameter_count;
   int pass_count;
   sdlglsl_pass *passes;
 #endif

@@ -182,52 +182,52 @@ widget_filesel_category_for_title( const char *title )
 {
   if( !title ) return "general";
 
-  if( !strcmp( title, "Fuse - Open Spectrum File" ) ) return "open-spectrum";
+  if( !strcmp( title, "Fuse SDL3 - Open Spectrum File" ) ) return "open-spectrum";
 
-  if( !strcmp( title, "Fuse - Load Snapshot" ) ||
-      !strcmp( title, "Fuse - Load Snapshot " ) ||
-      !strcmp( title, "Fuse - Save Snapshot" ) ) {
+  if( !strcmp( title, "Fuse SDL3 - Load Snapshot" ) ||
+      !strcmp( title, "Fuse SDL3 - Load Snapshot " ) ||
+      !strcmp( title, "Fuse SDL3 - Save Snapshot" ) ) {
     return "snapshot";
   }
 
-  if( !strcmp( title, "Fuse - Open Tape" ) ||
-      !strcmp( title, "Fuse - Write Tape" ) ) {
+  if( !strcmp( title, "Fuse SDL3 - Open Tape" ) ||
+      !strcmp( title, "Fuse SDL3 - Write Tape" ) ) {
     return "tape";
   }
 
-  if( !strcmp( title, "Fuse - Start Replay" ) ||
-      !strcmp( title, "Fuse - Finalise Recording" ) ||
-      !strcmp( title, "Fuse - Load RZX" ) ||
-      !strcmp( title, "Fuse - Continue Recording" ) ||
-      !strcmp( title, "Fuse - Start Recording" ) ) {
+  if( !strcmp( title, "Fuse SDL3 - Start Replay" ) ||
+      !strcmp( title, "Fuse SDL3 - Finalise Recording" ) ||
+      !strcmp( title, "Fuse SDL3 - Load RZX" ) ||
+      !strcmp( title, "Fuse SDL3 - Continue Recording" ) ||
+      !strcmp( title, "Fuse SDL3 - Start Recording" ) ) {
     return "recording";
   }
 
-  if( !strcmp( title, "Fuse - Record Movie File" ) ) return "movie";
-  if( !strcmp( title, "Fuse - Start AY Log" ) ) return "aylog";
-  if( !strcmp( title, "Fuse - Save Profile Data" ) ) return "profile";
-  if( !strcmp( title, "Fuse - Select Shader Preset" ) ) return "shader";
-  if( !strcmp( title, "Fuse - Select ROM" ) ) return "rom";
+  if( !strcmp( title, "Fuse SDL3 - Record Movie File" ) ) return "movie";
+  if( !strcmp( title, "Fuse SDL3 - Start AY Log" ) ) return "aylog";
+  if( !strcmp( title, "Fuse SDL3 - Save Profile Data" ) ) return "profile";
+  if( !strcmp( title, "Fuse SDL3 - Select Shader Preset" ) ) return "shader";
+  if( !strcmp( title, "Fuse SDL3 - Select ROM" ) ) return "rom";
 
-  if( !strcmp( title, "Fuse - Load Binary Data" ) ||
-      !strcmp( title, "Fuse - Save Binary Data" ) ) {
+  if( !strcmp( title, "Fuse SDL3 - Load Binary Data" ) ||
+      !strcmp( title, "Fuse SDL3 - Save Binary Data" ) ) {
     return "binary";
   }
 
-  if( !strcmp( title, "Fuse - Open SCR Screenshot" ) ||
-      !strcmp( title, "Fuse - Open MLT Screenshot" ) ||
-      !strcmp( title, "Fuse - Save Screenshot as SCR" ) ||
-      !strcmp( title, "Fuse - Save Screenshot as MLT" ) ||
-      !strcmp( title, "Fuse - Save Screenshot as PNG" ) ) {
+  if( !strcmp( title, "Fuse SDL3 - Open SCR Screenshot" ) ||
+      !strcmp( title, "Fuse SDL3 - Open MLT Screenshot" ) ||
+      !strcmp( title, "Fuse SDL3 - Save Screenshot as SCR" ) ||
+      !strcmp( title, "Fuse SDL3 - Save Screenshot as MLT" ) ||
+      !strcmp( title, "Fuse SDL3 - Save Screenshot as PNG" ) ) {
     return "screenshot";
   }
 
-  if( !strcmp( title, "Fuse - Capture to SVG File" ) ) return "svg";
-  if( !strcmp( title, "Fuse - Select File for Communication" ) ) return "communication";
-  if( !strcmp( title, "Fuse - Insert Hard Disk File" ) ) return "harddisk";
+  if( !strcmp( title, "Fuse SDL3 - Capture to SVG File" ) ) return "svg";
+  if( !strcmp( title, "Fuse SDL3 - Select File for Communication" ) ) return "communication";
+  if( !strcmp( title, "Fuse SDL3 - Insert Hard Disk File" ) ) return "harddisk";
 
-  if( !strcmp( title, "Fuse - Insert Timex Dock Cartridge" ) ||
-      !strcmp( title, "Fuse - Insert Interface 2 Cartridge" ) ) {
+  if( !strcmp( title, "Fuse SDL3 - Insert Timex Dock Cartridge" ) ||
+      !strcmp( title, "Fuse SDL3 - Insert Interface 2 Cartridge" ) ) {
     return "cartridge";
   }
 
