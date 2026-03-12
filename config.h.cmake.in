@@ -15,26 +15,26 @@
 /* Defined if we support ttx2000s */
 #cmakedefine01 BUILD_TTX2000S
 
-/* Define downstream build number of Fuse SDL3 */
+/* Define the Fuse SDL3 build number */
 #define FUSE_BUILD_NUMBER @FUSE_BUILD_NUMBER@
 
-/* Define copyright of Fuse */
+/* Define copyright of Fuse SDL3 */
 #define FUSE_COPYRIGHT "@FUSE_COPYRIGHT@"
 
-/* Define downstream product name */
-#define FUSE_DOWNSTREAM_NAME "@FUSE_DOWNSTREAM_NAME@"
+/* Define the Fuse SDL3 product name */
+#define FUSE_NAME "@FUSE_NAME@"
 
-/* Define downstream project URL */
-#define FUSE_DOWNSTREAM_URL "@FUSE_DOWNSTREAM_URL@"
+/* Define the Fuse SDL3 project URL */
+#define FUSE_URL "@FUSE_URL@"
+
+/* Define the Fuse SDL3 version */
+#define FUSE_VERSION "@FUSE_VERSION@"
 
 /* Defined if the Fuse icon is installed */
 #cmakedefine01 FUSE_ICON_AVAILABLE
 
 /* Define version information for win32 executables */
 #define FUSE_RC_VERSION @FUSE_RC_VERSION@
-
-/* Define upstream Fuse version */
-#define FUSE_UPSTREAM_VERSION "@FUSE_UPSTREAM_VERSION@"
 
 /* Define to 1 if you have the `dirname' function. */
 #cmakedefine01 HAVE_DIRNAME

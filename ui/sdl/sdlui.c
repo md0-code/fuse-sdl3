@@ -24,14 +24,15 @@
 
 #include <config.h>
 
-#include <sys/types.h>
-#include <sys/wait.h>
-
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
 
+#if defined( __linux__ )
+#include <sys/types.h>
+#include <sys/wait.h>
 #include <unistd.h>
+#endif
 
 #include "sdlcompat.h"
 
@@ -46,6 +47,7 @@
 #include "ui/scaler/scaler.h"
 #include "menu.h"
 
+#if defined( __linux__ )
 static int
 sdlui_env_enabled( const char *name )
 {
@@ -131,7 +133,6 @@ sdlui_probe_wayland_libdecor_crash( void )
 static void
 sdlui_configure_video_environment( void )
 {
-#if defined( __linux__ )
   const char *video_driver = getenv( "SDL_VIDEODRIVER" );
   const char *display = getenv( "DISPLAY" );
 
@@ -170,8 +171,13 @@ sdlui_configure_video_environment( void )
   fprintf( stderr,
            "%s: confirmed a Wayland libdecor crash but no X11 display is available; disabling libdecor plugins instead\n",
            fuse_progname );
-#endif
 }
+#else
+static void
+sdlui_configure_video_environment( void )
+{
+}
+#endif
 
 static void
 atexit_proc( void )
@@ -296,10 +302,10 @@ ui_end( void )
 int
 ui_statusbar_update_speed( float speed )
 {
-  char buffer[15];
-  const char fuse[] = "Fuse";
+  char buffer[24];
+  const char fuse[] = "Fuse SDL3";
 
-  snprintf( buffer, 15, "%s - %3.0f%%", fuse, speed );
+  snprintf( buffer, sizeof( buffer ), "%s - %3.0f%%", fuse, speed );
 
   /* FIXME: Icon caption should be snapshot name? */
   SDL_WM_SetCaption( buffer, fuse );

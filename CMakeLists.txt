@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.20)
 
-project(fuse VERSION 1.6.0.1 LANGUAGES C)
+project(fuse VERSION 0.1.0 LANGUAGES C)
 
 include(GNUInstallDirs)
 set(CMAKE_C_STANDARD 99)
@@ -38,16 +38,31 @@ find_package(BZip2)
 find_program(FLEX_EXECUTABLE NAMES win_flex flex REQUIRED)
 find_program(BISON_EXECUTABLE NAMES win_bison bison REQUIRED)
 
+if(WIN32 AND DEFINED ENV{LOCALAPPDATA})
+  file(GLOB _fuse_winget_flex_candidates "$ENV{LOCALAPPDATA}/Microsoft/WinGet/Packages/*/win_flex.exe")
+  list(LENGTH _fuse_winget_flex_candidates _fuse_winget_flex_count)
+  if(_fuse_winget_flex_count GREATER 0)
+    list(GET _fuse_winget_flex_candidates 0 FLEX_EXECUTABLE)
+  endif()
+
+  file(GLOB _fuse_winget_bison_candidates "$ENV{LOCALAPPDATA}/Microsoft/WinGet/Packages/*/win_bison.exe")
+  list(LENGTH _fuse_winget_bison_candidates _fuse_winget_bison_count)
+  if(_fuse_winget_bison_count GREATER 0)
+    list(GET _fuse_winget_bison_candidates 0 BISON_EXECUTABLE)
+  endif()
+endif()
+
 string(TOUPPER "${CMAKE_BUILD_TYPE}" FUSE_BUILD_TYPE_UPPER)
 
 get_filename_component(BISON_REAL_EXECUTABLE "${BISON_EXECUTABLE}" REALPATH)
 get_filename_component(BISON_BIN_DIR "${BISON_REAL_EXECUTABLE}" DIRECTORY)
-set(FUSE_BISON_COMMAND "${BISON_EXECUTABLE}")
+set(FUSE_BISON_COMMAND "${BISON_REAL_EXECUTABLE}")
 if(EXISTS "${BISON_BIN_DIR}/data")
-  set(FUSE_BISON_COMMAND "${CMAKE_COMMAND}" -E env "BISON_PKGDATADIR=${BISON_BIN_DIR}/data" "${BISON_EXECUTABLE}")
+  set(FUSE_BISON_COMMAND "${CMAKE_COMMAND}" -E env "BISON_PKGDATADIR=${BISON_BIN_DIR}/data" "${BISON_REAL_EXECUTABLE}")
 endif()
 
 set(FUSE_LIBSPECTRUM_ROOT "" CACHE PATH "Optional prefix containing a prebuilt libspectrum for native builds")
+option(FUSE_USE_INTERNAL_LIBSPECTRUM "Build the vendored libspectrum subproject instead of using an external package" ${WIN32})
 
 if(DEFINED VCPKG_INSTALLED_DIR AND DEFINED VCPKG_TARGET_TRIPLET)
   set(_fuse_pkg_config_paths
@@ -152,6 +167,12 @@ if(LIBSPECTRUM_INCLUDE_DIR AND LIBSPECTRUM_LIBRARY)
   )
   set(LIBSPECTRUM_INCLUDE_DIRS "${LIBSPECTRUM_INCLUDE_DIR}")
   set(FUSE_LIBSPECTRUM_TARGET FUSE::LIBSPECTRUM)
+elseif(FUSE_USE_INTERNAL_LIBSPECTRUM)
+  set(LIBSPECTRUM_INSTALL OFF CACHE BOOL "Install libspectrum targets and development files" FORCE)
+  add_subdirectory(external/libspectrum)
+  set(FUSE_LIBSPECTRUM_TARGET libspectrum::libspectrum)
+  set(LIBSPECTRUM_INCLUDE_DIRS "${FUSE_INTERNAL_LIBSPECTRUM_INCLUDE_DIRS}")
+  set(LIBSPECTRUM_CFLAGS_OTHER "${FUSE_INTERNAL_LIBSPECTRUM_CFLAGS_OTHER}")
 elseif(PkgConfig_FOUND)
   pkg_check_modules(LIBSPECTRUM QUIET IMPORTED_TARGET libspectrum>=1.5.0)
   if(TARGET PkgConfig::LIBSPECTRUM)
@@ -161,7 +182,7 @@ endif()
 
 if(NOT FUSE_LIBSPECTRUM_TARGET)
   message(FATAL_ERROR
-    "libspectrum >= 1.5.0 was not found. On Windows, run scripts/bootstrap-windows-deps.ps1 and point FUSE_LIBSPECTRUM_ROOT at a native libspectrum prefix."
+    "libspectrum >= 1.5.0 was not found. Enable FUSE_USE_INTERNAL_LIBSPECTRUM, run scripts/build-windows.ps1 on Windows, or point FUSE_LIBSPECTRUM_ROOT at a native libspectrum prefix."
   )
 endif()
 
@@ -175,17 +196,17 @@ option(FUSE_PORTABLE_PACKAGE "Build package archives with a portable layout" OFF
 set(FUSE_ROMSDIR "" CACHE PATH "Optional installed ROM directory override")
 
 set(FUSE_BUILD_NUMBER 1)
-set(FUSE_UPSTREAM_VERSION "1.6.0")
-set(FUSE_DOWNSTREAM_NAME "Fuse SDL3")
-set(FUSE_DOWNSTREAM_URL "https://fuse-emulator.sourceforge.net/")
-set(FUSE_COPYRIGHT "(c) 1999-2021 Philip Kendall and others")
-set(FUSE_RC_VERSION "1,6,0,1")
-set(PACKAGE "fuse")
-set(PACKAGE_BUGREPORT "https://sourceforge.net/p/fuse-emulator/bugs/")
-set(PACKAGE_NAME "fuse")
-set(PACKAGE_STRING "fuse ${PROJECT_VERSION}")
-set(PACKAGE_TARNAME "fuse")
-set(PACKAGE_URL "https://fuse-emulator.sourceforge.net/")
+set(FUSE_NAME "Fuse SDL3")
+set(FUSE_URL "https://github.com/md0-code/fuse-sdl3")
+set(FUSE_VERSION "${PROJECT_VERSION}")
+set(FUSE_COPYRIGHT "Published under the GNU General Public License, version 3 or later")
+set(FUSE_RC_VERSION "0,1,0,0")
+set(PACKAGE "fuse-sdl3")
+set(PACKAGE_BUGREPORT "https://github.com/md0-code/fuse-sdl3/issues")
+set(PACKAGE_NAME "Fuse SDL3")
+set(PACKAGE_STRING "Fuse SDL3 ${PROJECT_VERSION}")
+set(PACKAGE_TARNAME "fuse-sdl3")
+set(PACKAGE_URL "https://github.com/md0-code/fuse-sdl3")
 set(PACKAGE_VERSION "${PROJECT_VERSION}")
 set(VERSION "${PROJECT_VERSION}")
 set(LT_OBJDIR ".libs/")
@@ -819,6 +840,7 @@ set(FUSE_SOURCES
   periph.c
   peripherals/ay.c
   peripherals/covox.c
+  peripherals/dandanator.c
   peripherals/dck.c
   peripherals/disk/beta.c
   peripherals/disk/crc.c
@@ -993,6 +1015,20 @@ add_dependencies(fuse-scalers32 fuse-generated)
 add_executable(fuse ${FUSE_SOURCES})
 add_dependencies(fuse fuse-generated)
 
+if(WIN32)
+  set_target_properties(fuse PROPERTIES WIN32_EXECUTABLE ON)
+  add_executable(fuse-console-launcher compat/win32/fuse_console_launcher.c)
+  set_target_properties(fuse-console-launcher PROPERTIES
+    OUTPUT_NAME "fuse-cli"
+  )
+endif()
+
+if(FUSE_USE_INTERNAL_LIBSPECTRUM AND TARGET ${FUSE_INTERNAL_LIBSPECTRUM_GENERATED_TARGET})
+  add_dependencies(fuse-scalers16 ${FUSE_INTERNAL_LIBSPECTRUM_GENERATED_TARGET})
+  add_dependencies(fuse-scalers32 ${FUSE_INTERNAL_LIBSPECTRUM_GENERATED_TARGET})
+  add_dependencies(fuse ${FUSE_INTERNAL_LIBSPECTRUM_GENERATED_TARGET})
+endif()
+
 if(FUSE_PORTABLE_PACKAGE AND UNIX AND NOT WIN32)
   set_target_properties(fuse PROPERTIES
     BUILD_RPATH "\$ORIGIN/lib"
@@ -1000,13 +1036,20 @@ if(FUSE_PORTABLE_PACKAGE AND UNIX AND NOT WIN32)
   )
 endif()
 
-add_executable(libdecor-wayland-repro repro/libdecor-wayland-repro.c)
-add_executable(fuse-linkset-repro repro/fuse-linkset-repro.c)
+if(EXISTS "${CMAKE_SOURCE_DIR}/repro/libdecor-wayland-repro.c")
+  add_executable(libdecor-wayland-repro repro/libdecor-wayland-repro.c)
+endif()
+
+if(EXISTS "${CMAKE_SOURCE_DIR}/repro/fuse-linkset-repro.c")
+  add_executable(fuse-linkset-repro repro/fuse-linkset-repro.c)
+endif()
 
 if(NOT WIN32)
   pkg_check_modules(LIBDECOR REQUIRED IMPORTED_TARGET libdecor-0)
   pkg_check_modules(WAYLANDCLIENT REQUIRED IMPORTED_TARGET wayland-client)
-  add_executable(libdecor-direct-repro repro/libdecor-direct-repro.c)
+  if(EXISTS "${CMAKE_SOURCE_DIR}/repro/libdecor-direct-repro.c")
+    add_executable(libdecor-direct-repro repro/libdecor-direct-repro.c)
+  endif()
 endif()
 
 set_source_files_properties(
@@ -1043,28 +1086,38 @@ target_link_libraries(fuse PRIVATE
   ${FUSE_SDL_TARGET}
 )
 
-target_link_libraries(libdecor-wayland-repro PRIVATE
-  ${FUSE_SDL_TARGET}
-)
+if(TARGET libdecor-wayland-repro)
+  target_link_libraries(libdecor-wayland-repro PRIVATE
+    ${FUSE_SDL_TARGET}
+  )
+endif()
 
-target_link_libraries(fuse-linkset-repro PRIVATE
-  ${FUSE_SDL_TARGET}
-  ${CMAKE_DL_LIBS}
-)
+if(TARGET fuse-linkset-repro)
+  target_link_libraries(fuse-linkset-repro PRIVATE
+    ${FUSE_SDL_TARGET}
+    ${CMAKE_DL_LIBS}
+  )
+endif()
 
-target_include_directories(libdecor-wayland-repro PRIVATE
-  ${SDL_INCLUDE_DIRS}
-)
+if(TARGET libdecor-wayland-repro)
+  target_include_directories(libdecor-wayland-repro PRIVATE
+    ${SDL_INCLUDE_DIRS}
+  )
+endif()
 
-target_include_directories(fuse-linkset-repro PRIVATE
-  ${SDL_INCLUDE_DIRS}
-)
+if(TARGET fuse-linkset-repro)
+  target_include_directories(fuse-linkset-repro PRIVATE
+    ${SDL_INCLUDE_DIRS}
+  )
+endif()
 
 if(NOT WIN32)
-  target_link_libraries(libdecor-direct-repro PRIVATE
-    PkgConfig::LIBDECOR
-    PkgConfig::WAYLANDCLIENT
-  )
+  if(TARGET libdecor-direct-repro)
+    target_link_libraries(libdecor-direct-repro PRIVATE
+      PkgConfig::LIBDECOR
+      PkgConfig::WAYLANDCLIENT
+    )
+  endif()
 endif()
 
 if(HAVE_LIB_GLIB)
@@ -1115,14 +1168,16 @@ target_sources(fuse PRIVATE
 add_custom_command(TARGET fuse POST_BUILD
   COMMAND "${CMAKE_COMMAND}" -E make_directory "$<TARGET_FILE_DIR:fuse>/lib"
   COMMAND "${CMAKE_COMMAND}" -E make_directory "$<TARGET_FILE_DIR:fuse>/roms"
+  COMMAND "${CMAKE_COMMAND}" -E make_directory "$<TARGET_FILE_DIR:fuse>/shaders"
   COMMAND "${CMAKE_COMMAND}" -E copy_directory "${CMAKE_SOURCE_DIR}/lib" "$<TARGET_FILE_DIR:fuse>/lib"
   COMMAND "${CMAKE_COMMAND}" -E copy_directory "${CMAKE_SOURCE_DIR}/roms" "$<TARGET_FILE_DIR:fuse>/roms"
+  COMMAND "${CMAKE_COMMAND}" -E copy_directory "${CMAKE_SOURCE_DIR}/shaders" "$<TARGET_FILE_DIR:fuse>/shaders"
   VERBATIM
 )
 
-if(WIN32 AND LIBSPECTRUM_RUNTIME)
+if(WIN32)
   add_custom_command(TARGET fuse POST_BUILD
-    COMMAND "${CMAKE_COMMAND}" -E copy_if_different ${LIBSPECTRUM_RUNTIME_DLLS} "$<TARGET_FILE_DIR:fuse>"
+    COMMAND "${CMAKE_COMMAND}" -E copy_if_different $<TARGET_RUNTIME_DLLS:fuse> "$<TARGET_FILE_DIR:fuse>"
     COMMAND_EXPAND_LISTS
     VERBATIM
   )
@@ -1136,6 +1191,16 @@ install(TARGETS fuse
     WORLD_READ WORLD_EXECUTE
 )
 
+if(WIN32)
+  install(TARGETS fuse-console-launcher
+    RUNTIME DESTINATION "${FUSE_RUNTIME_INSTALL_DESTINATION}"
+    PERMISSIONS
+      OWNER_READ OWNER_WRITE OWNER_EXECUTE
+      GROUP_READ GROUP_EXECUTE
+      WORLD_READ WORLD_EXECUTE
+  )
+endif()
+
 install(SCRIPT "${FUSE_RUNTIME_DEPENDENCY_SCRIPT}")
 
 install(FILES "${FUSE_GENERATED_DEFAULT_CONFIG}"
@@ -1145,6 +1210,10 @@ install(FILES "${FUSE_GENERATED_DEFAULT_CONFIG}"
 
 install(DIRECTORY "${CMAKE_SOURCE_DIR}/roms/"
   DESTINATION "${FUSE_ROMS_INSTALL_DESTINATION}"
+)
+
+install(DIRECTORY "${CMAKE_SOURCE_DIR}/shaders/"
+  DESTINATION "${FUSE_RUNTIME_INSTALL_DESTINATION}/shaders"
 )
 
 if(UNIX AND NOT APPLE AND NOT FUSE_PORTABLE_PACKAGE)
@@ -1185,7 +1254,7 @@ set(CPACK_PACKAGE_NAME "fuse-sdl3")
 set(CPACK_PACKAGE_VENDOR "Fuse SDL3")
 set(CPACK_PACKAGE_VERSION "${PROJECT_VERSION}")
 set(CPACK_PACKAGE_INSTALL_DIRECTORY "fuse-sdl3")
-set(CPACK_PACKAGE_CONTACT "http://sourceforge.net/p/fuse-emulator/bugs/")
+set(CPACK_PACKAGE_CONTACT "https://github.com/md0-code/fuse-sdl3")
 set(CPACK_MONOLITHIC_INSTALL ON)
 set(CPACK_INCLUDE_TOPLEVEL_DIRECTORY ON)
 set(CPACK_STRIP_FILES OFF)

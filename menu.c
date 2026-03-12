@@ -30,6 +30,7 @@
 #include "menu.h"
 #include "movie.h"
 #include "machines/specplus3.h"
+#include "peripherals/dandanator.h"
 #include "peripherals/dck.h"
 #include "peripherals/disk/beta.h"
 #include "peripherals/disk/didaktik.h"
@@ -85,7 +86,7 @@ MENU_CALLBACK( menu_file_open )
 
   fuse_emulation_pause();
 
-  filename = ui_get_open_filename( "Fuse - Open Spectrum File" );
+  filename = ui_get_open_filename( "Fuse SDL3 - Open Spectrum File" );
   if( !filename ) { fuse_emulation_unpause(); return; }
 
   utils_open_file( filename, tape_can_autoload(), NULL );
@@ -158,7 +159,7 @@ MENU_CALLBACK( menu_file_recording_play )
 
   fuse_emulation_pause();
 
-  recording = ui_get_open_filename( "Fuse - Start Replay" );
+  recording = ui_get_open_filename( "Fuse SDL3 - Start Replay" );
   if( !recording ) { fuse_emulation_unpause(); return; }
 
   rzx_start_playback( recording, 1 );
@@ -191,7 +192,7 @@ MENU_CALLBACK( menu_file_recording_finalise )
 
   fuse_emulation_pause();
 
-  rzx_filename = ui_get_open_filename( "Fuse - Finalise Recording" );
+  rzx_filename = ui_get_open_filename( "Fuse SDL3 - Finalise Recording" );
   if( !rzx_filename ) { fuse_emulation_unpause(); return; }
 
   error = rzx_finalise_recording( rzx_filename );
@@ -223,7 +224,7 @@ MENU_CALLBACK( menu_file_screenshot_openscrscreenshot )
 
   fuse_emulation_pause();
 
-  filename = ui_get_open_filename( "Fuse - Open SCR Screenshot" );
+  filename = ui_get_open_filename( "Fuse SDL3 - Open SCR Screenshot" );
   if( !filename ) { fuse_emulation_unpause(); return; }
 
   screenshot_scr_read( filename );
@@ -239,7 +240,7 @@ MENU_CALLBACK( menu_file_screenshot_openmltscreenshot )
 
   fuse_emulation_pause();
 
-  filename = ui_get_open_filename( "Fuse - Open MLT Screenshot" );
+  filename = ui_get_open_filename( "Fuse SDL3 - Open MLT Screenshot" );
   if( !filename ) { fuse_emulation_unpause(); return; }
 
   screenshot_mlt_read( filename );
@@ -335,7 +336,7 @@ MENU_CALLBACK( menu_options_shader_select )
 
   fuse_emulation_pause();
 
-  filename = ui_get_open_filename( "Fuse - Select Shader Preset" );
+  filename = ui_get_open_filename( "Fuse SDL3 - Select Shader Preset" );
   if( !filename ) { fuse_emulation_unpause(); return; }
 
   settings_set_string( &settings_current.startup_shader, filename );
@@ -390,7 +391,7 @@ MENU_CALLBACK( menu_machine_profiler_stop )
 
   fuse_emulation_pause();
 
-  filename = ui_get_save_filename( "Fuse - Save Profile Data" );
+  filename = ui_get_save_filename( "Fuse SDL3 - Save Profile Data" );
   if( !filename ) { fuse_emulation_unpause(); return; }
 
   profile_finish( filename );
@@ -418,7 +419,7 @@ MENU_CALLBACK( menu_media_tape_open )
 
   fuse_emulation_pause();
 
-  filename = ui_get_open_filename( "Fuse - Open Tape" );
+  filename = ui_get_open_filename( "Fuse SDL3 - Open Tape" );
   if( !filename ) { fuse_emulation_unpause(); return; }
 
   tape_open( filename, 0 );
@@ -473,7 +474,7 @@ MENU_CALLBACK_WITH_ACTION( menu_media_if1_rs232 )
     ui_widget_finish();
     if1_unplug( action & 0x0f );
   } else {
-    filename = ui_get_open_filename( "Fuse - Select File for Communication" );
+    filename = ui_get_open_filename( "Fuse SDL3 - Select File for Communication" );
     if( !filename ) { fuse_emulation_unpause(); return; }
 
     if1_plug( filename, action );
@@ -523,13 +524,13 @@ MENU_CALLBACK_WITH_ACTION( menu_media_insert )
 
   switch( type ) {
   case 3:
-    snprintf( title, 80, "Fuse - Insert Microdrive Cartridge %i", which + 1 );
+    snprintf( title, 80, "Fuse SDL3 - Insert Microdrive Cartridge %i", which + 1 );
     break;
   default:
     drive = ui_media_drive_find( type, which );
     if( !drive )
       return;
-    snprintf( title, sizeof(title), "Fuse - Insert %s", drive->name );
+    snprintf( title, sizeof(title), "Fuse SDL3 - Insert %s", drive->name );
     break;
   }
   filename = ui_get_open_filename( title );
@@ -637,7 +638,7 @@ MENU_CALLBACK( menu_media_cartridge_timexdock_insert )
 
   fuse_emulation_pause();
 
-  filename = ui_get_open_filename( "Fuse - Insert Timex Dock Cartridge" );
+  filename = ui_get_open_filename( "Fuse SDL3 - Insert Timex Dock Cartridge" );
   if( !filename ) { fuse_emulation_unpause(); return; }
 
   dck_insert( filename );
@@ -653,13 +654,35 @@ MENU_CALLBACK( menu_media_cartridge_timexdock_eject )
   dck_eject();
 }
 
+MENU_CALLBACK( menu_media_cartridge_dandanator_insert )
+{
+  char *filename;
+
+  fuse_emulation_pause();
+
+  filename = ui_get_open_filename( "Fuse SDL3 - Insert Dandanator Cartridge" );
+  if( !filename ) { fuse_emulation_unpause(); return; }
+
+  dandanator_insert( filename );
+
+  libspectrum_free( filename );
+
+  fuse_emulation_unpause();
+}
+
+MENU_CALLBACK( menu_media_cartridge_dandanator_eject )
+{
+  ui_widget_finish();
+  dandanator_eject();
+}
+
 MENU_CALLBACK( menu_media_cartridge_interface2_insert )
 {
   char *filename;
 
   fuse_emulation_pause();
 
-  filename = ui_get_open_filename( "Fuse - Insert Interface 2 Cartridge" );
+  filename = ui_get_open_filename( "Fuse SDL3 - Insert Interface 2 Cartridge" );
   if( !filename ) { fuse_emulation_unpause(); return; }
 
   if2_insert( filename );
@@ -681,7 +704,7 @@ MENU_CALLBACK_WITH_ACTION( menu_media_ide_insert )
 
   fuse_emulation_pause();
 
-  filename = ui_get_open_filename( "Fuse - Insert Hard Disk File" );
+  filename = ui_get_open_filename( "Fuse SDL3 - Insert Hard Disk File" );
   if( !filename ) { fuse_emulation_unpause(); return; }
 
   switch( action ) {
@@ -750,7 +773,7 @@ MENU_CALLBACK( menu_file_savesnapshot )
 
   fuse_emulation_pause();
 
-  filename = ui_get_save_filename( "Fuse - Save Snapshot" );
+  filename = ui_get_save_filename( "Fuse SDL3 - Save Snapshot" );
   if( !filename ) { fuse_emulation_unpause(); return; }
 
   snapshot_write( filename );
@@ -768,7 +791,7 @@ MENU_CALLBACK( menu_file_screenshot_savescreenasscr )
 
   fuse_emulation_pause();
 
-  filename = ui_get_save_filename( "Fuse - Save Screenshot as SCR" );
+  filename = ui_get_save_filename( "Fuse SDL3 - Save Screenshot as SCR" );
   if( !filename ) { fuse_emulation_unpause(); return; }
 
   screenshot_scr_write( filename );
@@ -793,7 +816,7 @@ MENU_CALLBACK( menu_file_screenshot_savescreenasmlt )
     return;
   }
 
-  filename = ui_get_save_filename( "Fuse - Save Screenshot as MLT" );
+  filename = ui_get_save_filename( "Fuse SDL3 - Save Screenshot as MLT" );
   if( !filename ) { fuse_emulation_unpause(); return; }
 
   screenshot_mlt_write( filename );
@@ -821,7 +844,7 @@ MENU_CALLBACK( menu_file_screenshot_savescreenaspng )
   }
 
   filename =
-    ui_get_save_filename( "Fuse - Save Screenshot as PNG" );
+    ui_get_save_filename( "Fuse SDL3 - Save Screenshot as PNG" );
   if( !filename ) { fuse_emulation_unpause(); return; }
 
   screenshot_write( filename, scaler );
@@ -844,7 +867,7 @@ MENU_CALLBACK( menu_file_scalablevectorgraphics_startcaptureinlinemode )
 
     fuse_emulation_pause();
 
-    filename = ui_get_save_filename( "Fuse - Capture to SVG File" );
+    filename = ui_get_save_filename( "Fuse SDL3 - Capture to SVG File" );
     if( !filename ) { fuse_emulation_unpause(); return; }
 
     ui_menu_activate( UI_MENU_ITEM_FILE_SVG_CAPTURE, 1 );
@@ -863,7 +886,7 @@ MENU_CALLBACK( menu_file_scalablevectorgraphics_startcaptureindotmode )
 
     fuse_emulation_pause();
 
-    filename = ui_get_save_filename( "Fuse - Capture to SVG File" );
+    filename = ui_get_save_filename( "Fuse SDL3 - Capture to SVG File" );
     if( !filename ) { fuse_emulation_unpause(); return; }
     ui_menu_activate( UI_MENU_ITEM_FILE_SVG_CAPTURE, 1 );
 
@@ -898,7 +921,7 @@ MENU_CALLBACK( menu_file_movie_record )
 
   fuse_emulation_pause();
 
-  filename = ui_get_save_filename( "Fuse - Record Movie File" );
+  filename = ui_get_save_filename( "Fuse SDL3 - Record Movie File" );
   if( !filename ) { fuse_emulation_unpause(); return; }
 
   movie_start( filename );
@@ -917,7 +940,7 @@ MENU_CALLBACK( menu_file_movie_record_recordfromrzx )
 
   fuse_emulation_pause();
 
-  rzx_file = ui_get_open_filename( "Fuse - Load RZX" );
+  rzx_file = ui_get_open_filename( "Fuse SDL3 - Load RZX" );
   if( !rzx_file ) { fuse_emulation_unpause(); return; }
 
   rzx_start_playback( rzx_file, 1 );
@@ -925,7 +948,7 @@ MENU_CALLBACK( menu_file_movie_record_recordfromrzx )
   display_refresh_all();
 
   if( rzx_playback ) {
-    fmf_file = ui_get_save_filename( "Fuse - Record Movie File" );
+    fmf_file = ui_get_save_filename( "Fuse SDL3 - Record Movie File" );
     if( !fmf_file ) { 
       rzx_stop_playback( 1 );
       fuse_emulation_unpause();
@@ -948,7 +971,7 @@ MENU_CALLBACK( menu_file_recording_record )
 
   fuse_emulation_pause();
 
-  recording = ui_get_save_filename( "Fuse - Start Recording" );
+  recording = ui_get_save_filename( "Fuse SDL3 - Start Recording" );
   if( !recording ) { fuse_emulation_unpause(); return; }
 
   rzx_start_recording( recording, 1 );
@@ -966,10 +989,10 @@ MENU_CALLBACK( menu_file_recording_recordfromsnapshot )
 
   fuse_emulation_pause();
 
-  snap = ui_get_open_filename( "Fuse - Load Snapshot " );
+  snap = ui_get_open_filename( "Fuse SDL3 - Load Snapshot " );
   if( !snap ) { fuse_emulation_unpause(); return; }
 
-  recording = ui_get_save_filename( "Fuse - Start Recording" );
+  recording = ui_get_save_filename( "Fuse SDL3 - Start Recording" );
   if( !recording ) {
     libspectrum_free( snap );
     fuse_emulation_unpause();
@@ -1001,7 +1024,7 @@ MENU_CALLBACK( menu_file_recording_continuerecording )
 
   fuse_emulation_pause();
 
-  rzx_filename = ui_get_open_filename( "Fuse - Continue Recording" );
+  rzx_filename = ui_get_open_filename( "Fuse SDL3 - Continue Recording" );
   if( !rzx_filename ) { fuse_emulation_unpause(); return; }
 
   error = rzx_continue_recording( rzx_filename );
@@ -1023,7 +1046,7 @@ MENU_CALLBACK( menu_file_aylogging_record )
 
   fuse_emulation_pause();
 
-  psgfile = ui_get_save_filename( "Fuse - Start AY Log" );
+  psgfile = ui_get_save_filename( "Fuse SDL3 - Start AY Log" );
   if( !psgfile ) { fuse_emulation_unpause(); return; }
 
   psg_start_recording( psgfile );

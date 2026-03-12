@@ -33,6 +33,7 @@
 #include "machine.h"
 #include "memory_pages.h"
 #include "periph.h"
+#include "peripherals/dandanator.h"
 #include "peripherals/disk/beta.h"
 #include "peripherals/disk/didaktik.h"
 #include "peripherals/disk/disciple.h"
@@ -279,6 +280,8 @@ z80_do_opcodes( void )
     /* Do the instruction fetch; readbyte_internal used here to avoid
        triggering read breakpoints */
     opcode = readbyte_internal( PC );
+
+    dandanator_pre_opcode( PC, opcode );
 
     CHECK( if1u, if1_available )
 

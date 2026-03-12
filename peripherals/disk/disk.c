@@ -2508,9 +2508,9 @@ write_fdi( FILE *file, disk_t *d )
   }
   h = ( sectors + d->cylinders * d->sides ) * 7;	/* track header len */
   head[0x08] = ( h + 0x0e ) & 0xff;	/* description offset */
-  head[0x09] = ( h + 0x0e ) >> 8; /* "http://fuse-emulator.sourceforge.net" */
-  head[0x0a] = ( h + 0x33 ) & 0xff;	/* data offset */
-  head[0x0b] = ( h + 0x33 ) >> 8;
+  head[0x09] = ( h + 0x0e ) >> 8; /* "https://github.com/md0-code/fuse-sdl3" */
+  head[0x0a] = ( h + 0x34 ) & 0xff;	/* data offset */
+  head[0x0b] = ( h + 0x34 ) >> 8;
   if( fwrite( head, 14, 1, file ) != 1 )	/* FDI head */
     return d->status = DISK_WRPART;
 
@@ -2560,7 +2560,7 @@ write_fdi( FILE *file, disk_t *d )
       toff += soff;
     }
   }
-  if( fwrite( "http://fuse-emulator.sourceforge.net", 37, 1, file ) != 1 )
+  if( fwrite( "https://github.com/md0-code/fuse-sdl3", 38, 1, file ) != 1 )
     return d->status = DISK_WRPART;
 
   /* write data */

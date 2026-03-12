@@ -3,7 +3,7 @@
     <id>@FUSE_APPSTREAM_COMPONENT_ID@</id>
   <metadata_license>CC0-1.0</metadata_license>
   <project_license>GPL-2.0-or-later</project_license>
-  <name>Fuse</name>
+    <name>Fuse SDL3</name>
   <summary>ZX Spectrum emulator with SDL3 frontend</summary>
     <developer id="io.github.md0_code">
         <name>Fuse SDL3 contributors</name>
@@ -11,9 +11,10 @@
     <launchable type="desktop-id">@FUSE_DESKTOP_FILE_NAME@</launchable>
   <description>
     <p>Fuse SDL3 is an emulator for the ZX Spectrum family and related machines, including 16K, 48K, 128K, +2, +2A, +3, Timex, Pentagon, and Scorpion systems.</p>
-    <p>This downstream fork keeps the upstream emulation scope while maintaining an SDL3-based user interface and portable binary packaging.</p>
+        <p>Fuse SDL3 combines broad ZX Spectrum machine coverage with an SDL3-based user interface
+            and portable binary packaging.</p>
   </description>
-    <url type="homepage">@FUSE_DOWNSTREAM_URL@</url>
+    <url type="homepage">@FUSE_URL@</url>
     <url type="bugtracker">@PACKAGE_BUGREPORT@</url>
   <content_rating type="oars-1.1" />
   <releases>

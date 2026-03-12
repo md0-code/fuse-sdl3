@@ -2,7 +2,7 @@
 Version=1.0
 Type=Application
 Categories=Game;Emulator;
-Name=Fuse
+Name=Fuse SDL3
 GenericName=Spectrum Emulator
 Comment=Emulator of the 1980s ZX Spectrum home computer and its various clones
 MimeType=@MIME_TYPES@

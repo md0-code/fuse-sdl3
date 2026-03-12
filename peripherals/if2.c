@@ -28,6 +28,7 @@
 
 #include <string.h>
 
+#include "dandanator.h"
 #include "if2.h"
 #include "infrastructure/startup_manager.h"
 #include "machine.h"
@@ -101,6 +102,12 @@ if2_register_startup( void )
 int
 if2_insert( const char *filename )
 {
+  if( dandanator_active ) {
+    ui_error( UI_ERROR_ERROR,
+              "Eject the Dandanator before inserting an Interface 2 cartridge" );
+    return 1;
+  }
+
   if ( !periph_is_active( PERIPH_TYPE_INTERFACE2 ) ) {
     ui_error( UI_ERROR_ERROR,
 	      "This machine does not support the Interface 2" );

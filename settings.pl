@@ -80,9 +80,9 @@ print hashline( __LINE__ ), << 'CODE';
 #elif defined AMIGA || defined __MORPHOS__            /* #if HAVE_GETOPT_LONG */
 /* The platform uses GNU getopt, but not getopt_long, so we get
    symbol clashes on this platform. Just use getopt */
-#else				/* #if HAVE_GETOPT_LONG */
-#include "compat.h"		/* If not, use ours */
 #endif				/* #if HAVE_GETOPT_LONG */
+
+#include "compat.h"
 
 #ifdef HAVE_LIB_XML2
 #include <libxml/xmlmemory.h>
@@ -100,8 +100,10 @@ print hashline( __LINE__ ), << 'CODE';
 /* The name of our configuration file */
 #ifdef WIN32
 #define CONFIG_FILE_NAME "fuse.cfg"
+#define PORTABLE_DEFAULT_CONFIG_FILE_NAME "fuse.cfg.default"
 #else				/* #ifdef WIN32 */
 #define CONFIG_FILE_NAME ".fuserc"
+#define PORTABLE_DEFAULT_CONFIG_FILE_NAME ".fuserc.default"
 #endif				/* #ifdef WIN32 */
 
 /* The current settings of options, etc */
@@ -127,6 +129,7 @@ print hashline( __LINE__ ), << 'CODE';
 
 static int read_config_file( settings_info *settings );
 static int get_config_file_path( char *path, size_t path_length );
+static int get_portable_config_path( char *path, size_t path_length );
 static int config_setting_is_ignored( const char *name, size_t length );
 
 #ifdef HAVE_LIB_XML2
@@ -184,11 +187,48 @@ void settings_defaults( settings_info *settings )
 }
 
 static int
+get_portable_config_path( char *path, size_t path_length )
+{
+  char executable_path[ PATH_MAX ];
+  char portable_marker[ PATH_MAX ];
+  const char *executable_dir;
+  int length;
+
+  if( compat_get_executable_path( executable_path, sizeof( executable_path ) ) ) {
+    return 1;
+  }
+
+  executable_dir = dirname( executable_path );
+
+  length = snprintf( portable_marker, sizeof( portable_marker ), "%s/%s",
+                     executable_dir, PORTABLE_DEFAULT_CONFIG_FILE_NAME );
+  if( length < 0 || (size_t)length >= sizeof( portable_marker ) ) {
+    ui_error( UI_ERROR_ERROR, "portable config path is too long" );
+    return 1;
+  }
+
+  if( !compat_file_exists( portable_marker ) ) {
+    return 1;
+  }
+
+  length = snprintf( path, path_length, "%s/%s", executable_dir,
+                     CONFIG_FILE_NAME );
+  if( length < 0 || (size_t)length >= path_length ) {
+    ui_error( UI_ERROR_ERROR, "config file path is too long" );
+    return 1;
+  }
+
+  return 0;
+}
+
+static int
 get_config_file_path( char *path, size_t path_length )
 {
   char cwd[ PATH_MAX ];
   const char *cfgdir;
   int length;
+
+  if( !get_portable_config_path( path, path_length ) ) return 0;
 
   if( !getcwd( cwd, sizeof( cwd ) ) ) {
     ui_error( UI_ERROR_ERROR, "error getting current working directory: %s",
@@ -369,13 +409,11 @@ print hashline( __LINE__ ), << 'CODE';
 int
 settings_write_config( settings_info *settings )
 {
-  const char *cfgdir; char path[ PATH_MAX ], buffer[80];
+  char path[ PATH_MAX ], buffer[80];
 
   xmlDocPtr doc; xmlNodePtr root;
 
-  cfgdir = compat_get_config_path(); if( !cfgdir ) return 1;
-
-  snprintf( path, PATH_MAX, "%s/%s", cfgdir, CONFIG_FILE_NAME );
+  if( get_config_file_path( path, PATH_MAX ) ) return 1;
 
   /* Create the XML document */
   doc = xmlNewDoc( (const xmlChar*)"1.0" );
@@ -613,13 +651,11 @@ settings_numeric_write( compat_fd doc, const char* name, int config )
 int
 settings_write_config( settings_info *settings )
 {
-  const char *cfgdir; char path[ PATH_MAX ];
+  char path[ PATH_MAX ];
 
   compat_fd doc;
 
-  cfgdir = compat_get_config_path(); if( !cfgdir ) return 1;
-
-  snprintf( path, PATH_MAX, "%s/%s", cfgdir, CONFIG_FILE_NAME );
+  if( get_config_file_path( path, PATH_MAX ) ) return 1;
 
   doc = compat_file_open( path, 1 );
   if( doc == COMPAT_FILE_OPEN_FAILED ) {

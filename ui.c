@@ -248,6 +248,12 @@ static const struct menu_item_entries menu_item_lookup[] = {
   { UI_MENU_ITEM_MEDIA_CARTRIDGE_DOCK_EJECT,
     "/Media/Cartridge/Timex Dock/Eject" },
 
+  { UI_MENU_ITEM_MEDIA_CARTRIDGE_DANDANATOR,
+    "/Media/Cartridge/Dandanator" },
+
+  { UI_MENU_ITEM_MEDIA_CARTRIDGE_DANDANATOR_EJECT,
+    "/Media/Cartridge/Dandanator/Eject" },
+
   { UI_MENU_ITEM_MEDIA_IF1, "/Media/Interface 1" },
 
   { UI_MENU_ITEM_MEDIA_IF1_M1_EJECT,
@@ -738,7 +744,7 @@ ui_tape_write( void )
 
   fuse_emulation_pause();
 
-  filename = ui_get_save_filename( "Fuse - Write Tape" );
+  filename = ui_get_save_filename( "Fuse SDL3 - Write Tape" );
   if( !filename ) { fuse_emulation_unpause(); return 1; }
 
   tape_write( filename );
@@ -758,7 +764,7 @@ ui_mdr_write( int which, int saveas )
 
   fuse_emulation_pause();
 
-  snprintf( title, 80, "Fuse - Write Microdrive Cartridge %i", which + 1 );
+  snprintf( title, 80, "Fuse SDL3 - Write Microdrive Cartridge %i", which + 1 );
 
   if( saveas ) {
     filename = ui_get_save_filename( title );

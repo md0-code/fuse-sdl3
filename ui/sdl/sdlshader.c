@@ -15,12 +15,13 @@
 #include <stdlib.h>
 #include <string.h>
 
-#ifdef HAVE_LIBGEN_H
+#if HAVE_LIBGEN_H
 #include <libgen.h>
 #endif
 
 #include <libspectrum.h>
 
+#include "strings.h"
 #include "compat.h"
 #include "utils.h"
 

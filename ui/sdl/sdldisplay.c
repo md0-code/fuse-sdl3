@@ -770,19 +770,25 @@ sdl_convert_icon( SDL_Surface *source, SDL_Surface **icon, int red )
 {
   SDL_Surface *copy;   /* Copy with altered palette */
   SDL_Palette *palette;
+  SDL_Color *colors;
   int i;
 
   palette = SDL_GetSurfacePalette( source );
   if( !palette ) return -1;
 
-  SDL_Color colors[ palette->ncolors ];
+  colors = libspectrum_new( SDL_Color, palette->ncolors );
+  if( !colors ) return -1;
 
   copy = SDL_ConvertSurface( source, source->format );
-  if( !copy ) return -1;
+  if( !copy ) {
+    libspectrum_free( colors );
+    return -1;
+  }
 
   palette = SDL_GetSurfacePalette( copy );
   if( !palette ) {
     SDL_FreeSurface( copy );
+    libspectrum_free( colors );
     return -1;
   }
 
@@ -795,8 +801,11 @@ sdl_convert_icon( SDL_Surface *source, SDL_Surface **icon, int red )
 
   if( !SDL_SetPaletteColors( palette, colors, 0, i ) ) {
     SDL_FreeSurface( copy );
+    libspectrum_free( colors );
     return -1;
   }
+
+  libspectrum_free( colors );
 
   icon[0] = SDL_ConvertSurface( copy, tmp_screen->format );
 
@@ -1114,7 +1123,7 @@ sdldisplay_load_gfx_mode( void )
     window_flags |= SDL_WINDOW_OPENGL | SDL_WINDOW_HIDDEN;
   }
 
-  sdldisplay_window = SDL_CreateWindow( FUSE_DOWNSTREAM_NAME, window_width,
+  sdldisplay_window = SDL_CreateWindow( FUSE_NAME, window_width,
                                         window_height, window_flags );
   if( !sdldisplay_window ) {
     fprintf( stderr, "%s: couldn't create SDL graphics context\n", fuse_progname );
@@ -1123,7 +1132,7 @@ sdldisplay_load_gfx_mode( void )
 
   sdldisplay_window_visible = 0;
 
-  SDL_WM_SetCaption( FUSE_DOWNSTREAM_NAME, FUSE_DOWNSTREAM_NAME );
+  SDL_WM_SetCaption( FUSE_NAME, FUSE_NAME );
 
   if( settings_current.full_screen ) {
     if( fullscreen_width && SDL_GetClosestFullscreenDisplayMode(

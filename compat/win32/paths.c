@@ -57,6 +57,17 @@ compat_get_config_path( void )
 }
 
 int
+compat_get_executable_path( char *buffer, size_t length )
+{
+  DWORD retval;
+
+  retval = GetModuleFileName( NULL, buffer, (DWORD)length );
+  if( !retval || retval >= length ) return 1;
+
+  return 0;
+}
+
+int
 compat_is_absolute_path( const char *path )
 {
   if( path[0] == '\\' ) return 1;
@@ -83,25 +94,18 @@ compat_get_next_path( path_context *ctx )
 
     /* First look relative to the Fuse executable */
   case 0:
-    if( compat_is_absolute_path( fuse_progname ) ) {
-      strncpy( buffer, fuse_progname, PATH_MAX );
-      buffer[ PATH_MAX - 1 ] = '\0';
-    } else {
-      DWORD retval; 
-      retval = GetModuleFileName( NULL, buffer, PATH_MAX );
-      if( !retval ) return 0;
-    }
+    if( compat_get_executable_path( buffer, sizeof( buffer ) ) ) return 0;
 
     path2 = dirname( buffer );
     snprintf( ctx->path, PATH_MAX, "%s" FUSE_DIR_SEP_STR "%s", path2,
               path_segment );
     return 1;
 
-    /* Then relative to %APPDATA%/Fuse directory */
+    /* Then relative to %APPDATA%/Fuse SDL3 directory */
   case 1:
     path2 = getenv( "APPDATA" );
     if( !path2 ) return 0;
-    snprintf( ctx->path, PATH_MAX, "%s" FUSE_DIR_SEP_STR "Fuse" 
+    snprintf( ctx->path, PATH_MAX, "%s" FUSE_DIR_SEP_STR "Fuse SDL3" 
               FUSE_DIR_SEP_STR "%s", path2, path_segment );
 
     return 1;

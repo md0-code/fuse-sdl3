@@ -127,7 +127,7 @@ Options/Select ROMs/Peripheral ROMs/TT_X2000S..., Item,, menu_options_selectroms
 Options/Select ROMs/Peripheral ROMs/_uSource..., Item,, menu_options_selectroms_peripheral_select,, 12
 
 Options/_Filter..., Item,,, menu_filter_detail
-Options/_Shader..., Branch,,, menu_shader_detail
+Options/S_hader..., Branch,,, menu_shader_detail
 Options/Shader.../_Select..., Item,, menu_options_shader_select
 Options/Shader.../_Clear, Item,, menu_options_shader_clear
 Options/Shader.../_Parameters..., Item,, menu_options_shaderparameters
@@ -455,6 +455,9 @@ Media/_Cartridge, Branch
 Media/Cartridge/_Timex Dock, Branch
 Media/Cartridge/Timex Dock/_Insert..., Item
 Media/Cartridge/Timex Dock/_Eject, Item
+Media/Cartridge/_Dandanator, Branch
+Media/Cartridge/Dandanator/_Insert..., Item
+Media/Cartridge/Dandanator/_Eject, Item
 Media/Cartridge/_Interface 2, Branch
 Media/Cartridge/Interface 2/_Insert..., Item
 Media/Cartridge/Interface 2/_Eject, Item

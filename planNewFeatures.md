@@ -2,7 +2,7 @@
 
 Implement the refined requirements as a milestone-oriented roadmap with narrow
 deliverables so each stage is reviewable, testable, and easy to track in the
-direct fork. The revised sequence moves keyboard joystick defaults and related
+main project. The revised sequence moves keyboard joystick defaults and related
 setting changes earlier, bundles the requested startup-default changes
 explicitly, then keeps the SDL-only frontend reduction, native Windows build
 work, and shader work isolated later because they carry the highest design and
@@ -10,7 +10,7 @@ regression risk.
 
 ## Milestone Breakdown
 
-1. Milestone 1: downstream versioning and branding metadata.
+1. Milestone 1: branding and versioning metadata.
     [done]
 
 2. Milestone 2: portable config precedence.
@@ -33,8 +33,8 @@ regression risk.
 
 6. Milestone 6: SDL-only frontend reduction.
    [done]
-   Freeze the downstream frontend scope as `ui/sdl` plus `ui/widget`, then
-   remove the retired frontend trees from the active downstream build surface
+   Freeze the SDL frontend scope as `ui/sdl` plus `ui/widget`, then
+   remove the retired frontend trees from the active build surface
    and supporting generators. Limit this milestone to build-surface reduction,
    generated-file dependency cleanup, and shared-interface changes required to
    stop retired UI types from leaking into retained code. Keep Windows
@@ -43,7 +43,7 @@ regression risk.
 
 7. Milestone 7: CMake build foundation for the retained SDL plus widget tree.
    [done]
-   Add a top-level CMake build that models the actual downstream target:
+   Add a top-level CMake build that models the actual maintained target:
    retained core code, SDL frontend code, widget UI code, generated sources,
    and the platform support code that is still needed. Prove the CMake source
    model on Linux first so source lists, generation rules, include paths, and
@@ -56,7 +56,7 @@ regression risk.
    Define a reproducible dependency-acquisition path for Windows, then make the
    CMake build compile and run natively on Windows with `clang-cl`. Treat
    compiler and runtime fixes as shared portability cleanup where possible, and
-   update `BUILD-SDL3.md` with the new CMake-based Windows workflow,
+   update `BUILD.md` with the new CMake-based Windows workflow,
    dependency notes, and runtime DLL expectations. Validate Visual Studio usage
    through the CMake generator after the command-line `clang-cl` path works.
    Finish by validating resource lookup, configuration directories, ROM
@@ -101,11 +101,11 @@ regression risk.
    retained frontend path.
 
 13. Milestone 13: testing, docs, and workflow refresh.
-    Update `TESTING-SDL3.md` and any published
+   Update the published testing documentation and any published
     top-level docs to cover portable mode, fullscreen usage, x2 default
     startup, joystick mode selection, the CMake-based Windows build path, and shader
     selection and fallback behavior. Finish by rerunning the documented build
-    and smoke-test workflow against the direct fork.
+   and smoke-test workflow against the main project.
 
 ## Verification Gates
 
@@ -118,7 +118,7 @@ regression risk.
    `keyboard_arrows_shifted` interaction, and default x2 startup behavior.
 
 3. After milestone 5, verify fullscreen command-line behavior if newly added, and
-   confirm the built-in help text matches the actual downstream command-line
+   confirm the built-in help text matches the actual command-line
    implementation.
 
 4. After milestones 6 through 8, validate the reduced SDL-only frontend set,
@@ -133,7 +133,7 @@ regression risk.
    ensure non-shader rendering remains the fallback path.
 
 6. After milestone 13, rerun the documented SDL smoke tests and confirm the
-   documented CMake and retained downstream build workflows still work.
+   documented CMake and retained build workflows still work.
 
 ## Decisions
 

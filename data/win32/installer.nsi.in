@@ -22,11 +22,11 @@
 
 !define FUSE_VERSION "@PACKAGE_VERSION@" ; could have letters like -RC1
 !define FUSE_FULL_VERSION "@FUSE_FULL_VERSION@" ; must have four numeric tokens
-!define DISPLAY_NAME "the Free Unix Spectrum Emulator (Fuse) ${FUSE_VERSION}"
+!define DISPLAY_NAME "Fuse SDL3 ${FUSE_VERSION}"
 !define SETUP_FILENAME "@PACKAGE@-${FUSE_VERSION}-win32-setup"
 !define SETUP_FILE "${SETUP_FILENAME}.exe"
-!define HKLM_REG_KEY "Software\Microsoft\Windows\CurrentVersion\Uninstall\Fuse"
-!define PROG_ID "Fuse.Files.1"
+!define HKLM_REG_KEY "Software\Microsoft\Windows\CurrentVersion\Uninstall\Fuse SDL3"
+!define PROG_ID "FuseSDL3.Files.1"
 
 ;Include Modern UI
 !include "MUI2.nsh"
@@ -40,7 +40,7 @@ Name "${DISPLAY_NAME}"
 outFile "${SETUP_FILE}"
 Caption "${DISPLAY_NAME}"
  
-installDir "$PROGRAMFILES\Fuse"
+installDir "$PROGRAMFILES\Fuse SDL3"
 
 ; [Additional Installer Settings ]
 XPStyle on
@@ -87,10 +87,10 @@ SetCompressor lzma
   VIAddVersionKey /LANG=${LANG_ENGLISH} "CompanyName" ""
   VIAddVersionKey /LANG=${LANG_ENGLISH} "InternalName" "${SETUP_FILENAME}"
   VIAddVersionKey /LANG=${LANG_ENGLISH} "LegalCopyright" "@FUSE_COPYRIGHT@"
-  VIAddVersionKey /LANG=${LANG_ENGLISH} "FileDescription" "Fuse"
+  VIAddVersionKey /LANG=${LANG_ENGLISH} "FileDescription" "Fuse SDL3"
   VIAddVersionKey /LANG=${LANG_ENGLISH} "FileVersion" "${FUSE_VERSION}"
   VIAddVersionKey /LANG=${LANG_ENGLISH} "OriginalFilename" "${SETUP_FILE}"
-  VIAddVersionKey /LANG=${LANG_ENGLISH} "ProductName" "Fuse - the Free Unix Spectrum Emulator"
+  VIAddVersionKey /LANG=${LANG_ENGLISH} "ProductName" "Fuse SDL3"
   VIAddVersionKey /LANG=${LANG_ENGLISH} "ProductVersion" "${FUSE_VERSION}"
 
 ;--------------------------------

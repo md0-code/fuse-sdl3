@@ -17,6 +17,7 @@
 
 #include <libspectrum.h>
 
+#include "strings.h"
 #include "utils.h"
 
 #include "sdlglsl.h"
@@ -48,6 +49,181 @@ sdlglsl_set_error( char **error_text, const char *format, ... )
 }
 
 #if HAVE_OPENGL
+
+#if defined( WIN32 )
+typedef struct sdlglsl_gl_api {
+  PFNGLACTIVETEXTUREPROC ActiveTexture;
+  PFNGLATTACHSHADERPROC AttachShader;
+  PFNGLBINDATTRIBLOCATIONPROC BindAttribLocation;
+  PFNGLBINDFRAMEBUFFERPROC BindFramebuffer;
+  PFNGLCHECKFRAMEBUFFERSTATUSPROC CheckFramebufferStatus;
+  PFNGLCOMPILESHADERPROC CompileShader;
+  PFNGLCREATEPROGRAMPROC CreateProgram;
+  PFNGLCREATESHADERPROC CreateShader;
+  PFNGLDELETEFRAMEBUFFERSPROC DeleteFramebuffers;
+  PFNGLDELETEPROGRAMPROC DeleteProgram;
+  PFNGLDELETESHADERPROC DeleteShader;
+  PFNGLDISABLEVERTEXATTRIBARRAYPROC DisableVertexAttribArray;
+  PFNGLENABLEVERTEXATTRIBARRAYPROC EnableVertexAttribArray;
+  PFNGLFRAMEBUFFERTEXTURE2DPROC FramebufferTexture2D;
+  PFNGLGENFRAMEBUFFERSPROC GenFramebuffers;
+  PFNGLGENERATEMIPMAPPROC GenerateMipmap;
+  PFNGLGETATTRIBLOCATIONPROC GetAttribLocation;
+  PFNGLGETPROGRAMINFOLOGPROC GetProgramInfoLog;
+  PFNGLGETPROGRAMIVPROC GetProgramiv;
+  PFNGLGETSHADERINFOLOGPROC GetShaderInfoLog;
+  PFNGLGETSHADERIVPROC GetShaderiv;
+  PFNGLGETUNIFORMLOCATIONPROC GetUniformLocation;
+  PFNGLLINKPROGRAMPROC LinkProgram;
+  PFNGLSHADERSOURCEPROC ShaderSource;
+  PFNGLUNIFORM1FPROC Uniform1f;
+  PFNGLUNIFORM1IPROC Uniform1i;
+  PFNGLUNIFORM2FPROC Uniform2f;
+  PFNGLUNIFORMMATRIX4FVPROC UniformMatrix4fv;
+  PFNGLUSEPROGRAMPROC UseProgram;
+  PFNGLVERTEXATTRIBPOINTERPROC VertexAttribPointer;
+} sdlglsl_gl_api;
+
+static sdlglsl_gl_api sdlglsl_gl;
+
+static void *
+sdlglsl_get_proc_address( const char *primary_name, const char *fallback_name )
+{
+  void *proc = SDL_GL_GetProcAddress( primary_name );
+
+  if( !proc && fallback_name ) proc = SDL_GL_GetProcAddress( fallback_name );
+
+  return proc;
+}
+
+static int
+sdlglsl_load_required_proc( void **target, const char *primary_name,
+                            const char *fallback_name, char **error_text )
+{
+  *target = sdlglsl_get_proc_address( primary_name, fallback_name );
+
+  if( *target ) return 0;
+
+  if( fallback_name ) {
+    sdlglsl_set_error( error_text,
+                       "could not load required OpenGL entry point %s or %s",
+                       primary_name, fallback_name );
+  } else {
+    sdlglsl_set_error( error_text,
+                       "could not load required OpenGL entry point %s",
+                       primary_name );
+  }
+
+  return 1;
+}
+
+static int
+sdlglsl_load_gl_procs( char **error_text )
+{
+  memset( &sdlglsl_gl, 0, sizeof( sdlglsl_gl ) );
+
+  if( sdlglsl_load_required_proc( (void**)&sdlglsl_gl.ActiveTexture,
+                                  "glActiveTexture",
+                                  "glActiveTextureARB", error_text ) ) return 1;
+  if( sdlglsl_load_required_proc( (void**)&sdlglsl_gl.AttachShader,
+                                  "glAttachShader", NULL, error_text ) ) return 1;
+  if( sdlglsl_load_required_proc( (void**)&sdlglsl_gl.BindAttribLocation,
+                                  "glBindAttribLocation", NULL, error_text ) ) return 1;
+  if( sdlglsl_load_required_proc( (void**)&sdlglsl_gl.BindFramebuffer,
+                                  "glBindFramebuffer",
+                                  "glBindFramebufferEXT", error_text ) ) return 1;
+  if( sdlglsl_load_required_proc( (void**)&sdlglsl_gl.CheckFramebufferStatus,
+                                  "glCheckFramebufferStatus",
+                                  "glCheckFramebufferStatusEXT", error_text ) ) return 1;
+  if( sdlglsl_load_required_proc( (void**)&sdlglsl_gl.CompileShader,
+                                  "glCompileShader", NULL, error_text ) ) return 1;
+  if( sdlglsl_load_required_proc( (void**)&sdlglsl_gl.CreateProgram,
+                                  "glCreateProgram", NULL, error_text ) ) return 1;
+  if( sdlglsl_load_required_proc( (void**)&sdlglsl_gl.CreateShader,
+                                  "glCreateShader", NULL, error_text ) ) return 1;
+  if( sdlglsl_load_required_proc( (void**)&sdlglsl_gl.DeleteFramebuffers,
+                                  "glDeleteFramebuffers",
+                                  "glDeleteFramebuffersEXT", error_text ) ) return 1;
+  if( sdlglsl_load_required_proc( (void**)&sdlglsl_gl.DeleteProgram,
+                                  "glDeleteProgram", NULL, error_text ) ) return 1;
+  if( sdlglsl_load_required_proc( (void**)&sdlglsl_gl.DeleteShader,
+                                  "glDeleteShader", NULL, error_text ) ) return 1;
+  if( sdlglsl_load_required_proc( (void**)&sdlglsl_gl.DisableVertexAttribArray,
+                                  "glDisableVertexAttribArray", NULL, error_text ) ) return 1;
+  if( sdlglsl_load_required_proc( (void**)&sdlglsl_gl.EnableVertexAttribArray,
+                                  "glEnableVertexAttribArray", NULL, error_text ) ) return 1;
+  if( sdlglsl_load_required_proc( (void**)&sdlglsl_gl.FramebufferTexture2D,
+                                  "glFramebufferTexture2D",
+                                  "glFramebufferTexture2DEXT", error_text ) ) return 1;
+  if( sdlglsl_load_required_proc( (void**)&sdlglsl_gl.GenFramebuffers,
+                                  "glGenFramebuffers",
+                                  "glGenFramebuffersEXT", error_text ) ) return 1;
+  if( sdlglsl_load_required_proc( (void**)&sdlglsl_gl.GenerateMipmap,
+                                  "glGenerateMipmap",
+                                  "glGenerateMipmapEXT", error_text ) ) return 1;
+  if( sdlglsl_load_required_proc( (void**)&sdlglsl_gl.GetAttribLocation,
+                                  "glGetAttribLocation", NULL, error_text ) ) return 1;
+  if( sdlglsl_load_required_proc( (void**)&sdlglsl_gl.GetProgramInfoLog,
+                                  "glGetProgramInfoLog", NULL, error_text ) ) return 1;
+  if( sdlglsl_load_required_proc( (void**)&sdlglsl_gl.GetProgramiv,
+                                  "glGetProgramiv", NULL, error_text ) ) return 1;
+  if( sdlglsl_load_required_proc( (void**)&sdlglsl_gl.GetShaderInfoLog,
+                                  "glGetShaderInfoLog", NULL, error_text ) ) return 1;
+  if( sdlglsl_load_required_proc( (void**)&sdlglsl_gl.GetShaderiv,
+                                  "glGetShaderiv", NULL, error_text ) ) return 1;
+  if( sdlglsl_load_required_proc( (void**)&sdlglsl_gl.GetUniformLocation,
+                                  "glGetUniformLocation", NULL, error_text ) ) return 1;
+  if( sdlglsl_load_required_proc( (void**)&sdlglsl_gl.LinkProgram,
+                                  "glLinkProgram", NULL, error_text ) ) return 1;
+  if( sdlglsl_load_required_proc( (void**)&sdlglsl_gl.ShaderSource,
+                                  "glShaderSource", NULL, error_text ) ) return 1;
+  if( sdlglsl_load_required_proc( (void**)&sdlglsl_gl.Uniform1f,
+                                  "glUniform1f", NULL, error_text ) ) return 1;
+  if( sdlglsl_load_required_proc( (void**)&sdlglsl_gl.Uniform1i,
+                                  "glUniform1i", NULL, error_text ) ) return 1;
+  if( sdlglsl_load_required_proc( (void**)&sdlglsl_gl.Uniform2f,
+                                  "glUniform2f", NULL, error_text ) ) return 1;
+  if( sdlglsl_load_required_proc( (void**)&sdlglsl_gl.UniformMatrix4fv,
+                                  "glUniformMatrix4fv", NULL, error_text ) ) return 1;
+  if( sdlglsl_load_required_proc( (void**)&sdlglsl_gl.UseProgram,
+                                  "glUseProgram", NULL, error_text ) ) return 1;
+  if( sdlglsl_load_required_proc( (void**)&sdlglsl_gl.VertexAttribPointer,
+                                  "glVertexAttribPointer", NULL, error_text ) ) return 1;
+
+  return 0;
+}
+
+#define glActiveTexture sdlglsl_gl.ActiveTexture
+#define glAttachShader sdlglsl_gl.AttachShader
+#define glBindAttribLocation sdlglsl_gl.BindAttribLocation
+#define glBindFramebuffer sdlglsl_gl.BindFramebuffer
+#define glCheckFramebufferStatus sdlglsl_gl.CheckFramebufferStatus
+#define glCompileShader sdlglsl_gl.CompileShader
+#define glCreateProgram sdlglsl_gl.CreateProgram
+#define glCreateShader sdlglsl_gl.CreateShader
+#define glDeleteFramebuffers sdlglsl_gl.DeleteFramebuffers
+#define glDeleteProgram sdlglsl_gl.DeleteProgram
+#define glDeleteShader sdlglsl_gl.DeleteShader
+#define glDisableVertexAttribArray sdlglsl_gl.DisableVertexAttribArray
+#define glEnableVertexAttribArray sdlglsl_gl.EnableVertexAttribArray
+#define glFramebufferTexture2D sdlglsl_gl.FramebufferTexture2D
+#define glGenFramebuffers sdlglsl_gl.GenFramebuffers
+#define glGenerateMipmap sdlglsl_gl.GenerateMipmap
+#define glGetAttribLocation sdlglsl_gl.GetAttribLocation
+#define glGetProgramInfoLog sdlglsl_gl.GetProgramInfoLog
+#define glGetProgramiv sdlglsl_gl.GetProgramiv
+#define glGetShaderInfoLog sdlglsl_gl.GetShaderInfoLog
+#define glGetShaderiv sdlglsl_gl.GetShaderiv
+#define glGetUniformLocation sdlglsl_gl.GetUniformLocation
+#define glLinkProgram sdlglsl_gl.LinkProgram
+#define glShaderSource sdlglsl_gl.ShaderSource
+#define glUniform1f sdlglsl_gl.Uniform1f
+#define glUniform1i sdlglsl_gl.Uniform1i
+#define glUniform2f sdlglsl_gl.Uniform2f
+#define glUniformMatrix4fv sdlglsl_gl.UniformMatrix4fv
+#define glUseProgram sdlglsl_gl.UseProgram
+#define glVertexAttribPointer sdlglsl_gl.VertexAttribPointer
+#endif
 
 static int
 sdlglsl_debug_enabled( void )
@@ -952,6 +1128,8 @@ void
 sdlglsl_backend_init( sdlglsl_backend *backend )
 {
   backend->active = 0;
+  backend->parameters = NULL;
+  backend->parameter_count = 0;
 
 #if HAVE_OPENGL
   backend->context = NULL;
@@ -965,8 +1143,6 @@ sdlglsl_backend_init( sdlglsl_backend *backend )
   backend->textures = NULL;
   backend->texture_count = 0;
   memset( backend->history_textures, 0, sizeof( backend->history_textures ) );
-  backend->parameters = NULL;
-  backend->parameter_count = 0;
   backend->pass_count = 0;
   backend->passes = NULL;
 #endif
@@ -975,9 +1151,9 @@ sdlglsl_backend_init( sdlglsl_backend *backend )
 void
 sdlglsl_backend_free( SDL_Window *window, sdlglsl_backend *backend )
 {
-#if HAVE_OPENGL
   int i;
 
+#if HAVE_OPENGL
   if( backend->context && window ) SDL_GL_MakeCurrent( window, backend->context );
 
   if( backend->input_texture ) {
@@ -1012,6 +1188,12 @@ sdlglsl_backend_free( SDL_Window *window, sdlglsl_backend *backend )
   backend->texture_height = 0;
   backend->has_uploaded_frame = 0;
 
+  if( backend->context ) {
+    SDL_GL_DeleteContext( backend->context );
+    backend->context = NULL;
+  }
+#endif
+
   for( i = 0; i < (int)backend->parameter_count; i++ ) {
     sdlshader_parameter_free( &backend->parameters[i] );
   }
@@ -1019,11 +1201,7 @@ sdlglsl_backend_free( SDL_Window *window, sdlglsl_backend *backend )
   backend->parameters = NULL;
   backend->parameter_count = 0;
 
-  if( backend->context ) {
-    SDL_GL_DeleteContext( backend->context );
-    backend->context = NULL;
-  }
-#else
+#if !HAVE_OPENGL
   (void)window;
 #endif
 
@@ -1055,6 +1233,10 @@ sdlglsl_backend_create( SDL_Window *window, int texture_width,
   }
 
   if( sdlglsl_make_current( window, backend, error_text ) ) goto error;
+
+#if defined( WIN32 )
+  if( sdlglsl_load_gl_procs( error_text ) ) goto error;
+#endif
 
   sdlglsl_debug_log( "GL_VENDOR=%s", glGetString( GL_VENDOR ) );
   sdlglsl_debug_log( "GL_RENDERER=%s", glGetString( GL_RENDERER ) );

@@ -75,8 +75,10 @@ startup_manager_register(
   registered_module.dependencies =
     g_array_sized_new( FALSE, FALSE, sizeof( startup_manager_module ),
                        dependency_count );
-  g_array_append_vals( registered_module.dependencies, dependencies,
-                       dependency_count );
+  if( dependency_count ) {
+    g_array_append_vals( registered_module.dependencies, dependencies,
+                         dependency_count );
+  }
   registered_module.init_fn = init_fn;
   registered_module.init_context = init_context;
   registered_module.end_fn = end_fn;
