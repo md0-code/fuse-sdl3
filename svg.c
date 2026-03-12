@@ -276,6 +276,8 @@ void
 svg_closefile( void )
 {
   FILE *fp;
+  const xmlChar *xml_data;
+  int xml_size;
 
   if( svg_write_metadata() != 0 ) {
     ui_error( UI_ERROR_ERROR, "error writing the SVG metadata" );
@@ -294,12 +296,19 @@ svg_closefile( void )
 
   xmlFreeTextWriter( writer );
 
+  xml_data = xmlBufferContent( buffer );
+  xml_size = xmlBufferLength( buffer );
+
   svg_fname = libspectrum_new( char, strlen( svg_fnameroot ) + BUFSIZ );
   snprintf( svg_fname, strlen( svg_fnameroot ) + BUFSIZ, "%s%d.svg", 
             svg_fnameroot, svg_filecount++ );
 
   if( ( fp = fopen( svg_fname, "w" ) ) != NULL ) {
-    fprintf( fp, "%s", buffer->content );
+    if( xml_data && xml_size > 0 &&
+        fwrite( xml_data, 1, (size_t)xml_size, fp ) != (size_t)xml_size ) {
+      ui_error( UI_ERROR_ERROR, "error writing SVG file '%s': %s", svg_fname,
+                strerror( errno ) );
+    }
 
     if( fclose( fp ) != 0 ) {
       ui_error( UI_ERROR_ERROR, "error closing SVG file '%s': %s", svg_fname,

@@ -26,6 +26,7 @@
 #include "fuse.h"
 #include "input.h"
 #include "keyboard.h"
+#include "menu.h"
 #include "peripherals/joystick.h"
 #include "settings.h"
 #include "snapshot.h"
@@ -412,6 +413,11 @@ keypress( const input_event_key_t *event )
     ui_show_transient_message( cursor_bypass_toggled ?
                                "Cursor keys active" :
                                "Joystick keys active" );
+    return 0;
+  }
+
+  if( event->native_key == INPUT_KEY_F11 ) {
+    menu_options_fullscreen( 0 );
     return 0;
   }
 
