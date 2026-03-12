@@ -13,6 +13,8 @@ It is intended to stand on its own as the main fork repository:
 The main builder-facing documents are:
 
 * `BUILD-SDL3.md` for dependency setup and build steps;
+* `CHANGELOG-SDL3.md` for a high-level summary of downstream features since
+  Fuse 1.6.0;
 * `TESTING-SDL3.md` for runtime validation and smoke tests;
 * `RELEASE-SDL3.md` for release preparation; and
 * `INSTALL` for the short CMake install summary.
@@ -33,9 +35,11 @@ To build a Linux AppImage:
 
 Those commands emit one platform-specific archive from the CMake install tree:
 Linux writes `.tar.gz`, while Windows writes `.zip`. Each archive uses a
-portable root layout with the executable and bundled runtime libraries at the
-archive root, `roms/` beside them, and a default config file in the root
-(`.fuserc` on Linux, `fuse.cfg` on Windows). The non-ROM UI support assets are
+portable root layout with the executable and default config file at the
+archive root. Linux places bundled runtime libraries under `lib/`, while
+Windows keeps them at the archive root. `roms/` sits beside them, and the
+default config file remains in the root
+(`.fuserc.default` on Linux, `fuse.cfg.default` on Windows). The non-ROM UI support assets are
 embedded, so there is no `share/` payload in the portable package.
 
 The AppImage path stages the same portable Linux layout into an AppDir, then

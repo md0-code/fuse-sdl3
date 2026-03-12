@@ -4,7 +4,7 @@ if(NOT EXISTS "${_fuse_runtime_binary}")
   message(FATAL_ERROR "Unable to locate built Fuse executable for runtime dependency scanning: ${_fuse_runtime_binary}")
 endif()
 
-set(_fuse_runtime_destination "$ENV{DESTDIR}${CMAKE_INSTALL_PREFIX}/@FUSE_RUNTIME_INSTALL_DESTINATION@")
+set(_fuse_runtime_destination "$ENV{DESTDIR}${CMAKE_INSTALL_PREFIX}/@FUSE_RUNTIME_LIBRARY_INSTALL_DESTINATION@")
 file(MAKE_DIRECTORY "${_fuse_runtime_destination}")
 
 set(_fuse_runtime_search_dirs_serialized [==[@FUSE_RUNTIME_SEARCH_DIRS_SERIALIZED@]==])

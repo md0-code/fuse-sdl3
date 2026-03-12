@@ -16,7 +16,7 @@ regression risk.
 2. Milestone 2: portable config precedence.
     [done]
 
-3. Milestone 3: new joystick emulation keys and mapping groundwork.
+3. Milestone 3: new joystick emulation keys and mapping groundwork (f11 for full screen)
     [done]
     
 4. Milestone 4: default settings refresh (includes auto save by default).

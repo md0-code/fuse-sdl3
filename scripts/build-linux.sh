@@ -90,8 +90,10 @@ if [ "$build_appimage" -eq 1 ]; then
   arch=$(uname -m)
   version=$(sed -n 's/^project(fuse VERSION \([^ ]*\) LANGUAGES C)$/\1/p' "$root_dir/CMakeLists.txt")
   appimage_path="$build_dir/fuse-sdl3-${version}-${arch}.AppImage"
-  desktop_source="$build_dir/data/fuse.desktop"
-  appstream_source="$build_dir/data/fuse.appdata.xml"
+  desktop_file_name="io.github.md0_code.FuseSDL3.desktop"
+  appstream_file_name="io.github.md0_code.FuseSDL3.appdata.xml"
+  desktop_source="$build_dir/data/$desktop_file_name"
+  appstream_source="$build_dir/data/$appstream_file_name"
   icon_source="$root_dir/data/icons/256x256/fuse.png"
   appimagetool_url=""
 
@@ -128,15 +130,15 @@ if [ "$build_appimage" -eq 1 ]; then
     exit 1
   fi
 
-  cp "$desktop_source" "$appdir/fuse.desktop"
+  cp "$desktop_source" "$appdir/$desktop_file_name"
   cp "$icon_source" "$appdir/fuse.png"
 
   mkdir -p "$appdir/usr/share/applications" "$appdir/usr/share/icons/hicolor/256x256/apps" "$appdir/usr/share/metainfo"
-  cp "$desktop_source" "$appdir/usr/share/applications/fuse.desktop"
+  cp "$desktop_source" "$appdir/usr/share/applications/$desktop_file_name"
   cp "$icon_source" "$appdir/usr/share/icons/hicolor/256x256/apps/fuse.png"
 
   if [ -f "$appstream_source" ]; then
-    cp "$appstream_source" "$appdir/usr/share/metainfo/fuse.appdata.xml"
+    cp "$appstream_source" "$appdir/usr/share/metainfo/$appstream_file_name"
   fi
 
   printf '%s\n' \
@@ -144,7 +146,7 @@ if [ "$build_appimage" -eq 1 ]; then
     'set -eu' \
     'HERE=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)' \
     'cd "$HERE"' \
-    'export LD_LIBRARY_PATH="$HERE${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"' \
+    'export LD_LIBRARY_PATH="$HERE/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"' \
     'exec "$HERE/fuse" "$@"' > "$appdir/AppRun"
   chmod 755 "$appdir/AppRun"
 

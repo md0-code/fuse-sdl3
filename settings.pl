@@ -25,7 +25,7 @@ use strict;
 
 use Fuse;
 
-sub hashline ($) { '#line ', $_[0] + 1, '"', __FILE__, "\"\n" }
+sub hashline ($) { '#line ', $_[0] + 1, ' "', __FILE__, "\"\n" }
 
 my %options;
 my %config_excluded = (
@@ -507,7 +507,7 @@ CODE
   }
 CODE
 }
-    print << "CODE";
+    print << 'CODE';
   return 1;
 }
 

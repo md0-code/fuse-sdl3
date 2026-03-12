@@ -1083,7 +1083,7 @@ sdldisplay_load_gfx_mode( void )
                   max_fullscreen_height : image_height * sdldisplay_current_size;
   sdldisplay_window_width = window_width;
   sdldisplay_window_height = window_height;
-  window_flags = 0;
+  window_flags = SDL_WINDOW_HIDDEN;
 
   pixel_format = SDL_PIXELFORMAT_RGB565;
   scaler_select_bitformat( 565 );
@@ -1143,11 +1143,6 @@ sdldisplay_load_gfx_mode( void )
       fprintf( stderr, "%s: couldn't enable SDL fullscreen mode\n", fuse_progname );
       fuse_abort();
     }
-  }
-
-  if( !sdldisplay_use_glsl_backend && sdldisplay_show_window() ) {
-    fprintf( stderr, "%s: couldn't show SDL window\n", fuse_progname );
-    fuse_abort();
   }
 
   sdldisplay_gc = SDL_CreateSurface( logical_width, logical_height,
@@ -1355,6 +1350,12 @@ sdldisplay_present_frame( void )
     if( !sdldisplay_window_visible ) return 0;
 
     return 0;
+  }
+
+  if( !sdldisplay_window_visible ) {
+    if( sdldisplay_show_window() ) {
+      return 1;
+    }
   }
 
   sdldisplay_window_surface = SDL_GetWindowSurface( sdldisplay_window );

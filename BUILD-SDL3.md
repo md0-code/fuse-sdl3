@@ -117,9 +117,11 @@ sh ./scripts/build-linux.sh --appimage
 
 Each packaging flow emits one platform-specific archive into the selected build
 directory: Linux writes `.tar.gz`, while Windows writes `.zip`. The archive is
-laid out as a portable bundle with the executable and bundled runtime libraries
-at the archive root, `roms/` beside them, and a default config file in the root
-(`.fuserc` on Linux, `fuse.cfg` on Windows). The non-ROM UI assets are embedded
+laid out as a portable bundle with the executable and default config file at
+the archive root. Linux places bundled runtime libraries under `lib/`, while
+Windows keeps them at the archive root. `roms/` sits beside them, and the
+default config file remains in the root
+(`.fuserc.default` on Linux, `fuse.cfg.default` on Windows). The non-ROM UI assets are embedded
 in the executable, so the package payload does not include a `share/`
 directory. Packaging mode configures a `Release` build so the archive payload
 is suitable for redistribution.
@@ -276,9 +278,9 @@ distribution archives under the build directory:
 Inside those archives you should expect:
 
 * the executable at the archive root
-* bundled runtime libraries at the archive root
+* bundled runtime libraries under `lib/` on Linux and at the archive root on Windows
 * `roms/` at the archive root
-* `.fuserc` on Linux or `fuse.cfg` on Windows at the archive root
+* `.fuserc.default` on Linux or `fuse.cfg.default` on Windows at the archive root
 
 You can also invoke packaging manually after a configure step:
 
@@ -292,7 +294,7 @@ cmake --build build-windows --target package
 
 On Linux, the install step also stages:
 
-* `share/applications/fuse.desktop`
+* `share/applications/io.github.md0_code.FuseSDL3.desktop`
 * `share/mime/packages/fuse.xml`
 * hicolor app and MIME icons under `share/icons/hicolor/`
 * the bash completion file under `share/bash-completion/completions/` when present
