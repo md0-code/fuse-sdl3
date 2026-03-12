@@ -975,6 +975,15 @@ add_dependencies(fuse-scalers32 fuse-generated)
 add_executable(fuse ${FUSE_SOURCES})
 add_dependencies(fuse fuse-generated)
 
+add_executable(libdecor-wayland-repro repro/libdecor-wayland-repro.c)
+add_executable(fuse-linkset-repro repro/fuse-linkset-repro.c)
+
+if(NOT WIN32)
+  pkg_check_modules(LIBDECOR REQUIRED IMPORTED_TARGET libdecor-0)
+  pkg_check_modules(WAYLANDCLIENT REQUIRED IMPORTED_TARGET wayland-client)
+  add_executable(libdecor-direct-repro repro/libdecor-direct-repro.c)
+endif()
+
 set_source_files_properties(
   z80/z80_ops.c
   PROPERTIES OBJECT_DEPENDS "${GENERATED_Z80_OPCODES_BASE};${GENERATED_Z80_CB};${GENERATED_Z80_DDFD};${GENERATED_Z80_DDFDCB};${GENERATED_Z80_ED}"
@@ -1008,6 +1017,30 @@ target_link_libraries(fuse PRIVATE
   ${FUSE_LIBSPECTRUM_TARGET}
   ${FUSE_SDL_TARGET}
 )
+
+target_link_libraries(libdecor-wayland-repro PRIVATE
+  ${FUSE_SDL_TARGET}
+)
+
+target_link_libraries(fuse-linkset-repro PRIVATE
+  ${FUSE_SDL_TARGET}
+  ${CMAKE_DL_LIBS}
+)
+
+target_include_directories(libdecor-wayland-repro PRIVATE
+  ${SDL_INCLUDE_DIRS}
+)
+
+target_include_directories(fuse-linkset-repro PRIVATE
+  ${SDL_INCLUDE_DIRS}
+)
+
+if(NOT WIN32)
+  target_link_libraries(libdecor-direct-repro PRIVATE
+    PkgConfig::LIBDECOR
+    PkgConfig::WAYLANDCLIENT
+  )
+endif()
 
 if(HAVE_LIB_GLIB)
   target_link_libraries(fuse PRIVATE PkgConfig::GLIB)
