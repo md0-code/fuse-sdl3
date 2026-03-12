@@ -74,14 +74,19 @@ Validate all of the following:
 One Debian sid environment reproduced a crash inside `libdecor-gtk.so` during
 `SDL_Init( SDL_INIT_VIDEO )`. In that case:
 
-* `SDL_VIDEO_DRIVER=x11 ./build-linux/fuse` worked;
-* `SDL_VIDEO_DRIVER=wayland ./build-linux/fuse` still crashed; and
-* `LIBDECOR_PLUGIN_DIR=/nonexistent SDL_VIDEO_DRIVER=wayland ./build-linux/fuse` worked.
+* `SDL_VIDEODRIVER=x11 ./build-linux/fuse` worked;
+* `SDL_VIDEODRIVER=wayland ./build-linux/fuse` still crashed; and
+* `LIBDECOR_PLUGIN_DIR=/nonexistent SDL_VIDEODRIVER=wayland ./build-linux/fuse` worked.
 
 That combination indicates a system `libdecor` plugin failure rather than a
 Fuse-side rendering or emulation failure. When validating Wayland on affected
 systems, record whether Fuse succeeds with the plugin path disabled before
-treating the issue as an emulator regression.
+treating the issue as an emulator regression. Current Linux Wayland builds now
+probe the Wayland `libdecor` path in a child process and automatically switch to
+`SDL_VIDEODRIVER=x11` if that probe crashes. If no X11 display is available,
+Fuse falls back to `LIBDECOR_PLUGIN_DIR=/nonexistent` instead. Set
+`FUSE_SDL_DISABLE_LIBDECOR_WORKAROUND=1` to bypass that automatic probe and
+fallback logic.
 
 ## Fullscreen scale-mode checks
 

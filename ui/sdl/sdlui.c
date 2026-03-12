@@ -24,7 +24,14 @@
 
 #include <config.h>
 
+#include <sys/types.h>
+#include <sys/wait.h>
+
+#include <stdlib.h>
 #include <stdio.h>
+#include <string.h>
+
+#include <unistd.h>
 
 #include "sdlcompat.h"
 
@@ -38,6 +45,133 @@
 #include "sdlkeyboard.h"
 #include "ui/scaler/scaler.h"
 #include "menu.h"
+
+static int
+sdlui_env_enabled( const char *name )
+{
+  const char *value = getenv( name );
+
+  return value && value[0] && strcmp( value, "0" );
+}
+
+static int
+sdlui_wayland_requested( const char **video_driver_out )
+{
+  const char *legacy_video_driver = getenv( "SDL_VIDEO_DRIVER" );
+  const char *video_driver = getenv( "SDL_VIDEODRIVER" );
+  const char *wayland_display = getenv( "WAYLAND_DISPLAY" );
+
+  if( !video_driver && legacy_video_driver && legacy_video_driver[0] ) {
+    if( setenv( "SDL_VIDEODRIVER", legacy_video_driver, 0 ) ) {
+      fprintf( stderr,
+               "%s: warning: couldn't map SDL_VIDEO_DRIVER to SDL_VIDEODRIVER\n",
+               fuse_progname );
+    } else {
+      video_driver = getenv( "SDL_VIDEODRIVER" );
+    }
+  }
+
+  if( video_driver_out ) *video_driver_out = video_driver;
+
+  if( video_driver ) return !strcmp( video_driver, "wayland" );
+
+  return wayland_display && wayland_display[0];
+}
+
+static int
+sdlui_probe_wayland_libdecor_crash( void )
+{
+  pid_t pid;
+  int status;
+
+  pid = fork();
+  if( pid < 0 ) {
+    fprintf( stderr,
+             "%s: warning: couldn't fork to probe Wayland libdecor startup\n",
+             fuse_progname );
+    return 0;
+  }
+
+  if( !pid ) {
+    unsetenv( "SDL_VIDEO_DRIVER" );
+    unsetenv( "LIBDECOR_PLUGIN_DIR" );
+
+    if( setenv( "SDL_VIDEODRIVER", "wayland", 1 ) ) _exit( 2 );
+
+    if( SDL_Init( SDL_INIT_VIDEO ) ) {
+      SDL_Quit();
+      _exit( 0 );
+    }
+
+    _exit( 1 );
+  }
+
+  while( waitpid( pid, &status, 0 ) < 0 ) {
+    if( errno != EINTR ) {
+      fprintf( stderr,
+               "%s: warning: couldn't wait for Wayland libdecor probe\n",
+               fuse_progname );
+      return 0;
+    }
+  }
+
+  if( !WIFSIGNALED( status ) ) return 0;
+
+  switch( WTERMSIG( status ) ) {
+  case SIGABRT:
+  case SIGBUS:
+  case SIGILL:
+  case SIGSEGV:
+    return 1;
+  default:
+    return 0;
+  }
+}
+
+static void
+sdlui_configure_video_environment( void )
+{
+#if defined( __linux__ )
+  const char *video_driver = getenv( "SDL_VIDEODRIVER" );
+  const char *display = getenv( "DISPLAY" );
+
+  if( !sdlui_wayland_requested( &video_driver ) ) return;
+
+  if( getenv( "LIBDECOR_PLUGIN_DIR" ) ||
+      sdlui_env_enabled( "FUSE_SDL_DISABLE_LIBDECOR_WORKAROUND" ) ) {
+    return;
+  }
+
+  if( !sdlui_probe_wayland_libdecor_crash() ) {
+    return;
+  }
+
+  if( display && display[0] ) {
+    if( setenv( "SDL_VIDEODRIVER", "x11", 1 ) ) {
+      fprintf( stderr,
+               "%s: warning: couldn't switch SDL video backend to x11 after confirming a Wayland libdecor crash\n",
+               fuse_progname );
+      return;
+    }
+
+    fprintf( stderr,
+             "%s: switching SDL video backend to x11 after confirming a Wayland libdecor crash\n",
+             fuse_progname );
+    return;
+  }
+
+  if( setenv( "LIBDECOR_PLUGIN_DIR", "/nonexistent", 0 ) ) {
+    fprintf( stderr,
+             "%s: warning: couldn't disable libdecor plugins after confirming a Wayland libdecor crash\n",
+             fuse_progname );
+    return;
+  }
+
+  fprintf( stderr,
+           "%s: confirmed a Wayland libdecor crash but no X11 display is available; disabling libdecor plugins instead\n",
+           fuse_progname );
+#endif
+}
 
 static void
 atexit_proc( void )
@@ -54,6 +188,8 @@ ui_init( int *argc, char ***argv )
 /* Comment out to Work around a bug in OS X 10.1 related to OpenGL in windowed
    mode */
   atexit(atexit_proc);
+
+  sdlui_configure_video_environment();
 
   if( !SDL_Init( SDL_INIT_VIDEO ) ) {
     ui_error( UI_ERROR_ERROR, "failed to initialise SDL video subsystem: %s",

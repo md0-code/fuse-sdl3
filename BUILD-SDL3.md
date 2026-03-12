@@ -354,21 +354,30 @@ see `TESTING-SDL3.md`.
 
 On at least one Debian sid system, native Wayland startup reached SDL video
 initialization but crashed inside the system `libdecor` GTK plugin stack rather
-than inside Fuse. The following workaround allowed Wayland startup to succeed:
+than inside Fuse. Linux builds now probe that path in a child process before
+the real SDL video initialization. If the probe crashes and Xwayland is
+available, Fuse switches SDL to X11 automatically:
 
 ```sh
-LIBDECOR_PLUGIN_DIR=/nonexistent SDL_VIDEO_DRIVER=wayland ./fuse
+SDL_VIDEODRIVER=x11 ./fuse
 ```
 
-If you prefer a more conservative fallback, forcing X11 also works around the
-same system-side issue:
+If X11 is not available, the older no-plugin workaround is still used:
 
 ```sh
-SDL_VIDEO_DRIVER=x11 ./fuse
+LIBDECOR_PLUGIN_DIR=/nonexistent SDL_VIDEODRIVER=wayland ./fuse
+```
+
+If you want to force that fallback yourself, the equivalent manual command is:
+
+```sh
+SDL_VIDEODRIVER=x11 ./fuse
 ```
 
 This issue appears to be specific to the runtime `libdecor` environment on that
-system, not to the downstream SDL3 rendering path itself.
+system, not to the downstream SDL3 rendering path itself. Set
+`FUSE_SDL_DISABLE_LIBDECOR_WORKAROUND=1` to bypass the automatic crash probe and
+fallback logic when testing the system `libdecor` stack directly.
 
 ## SDL3 presentation notes
 
