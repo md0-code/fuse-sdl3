@@ -277,6 +277,8 @@ z80_do_opcodes( void )
     END_CHECK
 
   run_opcode:
+    dandanator_before_opcode_fetch();
+
     /* Do the instruction fetch; readbyte_internal used here to avoid
        triggering read breakpoints */
     opcode = readbyte_internal( PC );

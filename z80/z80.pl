@@ -1151,7 +1151,9 @@ shift
       {
 	libspectrum_byte opcode2;
 	contend_read( PC, 4 );
-	opcode2 = readbyte_internal( PC ); PC++;
+	opcode2 = readbyte_internal( PC );
+	dandanator_pre_opcode( PC, opcode2 );
+	PC++;
 	R++;
 #ifdef HAVE_ENOUGH_MEMORY
 	switch(opcode2) {

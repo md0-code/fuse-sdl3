@@ -12,8 +12,10 @@ int dandanator_available( void );
 int dandanator_detect_buffer( const libspectrum_byte *buffer, size_t length );
 int dandanator_insert( const char *filename );
 void dandanator_eject( void );
+void dandanator_before_opcode_fetch( void );
 void dandanator_pre_opcode( libspectrum_word pc, libspectrum_byte opcode );
-void dandanator_memory_read( libspectrum_word address );
-void dandanator_memory_write( libspectrum_word address );
+int dandanator_memory_read( libspectrum_word address,
+							libspectrum_byte *value );
+void dandanator_memory_write( libspectrum_word address, libspectrum_byte value );
 
 #endif			/* #ifndef FUSE_DANDANATOR_H */
