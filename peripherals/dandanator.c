@@ -3,7 +3,6 @@
 #include <config.h>
 
 #include <ctype.h>
-#include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -13,6 +12,7 @@
 #include "if2.h"
 #include "infrastructure/startup_manager.h"
 #include "machine.h"
+#include "settings.h"
 #include "memory_pages.h"
 #include "module.h"
 #include "spectrum.h"
@@ -29,6 +29,7 @@
 #define DANDANATOR_COMMANDS_DISABLED 0x08
 #define DANDANATOR_FLAG_C 0x01
 #define DANDANATOR_FLAG_Z 0x40
+#define DANDANATOR_COMMAND_DELAY 35
 
 static memory_page
   dandanator_memory_map_romcs[DANDANATOR_SLOT_COUNT * MEMORY_PAGES_IN_16K];
@@ -44,19 +45,20 @@ static libspectrum_byte dandanator_shadow_ram[DANDANATOR_SLOT_SIZE];
 static libspectrum_byte dandanator_extended_ram[DANDANATOR_SLOT_SIZE];
 static libspectrum_byte dandanator_extended_valid[DANDANATOR_SLOT_SIZE];
 static int dandanator_inserted;
+static int dandanator_programming_enabled;
 static int dandanator_current_slot;
 static int dandanator_sleep_state;
 static int dandanator_pending_return_slot;
 static int dandanator_eeprom_sector;
 static int dandanator_bridge_base;
+static libspectrum_byte dandanator_jedec_data_1555;
+static libspectrum_byte dandanator_jedec_data_2aaa;
+static int dandanator_jedec_data_1555_valid;
+static int dandanator_jedec_data_2aaa_valid;
 static libspectrum_word dandanator_extended_pointer0;
 static libspectrum_word dandanator_extended_pointer1;
 static libspectrum_word dandanator_extended_mode;
 static libspectrum_byte dandanator_pic_ram[256];
-static int dandanator_ei_0038_count;
-static int dandanator_opcode_trace_budget;
-static const char *dandanator_opcode_trace_reason;
-static int dandanator_command_follow_budget;
 static libspectrum_byte dandanator_command_bytes[4];
 static int dandanator_command_stage;
 static int dandanator_command_trap;
@@ -65,17 +67,13 @@ static libspectrum_word dandanator_last_opcode_pc;
 static int dandanator_pending_apply_mapping;
 static int dandanator_pending_cpu_reset;
 static int dandanator_pending_cpu_nmi;
-static int dandanator_trace_enabled = -1;
-static FILE *dandanator_trace_file;
-static libspectrum_word dandanator_slot31_last_progress;
-static unsigned int dandanator_slot31_milestones_seen;
-static int dandanator_overlay_read_trace_budget;
-static int dandanator_overlay_miss_trace_budget;
+static libspectrum_dword dandanator_apply_mapping_at;
 
-#define DANDANATOR_TRACE_BUILD_MARKER "trace-build interrupt-ret-v1"
 
 static void dandanator_reset( int hard_reset );
 static void dandanator_memory_map( void );
+static int dandanator_detect_blank_buffer( const libspectrum_byte *buffer,
+                                           size_t length );
 static void dandanator_reset_runtime_state( void );
 static void dandanator_update_romcs_state( void );
 static void dandanator_apply_mapping( void );
@@ -94,9 +92,10 @@ static void dandanator_reset_extended_overlay( void );
 static void dandanator_store_extended_overlay( int command, int value,
                                                int offset );
 static void dandanator_select_slot( int slot );
-static int dandanator_trace_is_enabled( void );
-static FILE *dandanator_trace_stream( void );
-static void dandanator_trace( const char *format, ... );
+static int dandanator_write_back_romset( void );
+
+static void dandanator_finish_insert( const char *filename,
+                                      int programming_enabled );
 
 static module_info_t dandanator_module_info = {
 
@@ -153,6 +152,20 @@ dandanator_detect_buffer( const libspectrum_byte *buffer, size_t length )
 }
 
 static int
+dandanator_detect_blank_buffer( const libspectrum_byte *buffer, size_t length )
+{
+  size_t i;
+
+  if( !buffer || length != DANDANATOR_ROMSET_SIZE ) return 0;
+
+  for( i = 0; i < length; i++ ) {
+    if( buffer[i] != 0xff ) return 0;
+  }
+
+  return 1;
+}
+
+static int
 dandanator_load_romset( const char *filename )
 {
   utils_file romset;
@@ -160,9 +173,10 @@ dandanator_load_romset( const char *filename )
 
   if( utils_read_file( filename, &romset ) ) return 1;
 
-  if( !dandanator_detect_buffer( romset.buffer, romset.length ) ) {
+  if( !dandanator_detect_buffer( romset.buffer, romset.length ) &&
+      !dandanator_detect_blank_buffer( romset.buffer, romset.length ) ) {
     ui_error( UI_ERROR_ERROR,
-              "'%s' is not a recognised Dandanator romset", filename );
+              "'%s' is not a recognised Dandanator EEPROM image", filename );
     utils_close_file( &romset );
     return 1;
   }
@@ -215,18 +229,72 @@ dandanator_insert( const char *filename )
 
   if( dandanator_load_romset( filename ) ) return 1;
 
-  if( dandanator_filename ) libspectrum_free( dandanator_filename );
-  dandanator_filename = utils_safe_strdup( filename );
-
-  dandanator_trace( DANDANATOR_TRACE_BUILD_MARKER );
-  dandanator_trace( "insert romset=%s", filename );
-
-  dandanator_inserted = 1;
-  dandanator_reset_runtime_state();
-
-  ui_menu_activate( UI_MENU_ITEM_MEDIA_CARTRIDGE_DANDANATOR_EJECT, 1 );
+  dandanator_finish_insert( filename, 0 );
 
   machine_reset( 0 );
+
+  return 0;
+}
+
+int
+dandanator_insert_blank( const char *filename )
+{
+  libspectrum_byte *romset_buf;
+  int error;
+
+  romset_buf = libspectrum_new( libspectrum_byte, DANDANATOR_ROMSET_SIZE );
+  memset( romset_buf, 0xff, DANDANATOR_ROMSET_SIZE );
+
+  error = utils_write_file( filename, romset_buf, DANDANATOR_ROMSET_SIZE );
+  libspectrum_free( romset_buf );
+  if( error ) {
+    ui_error( UI_ERROR_ERROR,
+              "Couldn't create blank Dandanator image '%s'", filename );
+    return 1;
+  }
+
+  if( if2_active ) {
+    ui_error( UI_ERROR_ERROR,
+              "Eject the Interface 2 cartridge before inserting a Dandanator" );
+    return 1;
+  }
+
+  if( dandanator_load_romset( filename ) ) return 1;
+
+  dandanator_finish_insert( filename, 1 );
+  machine_reset( 0 );
+
+  return 0;
+}
+
+int
+dandanator_set_programming_enabled( int enabled )
+{
+  int state_changed;
+
+  if( !dandanator_inserted ) {
+    ui_error( UI_ERROR_ERROR, "Insert a Dandanator cartridge first" );
+    return 1;
+  }
+
+  state_changed = dandanator_programming_enabled != !!enabled;
+  dandanator_programming_enabled = !!enabled;
+  dandanator_clear_command_state();
+
+  if( dandanator_programming_enabled ) {
+    dandanator_current_slot = DANDANATOR_HIDDEN_SLOT;
+  } else {
+    dandanator_select_slot( 0 );
+  }
+
+  dandanator_sleep_state &=
+    ~( DANDANATOR_COMMANDS_LOCKED | DANDANATOR_COMMANDS_DISABLED );
+  dandanator_pending_apply_mapping = 0;
+  dandanator_pending_cpu_reset = 0;
+  dandanator_pending_cpu_nmi = 0;
+  dandanator_apply_mapping();
+
+  if( state_changed ) machine_reset( 0 );
 
   return 0;
 }
@@ -244,8 +312,14 @@ dandanator_eject( void )
     dandanator_romset = NULL;
   }
 
+  if( settings_current.dandanator_file ) {
+    libspectrum_free( settings_current.dandanator_file );
+    settings_current.dandanator_file = NULL;
+  }
+
   dandanator_inserted = 0;
   dandanator_active = 0;
+  dandanator_programming_enabled = 0;
   dandanator_reset_runtime_state();
 
   machine_current->ram.romcs = 0;
@@ -253,6 +327,24 @@ dandanator_eject( void )
   ui_menu_activate( UI_MENU_ITEM_MEDIA_CARTRIDGE_DANDANATOR_EJECT, 0 );
 
   machine_reset( 0 );
+}
+
+static void
+dandanator_finish_insert( const char *filename, int programming_enabled )
+{
+  if( dandanator_filename ) libspectrum_free( dandanator_filename );
+  dandanator_filename = utils_safe_strdup( filename );
+
+  settings_set_string( &settings_current.dandanator_file, filename );
+
+  dandanator_inserted = 1;
+  dandanator_programming_enabled = !!programming_enabled;
+  dandanator_reset_runtime_state();
+  if( dandanator_programming_enabled ) {
+    dandanator_current_slot = DANDANATOR_HIDDEN_SLOT;
+  }
+
+  ui_menu_activate( UI_MENU_ITEM_MEDIA_CARTRIDGE_DANDANATOR_EJECT, 1 );
 }
 
 static void
@@ -267,6 +359,9 @@ dandanator_reset( int hard_reset )
   }
 
   dandanator_reset_runtime_state();
+  if( dandanator_programming_enabled ) {
+    dandanator_current_slot = DANDANATOR_HIDDEN_SLOT;
+  }
 
   dandanator_active = 1;
   dandanator_update_romcs_state();
@@ -304,23 +399,19 @@ dandanator_reset_runtime_state( void )
   dandanator_pending_return_slot = 0;
   dandanator_eeprom_sector = 0;
   dandanator_bridge_base = 0;
+  dandanator_jedec_data_1555 = 0;
+  dandanator_jedec_data_2aaa = 0;
+  dandanator_jedec_data_1555_valid = 0;
+  dandanator_jedec_data_2aaa_valid = 0;
   dandanator_extended_pointer0 = 0;
   dandanator_extended_pointer1 = 0;
   dandanator_extended_mode = 0;
   memset( dandanator_pic_ram, 0, sizeof( dandanator_pic_ram ) );
-  dandanator_ei_0038_count = 0;
-  dandanator_opcode_trace_budget = 0;
-  dandanator_opcode_trace_reason = NULL;
-  dandanator_command_follow_budget = 0;
   dandanator_last_opcode = 0;
   dandanator_last_opcode_pc = 0;
   dandanator_pending_apply_mapping = 0;
   dandanator_pending_cpu_reset = 0;
   dandanator_pending_cpu_nmi = 0;
-  dandanator_slot31_last_progress = 0xffff;
-  dandanator_slot31_milestones_seen = 0;
-  dandanator_overlay_read_trace_budget = 128;
-  dandanator_overlay_miss_trace_budget = 64;
   dandanator_clear_command_state();
 }
 
@@ -346,59 +437,6 @@ dandanator_store_extended_overlay( int command, int value, int offset )
 
   if( command == 50 ) dandanator_pic_ram[offset & 0xff] = value & 0xff;
 
-  dandanator_trace( "command %d overlay[%04x]=%02x", command, address,
-                    value & 0xff );
-}
-
-static int
-dandanator_trace_is_enabled( void )
-{
-  if( dandanator_trace_enabled >= 0 ) return dandanator_trace_enabled;
-
-  dandanator_trace_enabled = 1;
-
-  return dandanator_trace_enabled;
-}
-
-static void
-dandanator_close_trace_stream( void )
-{
-  if( dandanator_trace_file ) {
-    fclose( dandanator_trace_file );
-    dandanator_trace_file = NULL;
-  }
-}
-
-static FILE *
-dandanator_trace_stream( void )
-{
-  if( !dandanator_trace_is_enabled() ) return NULL;
-
-  if( !dandanator_trace_file ) {
-    dandanator_trace_file = fopen( "dandanator-trace.txt", "a" );
-    if( dandanator_trace_file ) atexit( dandanator_close_trace_stream );
-  }
-
-  return dandanator_trace_file;
-}
-
-static void
-dandanator_trace( const char *format, ... )
-{
-  va_list arguments;
-  FILE *stream;
-
-  stream = dandanator_trace_stream();
-  if( !stream ) return;
-
-  fprintf( stream, "[dandanator] " );
-
-  va_start( arguments, format );
-  vfprintf( stream, format, arguments );
-  va_end( arguments );
-
-  fputc( '\n', stream );
-  fflush( stream );
 }
 
 static void
@@ -414,13 +452,6 @@ dandanator_apply_mapping( void )
     return;
 
   dandanator_update_romcs_state();
-  dandanator_trace(
-    "apply: romcs=%d slot=%d pending_return=%d sleep=%02x",
-    machine_current->ram.romcs,
-    dandanator_current_slot,
-    dandanator_pending_return_slot,
-    dandanator_sleep_state
-  );
   machine_current->memory_map();
 }
 
@@ -450,6 +481,7 @@ static void
 dandanator_schedule_apply_mapping( int reset_cpu )
 {
   dandanator_pending_apply_mapping = 1;
+  dandanator_apply_mapping_at = tstates + DANDANATOR_COMMAND_DELAY;
   if( reset_cpu ) dandanator_pending_cpu_reset = 1;
 }
 
@@ -471,21 +503,14 @@ dandanator_before_opcode_fetch( void )
 {
   if( !dandanator_pending_apply_mapping ) return;
 
+  /* Emulate PIC processing delay: on real hardware the ROM switch
+     takes about 35 T-states after the confirmation pulse. */
+  if( tstates < dandanator_apply_mapping_at ) return;
+
   dandanator_apply_mapping();
 
   if( dandanator_pending_cpu_nmi ) event_add( 0, z80_nmi_event );
   if( dandanator_pending_cpu_reset ) z80_reset( 0 );
-
-  if( dandanator_current_slot == 31 ) {
-    dandanator_trace(
-      "slot31 mapped bytes after apply 0038=%02x 0039=%02x 003a=%02x source=%d page=%d",
-      readbyte_internal( 0x0038 ),
-      readbyte_internal( 0x0039 ),
-      readbyte_internal( 0x003a ),
-      memory_map_read[0].source,
-      memory_map_read[0].page_num
-    );
-  }
 
   dandanator_pending_apply_mapping = 0;
   dandanator_pending_cpu_reset = 0;
@@ -553,7 +578,6 @@ dandanator_clear_command_state( void )
   memset( dandanator_command_bytes, 0, sizeof( dandanator_command_bytes ) );
   dandanator_command_stage = 0;
   dandanator_command_trap = 0;
-  dandanator_command_follow_budget = 0;
 }
 
 static void
@@ -561,32 +585,61 @@ dandanator_commit_eeprom_bridge( void )
 {
   size_t rom_offset;
 
-  if( !dandanator_eeprom_sector ) {
-    dandanator_trace( "EEPROM commit ignored: sector 0 is read-only" );
+  if( !dandanator_programming_enabled ) {
+    dandanator_eeprom_sector = 0;
     return;
   }
 
   if( dandanator_bridge_base < 0 ||
       dandanator_bridge_base > DANDANATOR_SLOT_SIZE - 0x1000 ||
       ( dandanator_bridge_base & 0x0fff ) ) {
-    dandanator_trace( "EEPROM commit ignored: invalid bridge base %04x",
-                      dandanator_bridge_base & 0xffff );
     return;
   }
 
   rom_offset = (size_t)dandanator_eeprom_sector << 12;
   if( rom_offset + 0x1000 > DANDANATOR_ROMSET_SIZE ) {
-    dandanator_trace( "EEPROM commit ignored: sector %d out of range",
-                      dandanator_eeprom_sector );
     return;
   }
 
   memcpy( dandanator_romset + rom_offset,
           dandanator_shadow_ram + dandanator_bridge_base,
           0x1000 );
-  dandanator_trace( "EEPROM commit: sector=%d base=%04x",
-                    dandanator_eeprom_sector, dandanator_bridge_base );
+
+  /* The SST39SF040 byte-program sequence writes JEDEC unlock bytes to
+     shadow RAM at 0x1555 (0xAA then 0xA0) and 0x2AAA (0x55) before each
+     actual data byte.  After the last byte in the sector is programmed,
+     the shadow RAM at those addresses contains protocol residue, not the
+     real data.  Patch the committed sector with the captured real data
+     values that were written during the programming loop. */
+  if( dandanator_bridge_base <= 0x1555 && 0x1555 < dandanator_bridge_base + 0x1000
+      && dandanator_jedec_data_1555_valid ) {
+    dandanator_romset[rom_offset + ( 0x1555 - dandanator_bridge_base )] =
+      dandanator_jedec_data_1555;
+  }
+  if( dandanator_bridge_base <= 0x2aaa && 0x2aaa < dandanator_bridge_base + 0x1000
+      && dandanator_jedec_data_2aaa_valid ) {
+    dandanator_romset[rom_offset + ( 0x2aaa - dandanator_bridge_base )] =
+      dandanator_jedec_data_2aaa;
+  }
+  dandanator_jedec_data_1555_valid = 0;
+  dandanator_jedec_data_2aaa_valid = 0;
+  dandanator_write_back_romset();
   dandanator_eeprom_sector = 0;
+}
+
+static int
+dandanator_write_back_romset( void )
+{
+  if( !dandanator_filename || !dandanator_romset ) return 1;
+
+  if( utils_write_file( dandanator_filename, dandanator_romset,
+                        DANDANATOR_ROMSET_SIZE ) ) {
+    ui_error( UI_ERROR_ERROR,
+              "Couldn't write Dandanator image '%s'", dandanator_filename );
+    return 1;
+  }
+
+  return 0;
 }
 
 static void
@@ -597,23 +650,18 @@ dandanator_finish_command( void )
   int param2 = dandanator_command_bytes[2];
 
   if( dandanator_sleep_state & DANDANATOR_COMMANDS_DISABLED ) {
-    dandanator_trace( "ignored disabled command %d,%d,%d", command, param1,
-                      param2 );
     dandanator_clear_command_state();
     return;
   }
 
   if( ( dandanator_sleep_state & DANDANATOR_COMMANDS_LOCKED ) &&
       command != 46 ) {
-    dandanator_trace( "ignored locked command %d,%d,%d", command, param1,
-                      param2 );
     dandanator_clear_command_state();
     return;
   }
 
   if( command == 46 ) {
     if( param1 == param2 ) {
-      dandanator_trace( "command 46 param=%d", param1 );
       if( param1 == 1 ) {
         dandanator_sleep_state &= ~DANDANATOR_COMMANDS_DISABLED;
         dandanator_sleep_state |= DANDANATOR_COMMANDS_LOCKED;
@@ -629,24 +677,8 @@ dandanator_finish_command( void )
     return;
   }
 
-  dandanator_trace( "command %d,%d,%d,%d", command, param1, param2,
-                    dandanator_command_bytes[3] );
-
   if( command > 0 && command < 34 ) {
     dandanator_select_slot( command - 1 );
-    if( dandanator_current_slot == 2 ) {
-      dandanator_opcode_trace_budget = 48;
-      dandanator_opcode_trace_reason = "slot2 handoff";
-    } else if( dandanator_current_slot == 3 ) {
-      dandanator_opcode_trace_budget = 192;
-      dandanator_opcode_trace_reason = "slot3 handoff";
-    } else if( dandanator_current_slot == 31 ) {
-      dandanator_opcode_trace_budget = 192;
-      dandanator_opcode_trace_reason = "slot31 handoff";
-    } else if( dandanator_current_slot == 0 ) {
-      dandanator_opcode_trace_budget = 64;
-      dandanator_opcode_trace_reason = "slot0 return";
-    }
     dandanator_apply_mapping();
     dandanator_clear_command_state();
     return;
@@ -665,18 +697,7 @@ dandanator_finish_command( void )
     break;
 
   case 40:
-    dandanator_trace( "command 40 slot=%d flags=%02x aux=%02x",
-                      param1, param2, dandanator_command_bytes[3] );
     dandanator_select_slot( param1 ? param1 - 1 : 0 );
-    if( dandanator_current_slot == 31 ) {
-      dandanator_trace( "slot31 buffer checksum 0038-3fbe=%04x",
-                        dandanator_slot_checksum( 31, 0x0038, 0x3fbe ) );
-      dandanator_opcode_trace_budget = 192;
-      dandanator_opcode_trace_reason = "slot31 handoff";
-    } else if( dandanator_current_slot == 0 ) {
-      dandanator_opcode_trace_budget = 64;
-      dandanator_opcode_trace_reason = "slot0 return";
-    }
 
     if( param2 & 0x08 ) {
       dandanator_sleep_state &= ~DANDANATOR_COMMANDS_LOCKED;
@@ -694,11 +715,8 @@ dandanator_finish_command( void )
   case 48:
     if( param1 == 16 ) {
       dandanator_bridge_base = -1;
-      dandanator_trace( "command 48 arm bridge" );
     } else if( param1 == 32 ) {
       dandanator_eeprom_sector = param2 & 0x7f;
-      dandanator_trace( "command 48 select EEPROM sector %d",
-                        dandanator_eeprom_sector );
     }
     break;
 
@@ -706,7 +724,6 @@ dandanator_finish_command( void )
     dandanator_extended_pointer0 = 0;
     dandanator_extended_pointer1 = 0;
     dandanator_extended_mode = 0;
-    dandanator_trace( "command 39 reset extended state" );
     break;
 
   case 41:
@@ -749,71 +766,7 @@ dandanator_pre_opcode( libspectrum_word pc, libspectrum_byte opcode )
 
   if( !dandanator_inserted ) return;
 
-  if( dandanator_opcode_trace_budget > 0 ) {
-    dandanator_trace(
-      "opcode-trace[%s] slot=%d pc=%04x op=%02x sp=%04x af=%04x bc=%04x de=%04x hl=%04x",
-      dandanator_opcode_trace_reason ? dandanator_opcode_trace_reason : "?",
-      dandanator_current_slot,
-      pc,
-      opcode,
-      z80.sp.w,
-      z80.af.w,
-      z80.bc.w,
-      z80.de.w,
-      z80.hl.w
-    );
-    dandanator_opcode_trace_budget--;
-  }
-
-  if( dandanator_current_slot == 31 &&
-      ( pc == 0x0025 || pc == 0x0035 || pc == 0x0100 || pc == 0x3568 ) ) {
-    unsigned int milestone_bit =
-      pc == 0x0025 ? 0x01 :
-      pc == 0x0035 ? 0x02 :
-      pc == 0x0100 ? 0x04 : 0x08;
-
-    if( !( dandanator_slot31_milestones_seen & milestone_bit ) ) {
-      dandanator_slot31_milestones_seen |= milestone_bit;
-      dandanator_trace(
-        "slot31 milestone pc=%04x op=%02x sp=%04x af=%04x bc=%04x de=%04x hl=%04x",
-        pc, opcode, z80.sp.w, z80.af.w, z80.bc.w, z80.de.w, z80.hl.w );
-    }
-  }
-
-  if( dandanator_current_slot == 31 && pc == 0x0017 ) {
-    libspectrum_word progress = z80.hl.w & 0xff00;
-
-    if( progress != dandanator_slot31_last_progress ) {
-      dandanator_slot31_last_progress = progress;
-      dandanator_trace(
-        "slot31 checksum progress ix=%04x hl=%04x sp=%04x af=%04x bc=%04x de=%04x",
-        z80.ix.w, z80.hl.w, z80.sp.w, z80.af.w, z80.bc.w, z80.de.w );
-    }
-  }
-
-  if( dandanator_command_follow_budget > 0 ) {
-    dandanator_trace(
-      "command-follow slot=%d pc=%04x op=%02x stage=%d trap=%d bytes=%d,%d,%d,%d sp=%04x af=%04x bc=%04x de=%04x hl=%04x",
-      dandanator_current_slot,
-      pc,
-      opcode,
-      dandanator_command_stage,
-      dandanator_command_trap,
-      dandanator_command_bytes[0],
-      dandanator_command_bytes[1],
-      dandanator_command_bytes[2],
-      dandanator_command_bytes[3],
-      z80.sp.w,
-      z80.af.w,
-      z80.bc.w,
-      z80.de.w,
-      z80.hl.w
-    );
-    dandanator_command_follow_budget--;
-  }
-
   if( opcode == 0xc9 && dandanator_shadow_ram[0x1555] == 0xa0 ) {
-    dandanator_trace( "RET at %04x commits EEPROM bridge", pc );
     dandanator_commit_eeprom_bridge();
     dandanator_shadow_ram[0x1555] = 0;
   }
@@ -821,52 +774,18 @@ dandanator_pre_opcode( libspectrum_word pc, libspectrum_byte opcode )
   if( opcode == 0xc9 && dandanator_pending_return_slot ) {
     dandanator_current_slot = dandanator_pending_return_slot - 1;
     dandanator_pending_return_slot = 0;
-    dandanator_trace( "RET at %04x applies slot %d", pc,
-                      dandanator_current_slot );
     dandanator_apply_mapping();
   }
 
   if( opcode == 0xfb ) {
-    if( dandanator_command_stage ) {
-      dandanator_trace(
-        "EI at %04x drops pending command stage=%d trap=%d bytes=%d,%d,%d,%d af=%04x bc=%04x de=%04x hl=%04x",
-        pc,
-        dandanator_command_stage,
-        dandanator_command_trap,
-        dandanator_command_bytes[0],
-        dandanator_command_bytes[1],
-        dandanator_command_bytes[2],
-        dandanator_command_bytes[3],
-        z80.af.w,
-        z80.bc.w,
-        z80.de.w,
-        z80.hl.w
-      );
+    /* If a special command already reached the confirmation phase, execute
+       it before clearing state.  The real hardware fires on the address-0
+       write, so we must not silently discard an accumulated command. */
+    if( dandanator_command_bytes[0] >= 40 && dandanator_command_stage >= 6 ) {
+      dandanator_finish_command();
+    } else {
+      dandanator_clear_command_state();
     }
-
-    if( pc == 0x0038 ) {
-      libspectrum_word return_address =
-        readbyte_internal( z80.sp.w ) |
-        ( readbyte_internal( z80.sp.w + 1 ) << 8 );
-
-      dandanator_ei_0038_count++;
-      if( dandanator_ei_0038_count <= 8 ||
-          !( dandanator_ei_0038_count % 32 ) ) {
-        dandanator_trace(
-          "EI at 0038 #%d ret=%04x sp=%04x af=%04x bc=%04x de=%04x hl=%04x",
-          dandanator_ei_0038_count,
-          return_address,
-          z80.sp.w,
-          z80.af.w,
-          z80.bc.w,
-          z80.de.w,
-          z80.hl.w
-        );
-      }
-    } else if( pc != 0x0051 && pc != 0x359b && pc != 0x1234 ) {
-      dandanator_trace( "EI at %04x clears command state", pc );
-    }
-    dandanator_clear_command_state();
   }
 
   if( dandanator_command_trap && dandanator_is_trap_opcode( opcode ) ) {
@@ -897,56 +816,19 @@ dandanator_memory_read( libspectrum_word address, libspectrum_byte *value )
   if( !dandanator_inserted || !value ) return 0;
   if( address >= DANDANATOR_SLOT_SIZE ) return 0;
 
+  /* Overlay data is only relevant for the menu slot (slot 0).  When a game
+     slot is mapped, reads must return the game ROM data unchanged. */
+  if( dandanator_current_slot != 0 ) return 0;
+
   if( !dandanator_extended_valid[address] ) {
     if( address >= 0x2900 && address < 0x2a00 ) {
       *value = 0x00;
-      if( dandanator_overlay_miss_trace_budget > 0 ) {
-        dandanator_trace(
-          "overlay default addr=%04x value=00 pc=%04x slot=%d stage=%d bytes=%d,%d,%d,%d",
-          address,
-          z80.pc.w,
-          dandanator_current_slot,
-          dandanator_command_stage,
-          dandanator_command_bytes[0],
-          dandanator_command_bytes[1],
-          dandanator_command_bytes[2],
-          dandanator_command_bytes[3]
-        );
-        dandanator_overlay_miss_trace_budget--;
-      }
       return 1;
-    }
-
-    if( address >= 0x2900 && address < 0x3300 &&
-        dandanator_overlay_miss_trace_budget > 0 ) {
-      dandanator_trace(
-        "overlay miss addr=%04x pc=%04x slot=%d stage=%d bytes=%d,%d,%d,%d",
-        address,
-        z80.pc.w,
-        dandanator_current_slot,
-        dandanator_command_stage,
-        dandanator_command_bytes[0],
-        dandanator_command_bytes[1],
-        dandanator_command_bytes[2],
-        dandanator_command_bytes[3]
-      );
-      dandanator_overlay_miss_trace_budget--;
     }
     return 0;
   }
 
   *value = dandanator_extended_ram[address];
-
-  if( dandanator_overlay_read_trace_budget > 0 ) {
-    dandanator_trace(
-      "overlay read addr=%04x value=%02x pc=%04x slot=%d",
-      address,
-      *value,
-      z80.pc.w,
-      dandanator_current_slot
-    );
-    dandanator_overlay_read_trace_budget--;
-  }
 
   return 1;
 }
@@ -958,18 +840,25 @@ dandanator_memory_write( libspectrum_word address, libspectrum_byte value )
 
   if( !dandanator_inserted ) return;
 
-  if( address == 0x1555 && ( value == 0xaa || value == 0xa0 ) ) {
-    dandanator_trace( "bridge marker %02x written at pc=%04x", value,
-                      dandanator_last_opcode_pc );
+  /* The SST39SF040 byte-program sequence uses LD (BC),A (opcode 0x02) for
+     JEDEC unlock writes and LD (DE),A (opcode 0x12) for the actual data
+     byte.  Capture the real data when a data-phase write targets 0x1555
+     or 0x2AAA so the EEPROM commit can patch out the JEDEC protocol
+     residue that would otherwise corrupt those bytes. */
+  if( dandanator_last_opcode == 0x12 ) {
+    if( address == 0x1555 ) {
+      dandanator_jedec_data_1555 = value;
+      dandanator_jedec_data_1555_valid = 1;
+    } else if( address == 0x2aaa ) {
+      dandanator_jedec_data_2aaa = value;
+      dandanator_jedec_data_2aaa_valid = 1;
+    }
   }
 
   if( ( dandanator_last_opcode == 0x12 || dandanator_last_opcode == 0x77 ) &&
       dandanator_shadow_ram[0x1555] == 0xaa ) {
     dandanator_bridge_base = address;
     dandanator_shadow_ram[0x1555] = 0;
-    dandanator_trace( "bridge base captured: opcode=%02x pc=%04x addr=%04x",
-                      dandanator_last_opcode, dandanator_last_opcode_pc,
-                      address );
   }
 
   if( address >= 0x0004 ) return;
@@ -977,9 +866,9 @@ dandanator_memory_write( libspectrum_word address, libspectrum_byte value )
   if( dandanator_last_opcode != 0x32 && dandanator_last_opcode != 0x77 )
     return;
 
-  if( dandanator_current_slot == 3 && dandanator_last_opcode_pc >= 0xff90 ) {
-    dandanator_command_follow_budget = 96;
-  }
+  /* When commands are disabled the PIC ignores all writes; skip command
+     detection to avoid polluting state during game decompression. */
+  if( dandanator_sleep_state & DANDANATOR_COMMANDS_DISABLED ) return;
 
   index = ( dandanator_command_stage | 1 ) / 2;
   if( index < 0 || index >= 4 ) return;
@@ -988,18 +877,13 @@ dandanator_memory_write( libspectrum_word address, libspectrum_byte value )
   dandanator_command_stage |= 1;
   dandanator_command_trap = 1;
 
-  dandanator_trace(
-    "pulse pc=%04x opcode=%02x addr=%04x index=%d count=%d stage=%d trap=%d af=%04x bc=%04x de=%04x hl=%04x",
-    dandanator_last_opcode_pc,
-    dandanator_last_opcode,
-    address,
-    index,
-    dandanator_command_bytes[index],
-    dandanator_command_stage,
-    dandanator_command_trap,
-    z80.af.w,
-    z80.bc.w,
-    z80.de.w,
-    z80.hl.w
-  );
+  /* A write to address 0 is the confirmation pulse for multi-byte commands.
+     The real hardware triggers on this write immediately.  Some firmware
+     (e.g. the dandanator-msft menusystem) does NOT follow the confirmation
+     with a branch-based delay loop, so the branch-trap mechanism in
+     dandanator_pre_opcode would never fire.  Finish the command now. */
+  if( address == 0 && dandanator_command_bytes[0] >= 40 &&
+      dandanator_command_stage >= 6 ) {
+    dandanator_finish_command();
+  }
 }
