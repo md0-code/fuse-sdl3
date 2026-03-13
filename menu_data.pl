@@ -57,6 +57,7 @@ while(<>) {
     next if /^\s*$/;
 
     chomp;
+    s/\r$//;
 
     my( $path, $type, $hotkey, $function, $detail, $action ) = split /\s*,\s*/;
 

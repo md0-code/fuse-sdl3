@@ -307,6 +307,84 @@ function Get-PreferredCCompilerPath {
   throw "Could not find clang-cl.exe or cl.exe. The Visual Studio developer environment did not expose a usable tool directory, and neither compiler was available on PATH."
 }
 
+function Get-PreferredCMakePath {
+  $candidatePaths = @()
+  $installationPath = $null
+
+  try {
+    $installationPath = Get-VsInstallationPath
+  }
+  catch {
+    $installationPath = $null
+  }
+
+  if ($installationPath) {
+    $candidatePaths += (Join-Path $installationPath "Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\bin\cmake.exe")
+  }
+
+  $commands = Get-Command cmake -CommandType Application -All -ErrorAction SilentlyContinue
+  foreach ($command in $commands) {
+    if ($command.Source) {
+      $candidatePaths += $command.Source
+    }
+  }
+
+  foreach ($candidatePath in $candidatePaths | Select-Object -Unique) {
+    if (-not $candidatePath) {
+      continue
+    }
+
+    if ($candidatePath -match '\\Strawberry\\c\\bin\\') {
+      continue
+    }
+
+    if (Test-Path $candidatePath) {
+      return [System.IO.Path]::GetFullPath($candidatePath)
+    }
+  }
+
+  throw "Could not find a usable cmake.exe. Install Visual Studio CMake tools or a standalone CMake, and ensure Strawberry Perl's cmake is not shadowing it."
+}
+
+function Get-PreferredNinjaPath {
+  $candidatePaths = @()
+  $installationPath = $null
+
+  try {
+    $installationPath = Get-VsInstallationPath
+  }
+  catch {
+    $installationPath = $null
+  }
+
+  if ($installationPath) {
+    $candidatePaths += (Join-Path $installationPath "Common7\IDE\CommonExtensions\Microsoft\CMake\Ninja\ninja.exe")
+  }
+
+  $commands = Get-Command ninja -CommandType Application -All -ErrorAction SilentlyContinue
+  foreach ($command in $commands) {
+    if ($command.Source) {
+      $candidatePaths += $command.Source
+    }
+  }
+
+  foreach ($candidatePath in $candidatePaths | Select-Object -Unique) {
+    if (-not $candidatePath) {
+      continue
+    }
+
+    if ($candidatePath -match '\\Strawberry\\c\\bin\\') {
+      continue
+    }
+
+    if (Test-Path $candidatePath) {
+      return [System.IO.Path]::GetFullPath($candidatePath)
+    }
+  }
+
+  throw "Could not find a usable ninja.exe. Install Ninja or the Visual Studio CMake tools, and ensure Strawberry Perl's toolchain is not shadowing it."
+}
+
 function Install-WingetPackage {
   param(
     [string]$CommandName,
@@ -478,6 +556,8 @@ function Invoke-CMakeConfigure {
 
   Assert-NoRepoVcpkgLockOwner -ResolvedVcpkgRoot $ResolvedVcpkgRoot
 
+  $cmakePath = Get-PreferredCMakePath
+  $ninjaPath = Get-PreferredNinjaPath
   $compilerPath = Get-PreferredCCompilerPath
   $cachePath = Join-Path $BuildDirectory "CMakeCache.txt"
   $toolchainPath = Join-Path $ResolvedVcpkgRoot 'scripts/buildsystems/vcpkg.cmake'
@@ -489,6 +569,7 @@ function Invoke-CMakeConfigure {
     "-S", $RepoRoot,
     "-B", $BuildDirectory,
     "-G", "Ninja",
+    "-DCMAKE_MAKE_PROGRAM=$ninjaPath",
     "-DCMAKE_C_COMPILER=$compilerPath",
     "-DVCPKG_TARGET_TRIPLET=$TripletName",
     "-DVCPKG_INSTALL_OPTIONS=",
@@ -507,7 +588,7 @@ function Invoke-CMakeConfigure {
     )
   }
 
-  & cmake @cmakeArgs
+  & $cmakePath @cmakeArgs
   if ($LASTEXITCODE -ne 0) {
     Show-VcpkgFailureHints -ResolvedVcpkgRoot $ResolvedVcpkgRoot -BuildDirectory $BuildDirectory
     exit $LASTEXITCODE
@@ -519,6 +600,8 @@ function Invoke-CMakeBuild {
     [string]$BuildDirectory,
     [string]$Target
   )
+
+  $cmakePath = Get-PreferredCMakePath
 
   if ($Target) {
     Write-Host "Running CMake build target '$Target'..."
@@ -532,7 +615,7 @@ function Invoke-CMakeBuild {
     $buildArgs += @("--target", $Target)
   }
 
-  & cmake @buildArgs
+  & $cmakePath @buildArgs
   if ($LASTEXITCODE -ne 0) {
     exit $LASTEXITCODE
   }

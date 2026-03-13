@@ -44,6 +44,8 @@ sub parse_file ($;$) {
 
     while( <$fh> ) {
 
+        s/\r?\n\z//;
+
         if( not defined $condition ) {
             $condition = 1;
             foreach ( @conditions ) {
@@ -104,7 +106,7 @@ sub parse_file ($;$) {
         s/^#.*$//;
 
 
-        print if $condition and not $inhibit;
+        print "$_\n" if $condition and not $inhibit;
     }
 }
         
