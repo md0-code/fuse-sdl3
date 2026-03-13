@@ -345,8 +345,60 @@ function Install-WingetPackageForCommands {
   winget install --id $PackageId -e --accept-package-agreements --accept-source-agreements --silent
 }
 
+function Find-GitWindowsPerl {
+  # Locate the perl.exe that ships with Git for Windows without any extra install.
+  $gitCmd = Get-Command git -ErrorAction SilentlyContinue
+  if ($gitCmd) {
+    # git.exe lives in <git-root>\bin\ or <git-root>\cmd\; perl is at <git-root>\usr\bin\perl.exe
+    $gitRoot = Split-Path (Split-Path $gitCmd.Source -Parent) -Parent
+    $candidate = Join-Path $gitRoot "usr\bin\perl.exe"
+    if (Test-Path $candidate) {
+      return $candidate
+    }
+  }
+
+  # Fall back to well-known default Git for Windows install prefixes
+  $candidates = @(
+    "$env:ProgramFiles\Git\usr\bin\perl.exe",
+    "${env:ProgramFiles(x86)}\Git\usr\bin\perl.exe",
+    "$env:LocalAppData\Programs\Git\usr\bin\perl.exe"
+  )
+  foreach ($candidate in $candidates) {
+    if ($candidate -and (Test-Path $candidate)) {
+      return $candidate
+    }
+  }
+
+  return $null
+}
+
+function Ensure-PerlInterpreter {
+  # Accept any perl already on PATH (Strawberry, Git, MSYS2, ActivePerl, …)
+  if (Get-Command perl -ErrorAction SilentlyContinue) {
+    Write-Host "perl already available"
+    return
+  }
+
+  # Git for Windows ships a full-featured Perl with all required core modules.
+  # Since Git is needed for the vcpkg checkout it is available on virtually
+  # every developer machine without a separate install.
+  $gitPerl = Find-GitWindowsPerl
+  if ($gitPerl) {
+    Write-Host "Using Perl bundled with Git for Windows: $gitPerl"
+    $env:PATH = "$(Split-Path $gitPerl -Parent);$env:PATH"
+    return
+  }
+
+  # Last resort: install Strawberry Perl via winget.
+  Write-Host "No Perl interpreter found on PATH or in Git for Windows. Installing StrawberryPerl.StrawberryPerl via winget."
+  winget install --id StrawberryPerl.StrawberryPerl -e --accept-package-agreements --accept-source-agreements --silent
+  if ($LASTEXITCODE -ne 0) {
+    throw "winget failed to install StrawberryPerl.StrawberryPerl (exit $LASTEXITCODE)."
+  }
+}
+
 function Ensure-WindowsHostTools {
-  Install-WingetPackage -CommandName perl -PackageId StrawberryPerl.StrawberryPerl
+  Ensure-PerlInterpreter
   Install-WingetPackage -CommandName pkg-config -PackageId bloodrock.pkg-config-lite
   Install-WingetPackage -CommandName ninja -PackageId Ninja-build.Ninja
   Install-WingetPackageForCommands -CommandNames @("win_flex", "win_bison") -PackageId WinFlexBison.win_flex_bison

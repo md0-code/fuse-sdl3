@@ -68,7 +68,11 @@ Minimum required to build with the supported native Windows workflow:
 
 The Windows helper script installs these host-side tools when missing:
 
-* Strawberry Perl
+* Perl — the script first reuses the Perl bundled with Git for Windows
+  (`<git-root>\usr\bin\perl.exe`) if Git is already installed, and only falls
+  back to installing [Strawberry Perl](https://strawberryperl.com/) via winget
+  when no Perl interpreter is found at all. All scripts use only core Perl
+  modules so any standard Perl distribution works.
 * `pkg-config-lite`
 * `ninja`
 * WinFlexBison (`win_flex` and `win_bison`)
