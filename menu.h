@@ -95,10 +95,15 @@ MENU_CALLBACK_WITH_ACTION( menu_media_if1_rs232 );
 
 MENU_CALLBACK( menu_media_cartridge_timexdock_insert );
 MENU_CALLBACK( menu_media_cartridge_timexdock_eject );
+MENU_DETAIL( menu_timexdock_detail );
 MENU_CALLBACK( menu_media_cartridge_dandanator_insert );
+MENU_CALLBACK( menu_media_cartridge_dandanator_programming_switch_enable );
+MENU_CALLBACK( menu_media_cartridge_dandanator_programming_switch_disable );
 MENU_CALLBACK( menu_media_cartridge_dandanator_eject );
+MENU_DETAIL( menu_dandanator_detail );
 MENU_CALLBACK( menu_media_cartridge_interface2_insert );
 MENU_CALLBACK( menu_media_cartridge_interface2_eject );
+MENU_DETAIL( menu_if2_detail );
 
 MENU_CALLBACK_WITH_ACTION( menu_media_ide_insert );
 MENU_CALLBACK_WITH_ACTION( menu_media_ide_commit );
