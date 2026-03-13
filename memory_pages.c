@@ -376,8 +376,9 @@ readbyte( libspectrum_word address )
 {
   libspectrum_word bank;
   memory_page *mapping;
+  libspectrum_byte override_value;
 
-  dandanator_memory_read( address );
+  if( dandanator_memory_read( address, &override_value ) ) return override_value;
 
   bank = address >> MEMORY_PAGE_SIZE_LOGARITHM;
   mapping = &memory_map_read[ bank ];
@@ -481,7 +482,7 @@ writebyte_internal( libspectrum_word address, libspectrum_byte b )
   libspectrum_word bank = address >> MEMORY_PAGE_SIZE_LOGARITHM;
   memory_page *mapping = &memory_map_write[ bank ];
 
-  dandanator_memory_write( address );
+  dandanator_memory_write( address, b );
   
   if( spectranet_paged ) {
     /* all writes need to be parsed by the flash rom emulation */
