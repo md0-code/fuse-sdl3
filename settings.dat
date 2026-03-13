@@ -165,6 +165,7 @@ didaktik80disk_file, string, NULL,, didaktik80disk
 discipledisk_file, string, NULL,, discipledisk
 betadisk_file, string, NULL,, betadisk
 dck_file, string, NULL,, dock
+dandanator_file, string, NULL,, dandanator
 if2_file, string, NULL,, if2cart
 
 mdr_file, string, NULL,, microdrive-file

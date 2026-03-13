@@ -728,7 +728,7 @@ setup_start_files( start_files_t *start_files )
   start_files->disk_disciple = settings_current.discipledisk_file;
   start_files->disk_beta = settings_current.betadisk_file;
   start_files->dock = settings_current.dck_file;
-  start_files->dandanator = NULL;
+  start_files->dandanator = settings_current.dandanator_file;
   start_files->if2 = settings_current.if2_file;
   start_files->playback = settings_current.playback_file;
   start_files->recording = settings_current.record_file;
@@ -1021,23 +1021,29 @@ do_start_files( start_files_t *start_files )
   }
 
   if( start_files->dandanator ) {
-    error = utils_open_file( start_files->dandanator, autoload, NULL );
-    if( error ) return error;
+    if( utils_open_file( start_files->dandanator, autoload, NULL ) ) {
+      /* File from saved settings could not be opened; clear it so the
+         next startup doesn't repeat the error, then continue. */
+      settings_set_string( &settings_current.dandanator_file, NULL );
+    }
   }
 
   if( start_files->if2 ) {
-    error = utils_open_file( start_files->if2, autoload, NULL );
-    if( error ) return error;
+    if( utils_open_file( start_files->if2, autoload, NULL ) ) {
+      settings_set_string( &settings_current.if2_file, NULL );
+    }
   }
 
   if( start_files->snapshot ) {
-    error = utils_open_file( start_files->snapshot, autoload, NULL );
-    if( error ) return error;
+    if( utils_open_file( start_files->snapshot, autoload, NULL ) ) {
+      settings_set_string( &settings_current.snapshot, NULL );
+    }
   }
 
   if( start_files->tape ) {
-    error = utils_open_file( start_files->tape, autoload, NULL );
-    if( error ) return error;
+    if( utils_open_file( start_files->tape, autoload, NULL ) ) {
+      settings_set_string( &settings_current.tape_file, NULL );
+    }
   }
 
   /* Microdrive cartridges */
