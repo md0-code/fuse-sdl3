@@ -58,6 +58,9 @@ static SDL_Texture *sdldisplay_texture = NULL;
 static SDL_Surface *tmp_screen=NULL; /* Temporary screen for scalers */
 
 static SDL_Surface *red_cassette[2], *green_cassette[2];
+
+static SDL_Surface *sdldisplay_logo_about = NULL;
+static struct { int x, y, w, h, pending; } sdldisplay_logo_blit_pending;
 static SDL_Surface *red_mdr[2], *green_mdr[2];
 static SDL_Surface *red_disk[2], *green_disk[2];
 static int sdldisplay_window_visible = 0;
@@ -1134,6 +1137,24 @@ sdldisplay_load_gfx_mode( void )
 
   SDL_WM_SetCaption( FUSE_NAME, FUSE_NAME );
 
+  /* Set window icon from embedded asset */
+  {
+    utils_file icon_file;
+    if( !utils_read_auxiliary_file( "logo-icon.bmp", &icon_file,
+                                    UTILS_AUXILIARY_LIB ) ) {
+      SDL_IOStream *icon_stream =
+        SDL_IOFromConstMem( icon_file.buffer, icon_file.length );
+      if( icon_stream ) {
+        SDL_Surface *icon_surface = SDL_LoadBMP_IO( icon_stream, true );
+        if( icon_surface ) {
+          SDL_SetWindowIcon( sdldisplay_window, icon_surface );
+          SDL_FreeSurface( icon_surface );
+        }
+      }
+      utils_close_file( &icon_file );
+    }
+  }
+
   if( settings_current.full_screen ) {
     if( fullscreen_width && SDL_GetClosestFullscreenDisplayMode(
           SDL_GetPrimaryDisplay(), window_width, window_height, 0.0f, false,
@@ -1736,6 +1757,22 @@ uidisplay_frame_end( void )
 
   if( SDL_MUSTLOCK( sdldisplay_gc ) ) SDL_UnlockSurface( sdldisplay_gc );
 
+  /* Post-scaler logo blit: scale 256x256 source directly to the output
+     surface so the integer/NN scaler never touches the logo pixels. */
+  if( sdldisplay_logo_blit_pending.pending && sdldisplay_logo_about &&
+      sdldisplay_gc ) {
+    SDL_Rect dst;
+    int s = (int)( sdldisplay_current_size + 0.5f );
+    if( s < 1 ) s = 1;
+    dst.x = sdldisplay_logo_blit_pending.x * s + fullscreen_x_off;
+    dst.y = sdldisplay_logo_blit_pending.y * s + fullscreen_y_off;
+    dst.w = sdldisplay_logo_blit_pending.w * s;
+    dst.h = sdldisplay_logo_blit_pending.h * s;
+    SDL_BlitSurfaceScaled( sdldisplay_logo_about, NULL, sdldisplay_gc, &dst,
+                           SDL_SCALEMODE_LINEAR );
+    sdldisplay_logo_blit_pending.pending = 0;
+  }
+
   if( sdldisplay_upload_frame() ) {
     fprintf( stderr, "%s: couldn't update SDL texture\n", fuse_progname );
     fuse_abort();
@@ -1774,6 +1811,35 @@ uidisplay_area( int x, int y, int width, int height )
   num_rects++;
 }
 
+void
+uidisplay_blit_logo( int display_x, int display_y, int w, int h )
+{
+  utils_file logo_file;
+  SDL_IOStream *stream;
+
+  /* Lazy-load the source surface. */
+  if( !sdldisplay_logo_about ) {
+    if( utils_read_auxiliary_file( "logo-about.bmp", &logo_file,
+                                   UTILS_AUXILIARY_LIB ) )
+      return;
+    stream = SDL_IOFromConstMem( logo_file.buffer, logo_file.length );
+    if( stream )
+      sdldisplay_logo_about = SDL_LoadBMP_IO( stream, true );
+    utils_close_file( &logo_file );
+    if( !sdldisplay_logo_about ) return;
+  }
+
+  /* Record the request; the actual blit into sdldisplay_gc happens after
+     sdldisplay_scale_frame() in uidisplay_frame_end so the integer pixel
+     scaler never touches the logo pixels. */
+  sdldisplay_logo_blit_pending.x = display_x;
+  sdldisplay_logo_blit_pending.y = display_y;
+  sdldisplay_logo_blit_pending.w = w;
+  sdldisplay_logo_blit_pending.h = h;
+  sdldisplay_logo_blit_pending.pending = 1;
+  sdldisplay_has_rendered_content = 1;
+}
+
 int
 uidisplay_end( void )
 {
@@ -1784,6 +1850,10 @@ uidisplay_end( void )
   if ( tmp_screen ) {
     free( tmp_screen->pixels );
     SDL_FreeSurface( tmp_screen ); tmp_screen = NULL;
+  }
+
+  if( sdldisplay_logo_about ) {
+    SDL_FreeSurface( sdldisplay_logo_about ); sdldisplay_logo_about = NULL;
   }
 
   sdldisplay_free_window();

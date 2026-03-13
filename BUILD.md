@@ -64,7 +64,7 @@ Minimum required to build with the supported native Windows workflow:
 
 * Visual Studio or Build Tools with the `Desktop development with C++` workload
 * `winget`
-* a repo-local `vcpkg` checkout managed by `scripts/build-windows.ps1`
+* a repo-local `vcpkg` checkout managed by `scripts/build-win.ps1`
 
 The Windows helper script installs these host-side tools when missing:
 
@@ -95,7 +95,7 @@ sh ./scripts/build-linux.sh
 Windows PowerShell:
 
 ```powershell
-./scripts/build-windows.ps1
+./scripts/build-win.ps1
 ```
 
 Both commands configure a CMake build, compile Fuse SDL3, and finish with a
@@ -112,7 +112,7 @@ sh ./scripts/build-linux.sh --package
 Windows PowerShell:
 
 ```powershell
-./scripts/build-windows.ps1 -Package
+./scripts/build-win.ps1 -Package
 ```
 
 To build a Linux AppImage from the same portable layout:

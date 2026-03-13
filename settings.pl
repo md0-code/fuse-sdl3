@@ -102,13 +102,8 @@ print hashline( __LINE__ ), << 'CODE';
 #include "utils.h"
 
 /* The name of our configuration file */
-#ifdef WIN32
-#define CONFIG_FILE_NAME "fuse.cfg"
-#define PORTABLE_DEFAULT_CONFIG_FILE_NAME "fuse.cfg.default"
-#else				/* #ifdef WIN32 */
 #define CONFIG_FILE_NAME ".fuserc"
 #define PORTABLE_DEFAULT_CONFIG_FILE_NAME ".fuserc.default"
-#endif				/* #ifdef WIN32 */
 
 /* The current settings of options, etc */
 settings_info settings_current;

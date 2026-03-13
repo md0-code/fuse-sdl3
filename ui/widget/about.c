@@ -26,6 +26,7 @@
 #include <stdio.h>
 
 #include "display.h"
+#include "ui/uidisplay.h"
 #include "widget.h"
 #include "widget_internals.h"
 
@@ -34,33 +35,35 @@ widget_about_draw( void *data GCC_UNUSED )
 {
   char buffer[80];
   static const char display_url[] = "github.com/md0-code/fuse-sdl3";
-  int dialog_cols, dialog_left_edge_x, string_width, x, line;
+  int dialog_cols, dialog_left_edge_x, string_width, x;
 
-  dialog_cols = 35;
+  dialog_cols = 28;
   dialog_left_edge_x =
     ( DISPLAY_SCREEN_WIDTH_COLS - dialog_cols + 1 ) / 2 -
     DISPLAY_BORDER_WIDTH_COLS;
-  line = 0;
 
-  widget_dialog_with_border( dialog_left_edge_x, 2, dialog_cols, 4+2 );
+  /* 12-row dialog (original logo design); 48x48 logo (originally proposed).  */
+  widget_dialog_with_border( dialog_left_edge_x, 2, dialog_cols, 12 );
   widget_printstring( dialog_left_edge_x * 8 + 2, 16, WIDGET_COLOUR_TITLE,
                       "About " FUSE_NAME );
 
-  string_width = widget_stringwidth( FUSE_NAME );
-  x = dialog_left_edge_x * 8 + ( dialog_cols * 8 - string_width ) / 2;
-  widget_printstring( x, ++line * 8 + 24, WIDGET_COLOUR_FOREGROUND,
-                      FUSE_NAME );
+  /* One blank 8px row between title bar and logo (y 48→56). */
+  uidisplay_blit_logo(
+    (dialog_left_edge_x + DISPLAY_BORDER_WIDTH_COLS) * 8 +
+      (dialog_cols * 8 - 48) / 2,
+    56, 48, 48 );
 
   snprintf( buffer, 80, "Version %s", FUSE_VERSION );
   string_width = widget_stringwidth( buffer );
   x = dialog_left_edge_x * 8 + ( dialog_cols * 8 - string_width ) / 2;
-  widget_printstring( x, ++line * 8 + 24, WIDGET_COLOUR_FOREGROUND, buffer );
+  widget_printstring( x, 88, WIDGET_COLOUR_FOREGROUND, buffer );
 
   string_width = widget_stringwidth( display_url );
   x = dialog_left_edge_x * 8 + ( dialog_cols * 8 - string_width ) / 2;
-  widget_printstring( x, ++line * 8 + 24, 0x09, display_url );
+  widget_printstring( x, 96, 0x09, display_url );
 
-  widget_display_lines( 2, line + 3 );
+  /* Blank row at y=104 before the dialog bottom border. */
+  widget_display_lines( 2, 12 );
 
   return 0;
 }

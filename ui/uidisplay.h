@@ -53,4 +53,6 @@ void uidisplay_plot8( int x, int y, libspectrum_byte data, libspectrum_byte ink,
 void uidisplay_plot16( int x, int y, libspectrum_word data, libspectrum_byte ink,
                        libspectrum_byte paper);
 
+void uidisplay_blit_logo( int display_x, int display_y, int w, int h );
+
 #endif			/* #ifndef FUSE_UIDISPLAY_H */

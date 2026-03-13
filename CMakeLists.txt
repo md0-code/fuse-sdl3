@@ -182,7 +182,7 @@ endif()
 
 if(NOT FUSE_LIBSPECTRUM_TARGET)
   message(FATAL_ERROR
-    "libspectrum >= 1.5.0 was not found. Enable FUSE_USE_INTERNAL_LIBSPECTRUM, run scripts/build-windows.ps1 on Windows, or point FUSE_LIBSPECTRUM_ROOT at a native libspectrum prefix."
+    "libspectrum >= 1.5.0 was not found. Enable FUSE_USE_INTERNAL_LIBSPECTRUM, run scripts/build-win.ps1 on Windows, or point FUSE_LIBSPECTRUM_ROOT at a native libspectrum prefix."
   )
 endif()
 
@@ -371,19 +371,11 @@ else()
   set(FUSE_DESKTOP_INTEGRATION_STATUS "generated")
 endif()
 
-if(WIN32)
-  set(FUSE_DEFAULT_CONFIG_NAME "fuse.cfg")
-else()
-  set(FUSE_DEFAULT_CONFIG_NAME ".fuserc")
-endif()
+set(FUSE_DEFAULT_CONFIG_NAME ".fuserc")
 
 set(FUSE_INSTALLED_DEFAULT_CONFIG_NAME "${FUSE_DEFAULT_CONFIG_NAME}")
 if(FUSE_PORTABLE_PACKAGE)
-  if(WIN32)
-    set(FUSE_INSTALLED_DEFAULT_CONFIG_NAME "fuse.cfg.default")
-  else()
-    set(FUSE_INSTALLED_DEFAULT_CONFIG_NAME ".fuserc.default")
-  endif()
+  set(FUSE_INSTALLED_DEFAULT_CONFIG_NAME ".fuserc.default")
 endif()
 
 if(HAVE_LIB_XML2)
@@ -700,6 +692,8 @@ file(WRITE "${FUSE_EMBEDDED_ASSETS_SPEC}"
   "LIB|cassette.bmp|${CMAKE_SOURCE_DIR}/lib/cassette.bmp\n"
   "LIB|keyboard.png|${CMAKE_SOURCE_DIR}/lib/keyboard.png\n"
   "LIB|keyboard.scr|${CMAKE_SOURCE_DIR}/lib/keyboard.scr\n"
+  "LIB|logo-about.bmp|${CMAKE_SOURCE_DIR}/lib/logo-about.bmp\n"
+  "LIB|logo-icon.bmp|${CMAKE_SOURCE_DIR}/lib/logo-icon.bmp\n"
   "LIB|microdrive.bmp|${CMAKE_SOURCE_DIR}/lib/microdrive.bmp\n"
   "LIB|plus3disk.bmp|${CMAKE_SOURCE_DIR}/lib/plus3disk.bmp\n"
   "WIDGET|fuse.font|${GENERATED_WIDGET_FONT}\n"
@@ -718,6 +712,8 @@ add_custom_command(
     "${CMAKE_SOURCE_DIR}/lib/cassette.bmp"
     "${CMAKE_SOURCE_DIR}/lib/keyboard.png"
     "${CMAKE_SOURCE_DIR}/lib/keyboard.scr"
+    "${CMAKE_SOURCE_DIR}/lib/logo-about.bmp"
+    "${CMAKE_SOURCE_DIR}/lib/logo-icon.bmp"
     "${CMAKE_SOURCE_DIR}/lib/microdrive.bmp"
     "${CMAKE_SOURCE_DIR}/lib/plus3disk.bmp"
     "${GENERATED_WIDGET_FONT}"
