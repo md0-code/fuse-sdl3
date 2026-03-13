@@ -150,6 +150,13 @@ if2_reset( int hard_reset GCC_UNUSED )
     return;
   }
 
+  if( settings_current.dandanator_file ) {
+    libspectrum_free( settings_current.if2_file );
+    settings_current.if2_file = NULL;
+    ui_menu_activate( UI_MENU_ITEM_MEDIA_CARTRIDGE_IF2_EJECT, 0 );
+    return;
+  }
+
   if ( !periph_is_active( PERIPH_TYPE_INTERFACE2 ) ) return;
 
   if ( machine_load_rom_bank( if2_memory_map_romcs, 0,
