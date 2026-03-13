@@ -623,8 +623,9 @@ static void fuse_show_copyright(void)
   fuse_stdout( "\n" );
   fuse_show_version();
   fuse_stdout(
-  "Project home: <" FUSE_URL ">\n"
   "A modernized and enhanced SDL3-based ZX Spectrum emulator.\n"
+   "\n"
+  "Project home: <" FUSE_URL ">\n"
    FUSE_COPYRIGHT "\n"
    "\n"
    "This program is distributed in the hope that it will be useful,\n"
