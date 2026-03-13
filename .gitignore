@@ -10,7 +10,6 @@
 /.cache/
 /dist-*/
 /external/
-/dandanator-trace.txt
 /~shaders/
 /aclocal.m4
 /autom4te.cache
