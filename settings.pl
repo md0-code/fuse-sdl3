@@ -75,6 +75,10 @@ print hashline( __LINE__ ), << 'CODE';
 #include <sys/stat.h>
 #include <unistd.h>
 
+#ifdef HAVE_LIBGEN_H
+#include <libgen.h>
+#endif
+
 #if HAVE_GETOPT_LONG		/* Did our libc include getopt_long? */
 #include <getopt.h>
 #elif defined AMIGA || defined __MORPHOS__            /* #if HAVE_GETOPT_LONG */
