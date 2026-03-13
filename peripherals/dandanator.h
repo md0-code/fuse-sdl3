@@ -11,6 +11,8 @@ void dandanator_register_startup( void );
 int dandanator_available( void );
 int dandanator_detect_buffer( const libspectrum_byte *buffer, size_t length );
 int dandanator_insert( const char *filename );
+int dandanator_insert_blank( const char *filename );
+int dandanator_set_programming_enabled( int enabled );
 void dandanator_eject( void );
 void dandanator_before_opcode_fetch( void );
 void dandanator_pre_opcode( libspectrum_word pc, libspectrum_byte opcode );

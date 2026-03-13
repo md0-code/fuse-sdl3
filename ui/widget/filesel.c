@@ -226,8 +226,9 @@ widget_filesel_category_for_title( const char *title )
   if( !strcmp( title, "Fuse SDL3 - Select File for Communication" ) ) return "communication";
   if( !strcmp( title, "Fuse SDL3 - Insert Hard Disk File" ) ) return "harddisk";
 
-  if( !strcmp( title, "Fuse SDL3 - Insert Timex Dock Cartridge" ) ||
-      !strcmp( title, "Fuse SDL3 - Insert Interface 2 Cartridge" ) ) {
+    if( !strcmp( title, "Fuse SDL3 - Insert Timex Dock Cartridge" ) ||
+        !strcmp( title, "Fuse SDL3 - Insert Interface 2 Cartridge" ) ||
+        !strcmp( title, "Fuse SDL3 - Insert Dandanator ROM" ) ) {
     return "cartridge";
   }
 
@@ -910,7 +911,7 @@ static int widget_print_all_filenames( struct widget_dirent **filenames, int n,
     widget_printstring( 12, 22 * 8, WIDGET_COLOUR_FOREGROUND,
 				     "\012RETURN\001 = select" );
     widget_printstring_right( 244, 22 * 8, WIDGET_COLOUR_FOREGROUND,
-					   "\012TAB\001 = enter name" );
+                                            "\012TAB\001 = create new" );
   }
 
   if( i < n )

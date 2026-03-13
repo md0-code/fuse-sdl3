@@ -23,6 +23,8 @@
 
 #include <config.h>
 
+#include <sys/stat.h>
+
 #include <libspectrum.h>
 
 #include "event.h"
@@ -654,19 +656,98 @@ MENU_CALLBACK( menu_media_cartridge_timexdock_eject )
   dck_eject();
 }
 
+const char*
+menu_timexdock_detail( void )
+{
+  const char *path, *base;
+
+  if( !dck_active ) return "Not inserted";
+
+  path = settings_current.dck_file;
+  if( !path || !*path ) return "Inserted";
+
+  base = strrchr( path, '/' );
+  if( base ) return base + 1;
+
+  base = strrchr( path, '\\' );
+  if( base ) return base + 1;
+
+  return path;
+}
+
+const char*
+menu_dandanator_detail( void )
+{
+  const char *path, *base;
+
+  if( !dandanator_active ) return "Not inserted";
+
+  path = settings_current.dandanator_file;
+  if( !path || !*path ) return "Inserted";
+
+  base = strrchr( path, '/' );
+  if( base ) return base + 1;
+
+  base = strrchr( path, '\\' );
+  if( base ) return base + 1;
+
+  return path;
+}
+
+const char*
+menu_if2_detail( void )
+{
+  const char *path, *base;
+
+  if( !if2_active ) return "Not inserted";
+
+  path = settings_current.if2_file;
+  if( !path || !*path ) return "Inserted";
+
+  base = strrchr( path, '/' );
+  if( base ) return base + 1;
+
+  base = strrchr( path, '\\' );
+  if( base ) return base + 1;
+
+  return path;
+}
+
 MENU_CALLBACK( menu_media_cartridge_dandanator_insert )
 {
   char *filename;
+  struct stat file_info;
 
+  ui_widget_finish();
   fuse_emulation_pause();
 
-  filename = ui_get_open_filename( "Fuse SDL3 - Insert Dandanator Cartridge" );
+  filename = ui_get_save_filename( "Fuse SDL3 - Insert Dandanator ROM" );
   if( !filename ) { fuse_emulation_unpause(); return; }
 
-  dandanator_insert( filename );
+  if( stat( filename, &file_info ) == 0 ) {
+    dandanator_insert( filename );
+  } else {
+    dandanator_insert_blank( filename );
+  }
 
   libspectrum_free( filename );
 
+  fuse_emulation_unpause();
+}
+
+MENU_CALLBACK( menu_media_cartridge_dandanator_programming_switch_enable )
+{
+  ui_widget_finish();
+  fuse_emulation_pause();
+  dandanator_set_programming_enabled( 1 );
+  fuse_emulation_unpause();
+}
+
+MENU_CALLBACK( menu_media_cartridge_dandanator_programming_switch_disable )
+{
+  ui_widget_finish();
+  fuse_emulation_pause();
+  dandanator_set_programming_enabled( 0 );
   fuse_emulation_unpause();
 }
 

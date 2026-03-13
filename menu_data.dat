@@ -452,13 +452,16 @@ Media/Disk/Didaktik 80/Drive B/Write protect/_Enable, Item,, menu_media_writepro
 Media/Disk/Didaktik 80/Drive B/Write protect/_Disable, Item,, menu_media_writeprotect,, 0x062
 
 Media/_Cartridge, Branch
-Media/Cartridge/_Timex Dock, Branch
+Media/Cartridge/_Timex Dock, Branch,,,menu_timexdock_detail
 Media/Cartridge/Timex Dock/_Insert..., Item
 Media/Cartridge/Timex Dock/_Eject, Item
-Media/Cartridge/_Dandanator, Branch
-Media/Cartridge/Dandanator/_Insert..., Item
+Media/Cartridge/_Dandanator, Branch,,,menu_dandanator_detail
+Media/Cartridge/Dandanator/_Insert ROM..., Item,, menu_media_cartridge_dandanator_insert
+Media/Cartridge/Dandanator/_Programming switch, Branch
+Media/Cartridge/Dandanator/Programming switch/_Enable, Item,, menu_media_cartridge_dandanator_programming_switch_enable
+Media/Cartridge/Dandanator/Programming switch/_Disable, Item,, menu_media_cartridge_dandanator_programming_switch_disable
 Media/Cartridge/Dandanator/_Eject, Item
-Media/Cartridge/_Interface 2, Branch
+Media/Cartridge/_Interface 2, Branch,,,menu_if2_detail
 Media/Cartridge/Interface 2/_Insert..., Item
 Media/Cartridge/Interface 2/_Eject, Item
 
