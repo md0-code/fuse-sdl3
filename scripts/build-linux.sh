@@ -87,6 +87,7 @@ fi
 if [ "$build_appimage" -eq 1 ]; then
   appdir="$build_dir/fuse-sdl3.AppDir"
   appimage_tool="${APPIMAGETOOL:-}"
+  appimage_tool_appstream_flag="--no-appstream"
   arch=$(uname -m)
   version=$(sed -n 's/^project(fuse VERSION \([^ ]*\) LANGUAGES C)$/\1/p' "$root_dir/CMakeLists.txt")
   appimage_path="$build_dir/fuse-sdl3-${version}-${arch}.AppImage"
@@ -122,6 +123,10 @@ if [ "$build_appimage" -eq 1 ]; then
     fi
   fi
 
+  if [ "${FUSE_APPIMAGE_VALIDATE_APPSTREAM:-0}" = "1" ]; then
+    appimage_tool_appstream_flag=""
+  fi
+
   rm -rf "$appdir"
   cmake --install "$build_dir" --prefix "$appdir"
 
@@ -151,7 +156,7 @@ if [ "$build_appimage" -eq 1 ]; then
   chmod 755 "$appdir/AppRun"
 
   rm -f "$appimage_path"
-  ARCH="$arch" VERSION="$version" APPIMAGE_EXTRACT_AND_RUN=1 "$appimage_tool" "$appdir" "$appimage_path"
+  ARCH="$arch" VERSION="$version" APPIMAGE_EXTRACT_AND_RUN=1 "$appimage_tool" ${appimage_tool_appstream_flag:+"$appimage_tool_appstream_flag"} "$appdir" "$appimage_path"
 
   if [ ! -f "$appimage_path" ]; then
     echo "Expected AppImage output not found: $appimage_path" >&2
