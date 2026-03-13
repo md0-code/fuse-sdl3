@@ -168,6 +168,7 @@ while(<>) {
     next if /^\s*\#/;
 
     chomp;
+    s/\r$//;
 
     my( $keysym, $key1, $key2 ) = split /\s*,\s*/;
 

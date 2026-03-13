@@ -1218,6 +1218,7 @@ while(<>) {
     next if /^\s*$/;
 
     chomp;
+	s/\r$//;
 
     my( $number, $opcode, $arguments, $extra ) = split;
 

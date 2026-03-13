@@ -44,6 +44,9 @@ sub read (;$) {
     my @dialogs;
     while( <$fh> ) {
 
+		s/\r\n/\n/g;
+		s/\r/\n/g;
+
 	my( $name, $title, @widgets ) = split /\n/;
 
 	my @widget_data;

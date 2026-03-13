@@ -22,38 +22,39 @@ if(NOT COMMAND2)
 endif()
 
 set(_output_tmp "${OUTPUT_FILE}.tmp")
-set(_input_tmp "${OUTPUT_FILE}.input.tmp")
 
 execute_process(
   COMMAND ${COMMAND1}
-  RESULT_VARIABLE _result1
-  OUTPUT_VARIABLE _stdout1
-  ERROR_VARIABLE _stderr1
+  COMMAND ${COMMAND2}
+  RESULTS_VARIABLE _results
+  OUTPUT_FILE "${_output_tmp}"
+  ERROR_VARIABLE _stderr
 )
 
-if(NOT _result1 EQUAL 0)
+list(LENGTH _results _result_count)
+if(_result_count LESS 2)
+  file(REMOVE "${_output_tmp}")
   string(REPLACE ";" " " _command1_text "${COMMAND1}")
-  string(STRIP "${_stderr1}" _stderr1)
-  message(FATAL_ERROR "Command failed with exit code ${_result1}: ${_command1_text}\n${_stderr1}")
+  string(REPLACE ";" " " _command2_text "${COMMAND2}")
+  string(STRIP "${_stderr}" _stderr)
+  message(FATAL_ERROR "Pipeline did not return both command results: ${_command1_text} | ${_command2_text}\n${_stderr}")
 endif()
 
-file(WRITE "${_input_tmp}" "${_stdout1}")
+list(GET _results 0 _result1)
+list(GET _results 1 _result2)
 
-execute_process(
-  COMMAND ${COMMAND2}
-  INPUT_FILE "${_input_tmp}"
-  RESULT_VARIABLE _result2
-  OUTPUT_FILE "${_output_tmp}"
-  ERROR_VARIABLE _stderr2
-)
-
-file(REMOVE "${_input_tmp}")
+if(NOT _result1 EQUAL 0)
+  file(REMOVE "${_output_tmp}")
+  string(REPLACE ";" " " _command1_text "${COMMAND1}")
+  string(STRIP "${_stderr}" _stderr)
+  message(FATAL_ERROR "Command failed with exit code ${_result1}: ${_command1_text}\n${_stderr}")
+endif()
 
 if(NOT _result2 EQUAL 0)
   file(REMOVE "${_output_tmp}")
   string(REPLACE ";" " " _command2_text "${COMMAND2}")
-  string(STRIP "${_stderr2}" _stderr2)
-  message(FATAL_ERROR "Command failed with exit code ${_result2}: ${_command2_text}\n${_stderr2}")
+  string(STRIP "${_stderr}" _stderr)
+  message(FATAL_ERROR "Command failed with exit code ${_result2}: ${_command2_text}\n${_stderr}")
 endif()
 
 execute_process(COMMAND "${CMAKE_COMMAND}" -E copy_if_different "${_output_tmp}" "${OUTPUT_FILE}")
