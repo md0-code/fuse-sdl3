@@ -1,3 +1,76 @@
+<#
+.SYNOPSIS
+    Builds, installs, or uninstalls Fuse SDL3 on Windows.
+
+.DESCRIPTION
+    Configures and builds Fuse SDL3 using CMake, Ninja, and vcpkg.
+    Optionally installs or uninstalls via cmake --install.
+
+.PARAMETER BuildDir
+    Build output directory relative to the repo root. Defaults to "build-win".
+
+.PARAMETER Triplet
+    vcpkg target triplet. Defaults to "x64-windows".
+
+.PARAMETER VcpkgRoot
+    Path to the vcpkg checkout. Defaults to "external/vcpkg".
+
+.PARAMETER BinaryCacheDir
+    Optional path for the vcpkg binary cache directory.
+
+.PARAMETER Package
+    Build a portable release archive (.zip) after compiling.
+
+.PARAMETER Install
+    Install after building using cmake --install.
+
+.PARAMETER InstallPrefix
+    Installation prefix used with -Install. Defaults to the cmake configured prefix.
+
+.PARAMETER Uninstall
+    Uninstall using BUILD_DIR/install_manifest.txt.
+
+.PARAMETER RuntimeSmokeTest
+    Run a runtime smoke test after building.
+
+.PARAMETER ShaderSmokeTest
+    Run a shader smoke test after building.
+
+.PARAMETER BootstrapOnly
+    Bootstrap vcpkg and exit without building.
+
+.PARAMETER ConfigureOnly
+    Configure CMake and exit without building.
+
+.PARAMETER SkipBootstrap
+    Skip bootstrapping vcpkg and host tools.
+
+.PARAMETER RebuildLibspectrum
+    Force a rebuild of the bundled libspectrum.
+
+.PARAMETER VerboseVcpkg
+    Enable verbose vcpkg output.
+
+.EXAMPLE
+    .\scripts\build-win.ps1
+    Builds Fuse SDL3 in the default build-win directory.
+
+.EXAMPLE
+    .\scripts\build-win.ps1 -Package
+    Builds and packages Fuse SDL3 as a portable zip archive.
+
+.EXAMPLE
+    .\scripts\build-win.ps1 -Install
+    Builds and installs Fuse SDL3 to the default CMake prefix.
+
+.EXAMPLE
+    .\scripts\build-win.ps1 -Install -InstallPrefix "C:\Program Files\Fuse"
+    Builds and installs Fuse SDL3 to a custom prefix.
+
+.EXAMPLE
+    .\scripts\build-win.ps1 -Uninstall
+    Uninstalls Fuse SDL3 using the install manifest from the build directory.
+#>
 [CmdletBinding()]
 param(
   [string]$BuildDir = "build-win",
@@ -5,6 +78,9 @@ param(
   [string]$VcpkgRoot = "external/vcpkg",
   [string]$BinaryCacheDir,
   [switch]$Package,
+  [switch]$Install,
+  [string]$InstallPrefix,
+  [switch]$Uninstall,
   [switch]$RuntimeSmokeTest,
   [switch]$ShaderSmokeTest,
   [switch]$BootstrapOnly,
@@ -768,6 +844,18 @@ if ($BinaryCacheDir) {
   $resolvedBinaryCacheDir = Resolve-RepoPath $BinaryCacheDir
 }
 
+if ($Uninstall) {
+  $manifest = Join-Path $buildDirPath "install_manifest.txt"
+  if (-not (Test-Path $manifest)) {
+    Write-Error "No install manifest found: $manifest`nRun with -Install first."
+    exit 1
+  }
+  Get-Content $manifest | ForEach-Object {
+    Remove-Item $_ -Force -Verbose -ErrorAction SilentlyContinue
+  }
+  exit 0
+}
+
 Set-RepoVcpkgEnvironment -ResolvedVcpkgRoot $resolvedVcpkgRoot -ResolvedBinaryCacheDir $resolvedBinaryCacheDir
 
 if (-not $SkipBootstrap) {
@@ -803,6 +891,18 @@ if ($ShaderSmokeTest) {
 if ($Package) {
   Invoke-CMakeBuild -BuildDirectory $buildDirPath -Target "package"
   Write-Host "Package archives generated in $buildDirPath"
+}
+
+if ($Install) {
+  $cmakePath = Get-PreferredCMakePath
+  $installArgs = @("--install", $buildDirPath)
+  if ($InstallPrefix) {
+    $installArgs += @("--prefix", $InstallPrefix)
+  }
+  & $cmakePath @installArgs
+  if ($LASTEXITCODE -ne 0) {
+    exit $LASTEXITCODE
+  }
 }
 
 exit 0
