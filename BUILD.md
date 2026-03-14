@@ -144,19 +144,6 @@ Or combine the build and install in one command with a custom prefix:
 sh ./scripts/build-linux.sh --install --install-prefix=/usr
 ```
 
-The installed layout for a non-portable build is:
-
-| Path | Contents |
-|------|----------|
-| `<prefix>/bin/fuse` | Executable |
-| `<prefix>/share/fuse/roms/` | ROM files |
-| `<prefix>/share/fuse/shaders/` | Shader presets |
-| `<prefix>/share/applications/` | `.desktop` file |
-| `<prefix>/share/metainfo/` | AppStream metadata |
-| `<prefix>/share/mime/packages/` | MIME type definitions |
-| `<prefix>/share/icons/hicolor/` | Application icons |
-| `<prefix>/share/bash-completion/completions/` | Shell completion |
-
 To uninstall, pass `--uninstall` with the same build directory used to install:
 
 ```sh
