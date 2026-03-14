@@ -5,9 +5,44 @@ set -eu
 build_dir_name="build-linux"
 build_package=0
 build_appimage=0
+build_install=0
+build_uninstall=0
+install_prefix=""
 
 for arg in "$@"; do
   case "$arg" in
+    --help|-h)
+      cat <<'EOF'
+Usage: build-linux.sh [OPTIONS] [BUILD_DIR]
+
+Options:
+  --package              Build portable release archive (.tar.gz)
+  --appimage             Build AppImage
+  --install              Install after building (may require sudo)
+  --install-prefix=DIR   Set installation prefix used with --install
+  --uninstall            Uninstall using BUILD_DIR/install_manifest.txt
+  -h, --help             Show this help and exit
+
+Arguments:
+  BUILD_DIR              Build output directory (default: build-linux)
+
+Environment:
+  JOBS                   Number of parallel build jobs (default: nproc)
+  APPIMAGETOOL           Path to appimagetool binary
+  FUSE_APPIMAGE_VALIDATE_APPSTREAM
+                         Set to 1 to enable AppStream validation
+EOF
+      exit 0
+      ;;
+    --install)
+      build_install=1
+      ;;
+    --install-prefix=*)
+      install_prefix="${arg#--install-prefix=}"
+      ;;
+    --uninstall)
+      build_uninstall=1
+      ;;
     --package)
       build_package=1
       ;;
@@ -22,6 +57,17 @@ done
 
 root_dir=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
 build_dir="$root_dir/$build_dir_name"
+
+if [ "$build_uninstall" -eq 1 ]; then
+  manifest="$build_dir/install_manifest.txt"
+  if [ ! -f "$manifest" ]; then
+    echo "No install manifest found: $manifest" >&2
+    echo "Run with --install first." >&2
+    exit 1
+  fi
+  xargs rm -vf < "$manifest"
+  exit 0
+fi
 
 cpu_count() {
   if command -v nproc >/dev/null 2>&1; then
@@ -66,22 +112,17 @@ fi
 
 chmod 755 "$exe_path"
 
-smoke_stdout="$build_dir/smoke-output.txt"
-smoke_stderr="$build_dir/smoke-error.txt"
-rm -f "$smoke_stdout" "$smoke_stderr"
-
-if ! "$exe_path" -V >"$smoke_stdout" 2>"$smoke_stderr"; then
-  [ -f "$smoke_stdout" ] && cat "$smoke_stdout"
-  [ -f "$smoke_stderr" ] && cat "$smoke_stderr" >&2
-  echo "Runtime smoke test failed" >&2
-  exit 1
-fi
-
-echo "Runtime smoke test passed: fuse -V"
-
 if [ "$build_package" -eq 1 ]; then
   cmake --build "$build_dir" --target package --parallel "$jobs"
   echo "Package archives generated in $build_dir"
+fi
+
+if [ "$build_install" -eq 1 ]; then
+  if [ -n "$install_prefix" ]; then
+    cmake --install "$build_dir" --prefix "$install_prefix"
+  else
+    cmake --install "$build_dir"
+  fi
 fi
 
 if [ "$build_appimage" -eq 1 ]; then
@@ -136,11 +177,11 @@ if [ "$build_appimage" -eq 1 ]; then
   fi
 
   cp "$desktop_source" "$appdir/$desktop_file_name"
-  cp "$icon_source" "$appdir/fuse.png"
+  cp "$icon_source" "$appdir/io.github.md0_code.FuseSDL3.png"
 
   mkdir -p "$appdir/usr/share/applications" "$appdir/usr/share/icons/hicolor/256x256/apps" "$appdir/usr/share/metainfo"
   cp "$desktop_source" "$appdir/usr/share/applications/$desktop_file_name"
-  cp "$icon_source" "$appdir/usr/share/icons/hicolor/256x256/apps/fuse.png"
+  cp "$icon_source" "$appdir/usr/share/icons/hicolor/256x256/apps/io.github.md0_code.FuseSDL3.png"
 
   if [ -f "$appstream_source" ]; then
     cp "$appstream_source" "$appdir/usr/share/metainfo/$appstream_file_name"

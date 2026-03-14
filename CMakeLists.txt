@@ -367,7 +367,7 @@ if(FUSE_PORTABLE_PACKAGE)
 else()
   set(FUSE_RUNTIME_INSTALL_DESTINATION "${CMAKE_INSTALL_BINDIR}")
   set(FUSE_RUNTIME_LIBRARY_INSTALL_DESTINATION "${FUSE_RUNTIME_INSTALL_DESTINATION}")
-  set(FUSE_ROMS_INSTALL_DESTINATION "${CMAKE_INSTALL_BINDIR}/roms")
+  set(FUSE_ROMS_INSTALL_DESTINATION "${CMAKE_INSTALL_DATADIR}/fuse/roms")
   set(FUSE_DESKTOP_INTEGRATION_STATUS "generated")
 endif()
 
@@ -601,6 +601,8 @@ endif()
 
 if(FUSE_ROMSDIR)
   set(ROMSDIR "${FUSE_ROMSDIR}")
+elseif(NOT FUSE_PORTABLE_PACKAGE)
+  set(ROMSDIR "${CMAKE_INSTALL_FULL_DATADIR}/fuse/roms")
 endif()
 
 configure_file(
@@ -1231,7 +1233,7 @@ if(UNIX AND NOT APPLE AND NOT FUSE_PORTABLE_PACKAGE)
   foreach(_icon_size IN ITEMS 16 32 48 64 128 256)
     install(FILES "${CMAKE_SOURCE_DIR}/data/icons/${_icon_size}x${_icon_size}/fuse.png"
       DESTINATION "${CMAKE_INSTALL_DATADIR}/icons/hicolor/${_icon_size}x${_icon_size}/apps"
-      RENAME fuse.png
+      RENAME io.github.md0_code.FuseSDL3.png
     )
     install(FILES "${CMAKE_SOURCE_DIR}/data/icons/${_icon_size}x${_icon_size}/application-x-spectrum.png"
       DESTINATION "${CMAKE_INSTALL_DATADIR}/icons/hicolor/${_icon_size}x${_icon_size}/mimetypes"
