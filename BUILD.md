@@ -129,3 +129,55 @@ the archive root.
 The `--appimage` flow uses that same portable Linux layout, adds an `AppRun`
 launcher, and builds a single `.AppImage`. If `appimagetool` is not installed,
 the Linux script downloads a matching binary automatically.
+
+## Installing and uninstalling on Linux
+
+After building, install to the default prefix (`/usr/local`):
+
+```sh
+sudo sh ./scripts/build-linux.sh --install
+```
+
+Or combine the build and install in one command with a custom prefix:
+
+```sh
+sh ./scripts/build-linux.sh --install --install-prefix=/usr
+```
+
+The installed layout for a non-portable build is:
+
+| Path | Contents |
+|------|----------|
+| `<prefix>/bin/fuse` | Executable |
+| `<prefix>/share/fuse/roms/` | ROM files |
+| `<prefix>/share/fuse/shaders/` | Shader presets |
+| `<prefix>/share/applications/` | `.desktop` file |
+| `<prefix>/share/metainfo/` | AppStream metadata |
+| `<prefix>/share/mime/packages/` | MIME type definitions |
+| `<prefix>/share/icons/hicolor/` | Application icons |
+| `<prefix>/share/bash-completion/completions/` | Shell completion |
+
+To uninstall, pass `--uninstall` with the same build directory used to install:
+
+```sh
+sudo sh ./scripts/build-linux.sh --uninstall
+```
+
+This removes every file that was recorded in `build-linux/install_manifest.txt`
+during the install step.
+
+## Script help
+
+Both build scripts document all supported options:
+
+Linux:
+
+```sh
+sh ./scripts/build-linux.sh --help
+```
+
+Windows PowerShell:
+
+```powershell
+Get-Help ./scripts/build-win.ps1 -Detailed
+```
