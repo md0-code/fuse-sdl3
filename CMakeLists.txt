@@ -1,5 +1,9 @@
 cmake_minimum_required(VERSION 3.20)
 
+if(POLICY CMP0177)
+  cmake_policy(SET CMP0177 NEW)
+endif()
+
 project(fuse VERSION 0.1.0 LANGUAGES C)
 
 include(GNUInstallDirs)
@@ -62,7 +66,11 @@ if(EXISTS "${BISON_BIN_DIR}/data")
 endif()
 
 set(FUSE_LIBSPECTRUM_ROOT "" CACHE PATH "Optional prefix containing a prebuilt libspectrum for native builds")
-option(FUSE_USE_INTERNAL_LIBSPECTRUM "Build the vendored libspectrum subproject instead of using an external package" ${WIN32})
+set(_fuse_internal_libspectrum_default OFF)
+if(WIN32 AND EXISTS "${CMAKE_SOURCE_DIR}/external/libspectrum/CMakeLists.txt")
+  set(_fuse_internal_libspectrum_default ON)
+endif()
+option(FUSE_USE_INTERNAL_LIBSPECTRUM "Build the vendored libspectrum subproject instead of using an external package" ${_fuse_internal_libspectrum_default})
 
 if(DEFINED VCPKG_INSTALLED_DIR AND DEFINED VCPKG_TARGET_TRIPLET)
   set(_fuse_pkg_config_paths
@@ -166,13 +174,41 @@ if(LIBSPECTRUM_INCLUDE_DIR AND LIBSPECTRUM_LIBRARY)
     INTERFACE_INCLUDE_DIRECTORIES "${LIBSPECTRUM_INCLUDE_DIR}"
   )
   set(LIBSPECTRUM_INCLUDE_DIRS "${LIBSPECTRUM_INCLUDE_DIR}")
+  set(LIBSPECTRUM_CFLAGS_OTHER "")
   set(FUSE_LIBSPECTRUM_TARGET FUSE::LIBSPECTRUM)
 elseif(FUSE_USE_INTERNAL_LIBSPECTRUM)
-  set(LIBSPECTRUM_INSTALL OFF CACHE BOOL "Install libspectrum targets and development files" FORCE)
-  add_subdirectory(external/libspectrum)
-  set(FUSE_LIBSPECTRUM_TARGET libspectrum::libspectrum)
-  set(LIBSPECTRUM_INCLUDE_DIRS "${FUSE_INTERNAL_LIBSPECTRUM_INCLUDE_DIRS}")
-  set(LIBSPECTRUM_CFLAGS_OTHER "${FUSE_INTERNAL_LIBSPECTRUM_CFLAGS_OTHER}")
+  if(EXISTS "${CMAKE_SOURCE_DIR}/external/libspectrum/CMakeLists.txt")
+    set(LIBSPECTRUM_INSTALL OFF CACHE BOOL "Install libspectrum targets and development files" FORCE)
+    add_subdirectory(external/libspectrum)
+    set(FUSE_LIBSPECTRUM_TARGET libspectrum::libspectrum)
+    set(LIBSPECTRUM_INCLUDE_DIRS "${FUSE_INTERNAL_LIBSPECTRUM_INCLUDE_DIRS}")
+    set(LIBSPECTRUM_CFLAGS_OTHER "${FUSE_INTERNAL_LIBSPECTRUM_CFLAGS_OTHER}")
+  else()
+    message(WARNING "FUSE_USE_INTERNAL_LIBSPECTRUM is ON but external/libspectrum is missing; falling back to external package discovery")
+  endif()
+endif()
+
+if(NOT FUSE_LIBSPECTRUM_TARGET AND DEFINED VCPKG_INSTALLED_DIR AND DEFINED VCPKG_TARGET_TRIPLET)
+  set(_fuse_vcpkg_libspectrum_prefix "${VCPKG_INSTALLED_DIR}/${VCPKG_TARGET_TRIPLET}")
+  find_path(LIBSPECTRUM_INCLUDE_DIR
+    NAMES libspectrum.h
+    HINTS "${_fuse_vcpkg_libspectrum_prefix}/include"
+  )
+  find_library(LIBSPECTRUM_LIBRARY
+    NAMES libspectrum spectrum
+    HINTS "${_fuse_vcpkg_libspectrum_prefix}/lib" "${_fuse_vcpkg_libspectrum_prefix}/debug/lib"
+  )
+
+  if(LIBSPECTRUM_INCLUDE_DIR AND LIBSPECTRUM_LIBRARY)
+    add_library(FUSE::LIBSPECTRUM UNKNOWN IMPORTED)
+    set_target_properties(FUSE::LIBSPECTRUM PROPERTIES
+      IMPORTED_LOCATION "${LIBSPECTRUM_LIBRARY}"
+      INTERFACE_INCLUDE_DIRECTORIES "${LIBSPECTRUM_INCLUDE_DIR}"
+    )
+    set(LIBSPECTRUM_INCLUDE_DIRS "${LIBSPECTRUM_INCLUDE_DIR}")
+    set(LIBSPECTRUM_CFLAGS_OTHER "")
+    set(FUSE_LIBSPECTRUM_TARGET FUSE::LIBSPECTRUM)
+  endif()
 elseif(PkgConfig_FOUND)
   pkg_check_modules(LIBSPECTRUM QUIET IMPORTED_TARGET libspectrum>=1.5.0)
   if(TARGET PkgConfig::LIBSPECTRUM)
@@ -182,7 +218,7 @@ endif()
 
 if(NOT FUSE_LIBSPECTRUM_TARGET)
   message(FATAL_ERROR
-    "libspectrum >= 1.5.0 was not found. Enable FUSE_USE_INTERNAL_LIBSPECTRUM, run scripts/build-win.ps1 on Windows, or point FUSE_LIBSPECTRUM_ROOT at a native libspectrum prefix."
+    "libspectrum >= 1.5.0 was not found. Run scripts/build-win.ps1 on Windows, enable FUSE_USE_INTERNAL_LIBSPECTRUM when external/libspectrum is present, or point FUSE_LIBSPECTRUM_ROOT at a native libspectrum prefix."
   )
 endif()
 
