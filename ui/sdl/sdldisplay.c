@@ -1762,12 +1762,19 @@ uidisplay_frame_end( void )
   if( sdldisplay_logo_blit_pending.pending && sdldisplay_logo_about &&
       sdldisplay_gc ) {
     SDL_Rect dst;
-    int s = (int)( sdldisplay_current_size + 0.5f );
-    if( s < 1 ) s = 1;
-    dst.x = sdldisplay_logo_blit_pending.x * s + fullscreen_x_off;
-    dst.y = sdldisplay_logo_blit_pending.y * s + fullscreen_y_off;
-    dst.w = sdldisplay_logo_blit_pending.w * s;
-    dst.h = sdldisplay_logo_blit_pending.h * s;
+    if( sdldisplay_use_glsl_backend ) {
+      dst.x = sdldisplay_logo_blit_pending.x;
+      dst.y = sdldisplay_logo_blit_pending.y;
+      dst.w = sdldisplay_logo_blit_pending.w;
+      dst.h = sdldisplay_logo_blit_pending.h;
+    } else {
+      int s = (int)( sdldisplay_current_size + 0.5f );
+      if( s < 1 ) s = 1;
+      dst.x = sdldisplay_logo_blit_pending.x * s + fullscreen_x_off;
+      dst.y = sdldisplay_logo_blit_pending.y * s + fullscreen_y_off;
+      dst.w = sdldisplay_logo_blit_pending.w * s;
+      dst.h = sdldisplay_logo_blit_pending.h * s;
+    }
     SDL_BlitSurfaceScaled( sdldisplay_logo_about, NULL, sdldisplay_gc, &dst,
                            SDL_SCALEMODE_LINEAR );
     sdldisplay_logo_blit_pending.pending = 0;
