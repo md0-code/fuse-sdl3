@@ -32,6 +32,7 @@ my $line;
 
 MAIN: while( defined( $line = <> ) ) {
   chomp $line;
+  $line =~ s/\r\z//;
   next unless $line =~ /^\[U\+([[:xdigit:]]{4})]$/;
 
   my @codes = ( hex $1 );
@@ -39,6 +40,7 @@ MAIN: while( defined( $line = <> ) ) {
     last MAIN unless defined( $line = <> );
 
     chomp $line;
+    $line =~ s/\r\z//;
 
     next MAIN if $line eq '' or $line =~ /^[[:space:]]*#/;
     last if $line =~ /^[.0]+$/;
@@ -53,6 +55,7 @@ MAIN: while( defined( $line = <> ) ) {
 
   for( $i = 0; $i < 8; $i++ ) {
     chomp $line;
+    $line =~ s/\r\z//;
     die unless $line =~ /^[.0]+$/;
     $line =~ tr/.0/01/;
     die "pixmap line too long" if length ($line) > 15;
