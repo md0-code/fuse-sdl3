@@ -649,7 +649,7 @@ function Invoke-CMakeConfigure {
     "-DCMAKE_C_COMPILER=$compilerPath",
     "-DVCPKG_TARGET_TRIPLET=$TripletName",
     "-DVCPKG_INSTALL_OPTIONS=",
-    "-DFUSE_USE_INTERNAL_LIBSPECTRUM=ON"
+    "-DFUSE_USE_INTERNAL_LIBSPECTRUM=OFF"
   )
 
   if (-not (Test-Path $cachePath)) {
@@ -774,6 +774,12 @@ function Invoke-ShaderSmokeTest {
     [int]$TimeoutSeconds = 5
   )
 
+  if (-not $PresetPath) {
+    $PresetPath = Get-ChildItem -Path (Join-Path $RepoRoot 'shaders') -Filter *.glslp -File -ErrorAction SilentlyContinue |
+      Sort-Object Name |
+      Select-Object -First 1 -ExpandProperty FullName
+  }
+
   Write-Host "Running shader smoke test with $(Split-Path $PresetPath -Leaf)..."
 
   $exePath = Join-Path $BuildDirectory "fuse.exe"
@@ -830,7 +836,7 @@ function Invoke-ShaderSmokeTest {
   Stop-Process -Id $process.Id -Force -ErrorAction SilentlyContinue
   $process.WaitForExit()
 
-  Write-Host "Shader smoke test passed: identity.glslp initialized without shader fallback"
+  Write-Host "Shader smoke test passed: $(Split-Path $PresetPath -Leaf) initialized without shader fallback"
 }
 
 if ($BootstrapOnly -and $ConfigureOnly) {
@@ -885,7 +891,7 @@ if ($RuntimeSmokeTest) {
 }
 
 if ($ShaderSmokeTest) {
-  Invoke-ShaderSmokeTest -BuildDirectory $buildDirPath -PresetPath (Join-Path $RepoRoot 'shaders\identity.glslp')
+  Invoke-ShaderSmokeTest -BuildDirectory $buildDirPath
 }
 
 if ($Package) {

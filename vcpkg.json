@@ -12,6 +12,10 @@
         "name": "glib",
         "platform": "!windows"
     },
+    {
+        "name": "libspectrum",
+        "platform": "windows"
+    },
     "libpng",
     "libxml2",
     "sdl3",

@@ -1,17 +1,8 @@
-get_filename_component(FUSE_SDL3_ROOT "${CMAKE_CURRENT_LIST_DIR}/../.." ABSOLUTE)
-set(LIBSPECTRUM_SOURCE_ROOT "${FUSE_SDL3_ROOT}/external/libspectrum")
-
-if(NOT EXISTS "${LIBSPECTRUM_SOURCE_ROOT}/configure.ac")
-  message(FATAL_ERROR "Expected libspectrum source checkout at ${LIBSPECTRUM_SOURCE_ROOT}")
-endif()
-
-set(SOURCE_PATH "${CURRENT_BUILDTREES_DIR}/src/${PORT}-${VERSION}")
-file(REMOVE_RECURSE "${SOURCE_PATH}")
-file(MAKE_DIRECTORY "${CURRENT_BUILDTREES_DIR}/src")
-file(COPY "${LIBSPECTRUM_SOURCE_ROOT}/" DESTINATION "${SOURCE_PATH}")
-file(REMOVE_RECURSE
-  "${SOURCE_PATH}/.git"
-  "${SOURCE_PATH}/.github"
+vcpkg_from_git(
+  OUT_SOURCE_PATH SOURCE_PATH
+  URL "https://git.code.sf.net/p/fuse-emulator/libspectrum"
+  REF f982a143c239497cc7ad7da4a805aa2ab7855970
+  FETCH_REF refs/tags/libspectrum-1.5.0
 )
 
 # The vcpkg MSVC windres wrapper drives rc.exe with GNU windres-style
@@ -32,6 +23,15 @@ string(REPLACE
   "${_configure_ac}"
 )
 file(WRITE "${SOURCE_PATH}/configure.ac" "${_configure_ac}")
+
+file(READ "${SOURCE_PATH}/make-perl.c" _make_perl_c)
+string(REPLACE
+  "  } else if( sizeof( void* ) == sizeof( long ) ) {\n    printf( \"#define GINT_TO_POINTER(i)      ((gpointer)  (glong)(i))\\n\" );\n    printf( \"#define GPOINTER_TO_INT(p)      ((gint)   (glong)(p))\\n\" );\n    printf( \"#define GPOINTER_TO_UINT(p)     ((guint)  (gulong)(p))\\n\" );\n  } else {\n    fprintf( stderr, \"No plausible int to pointer cast found\\n\" );\n    return 1;\n  }"
+  "  } else if( sizeof( void* ) == sizeof( long ) ) {\n    printf( \"#define GINT_TO_POINTER(i)      ((gpointer)  (glong)(i))\\n\" );\n    printf( \"#define GPOINTER_TO_INT(p)      ((gint)   (glong)(p))\\n\" );\n    printf( \"#define GPOINTER_TO_UINT(p)     ((guint)  (gulong)(p))\\n\" );\n  } else if( sizeof( void* ) == sizeof( long long ) ) {\n    printf( \"#define GINT_TO_POINTER(i)      ((gpointer)  (long long)(i))\\n\" );\n    printf( \"#define GPOINTER_TO_INT(p)      ((gint)   (long long)(p))\\n\" );\n    printf( \"#define GPOINTER_TO_UINT(p)     ((guint)  (unsigned long long)(p))\\n\" );\n  } else {\n    fprintf( stderr, \"No plausible int to pointer cast found\\n\" );\n    return 1;\n  }"
+  _make_perl_c
+  "${_make_perl_c}"
+)
+file(WRITE "${SOURCE_PATH}/make-perl.c" "${_make_perl_c}")
 
 vcpkg_configure_make(
   SOURCE_PATH "${SOURCE_PATH}"
