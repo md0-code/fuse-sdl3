@@ -697,6 +697,35 @@ function Invoke-CMakeBuild {
   }
 }
 
+function Invoke-GeneratedSettingsSanityCheck {
+  param([string]$BuildDirectory)
+
+  Write-Host "Checking generated settings metadata..."
+
+  $settingsPath = Join-Path $BuildDirectory "settings.c"
+  if (-not (Test-Path $settingsPath)) {
+    Write-Error "Expected generated settings source not found: $settingsPath"
+    exit 1
+  }
+
+  $settingsText = [System.IO.File]::ReadAllText($settingsPath)
+
+  foreach ($expectedKey in @('startupshader', 'startupshaderparameters')) {
+    $expectedLiteral = '"' + $expectedKey + '"'
+    if (-not $settingsText.Contains($expectedLiteral)) {
+      Write-Error "Generated settings metadata is missing the expected config key $expectedLiteral in $settingsPath"
+      exit 1
+    }
+  }
+
+  if ($settingsText -match '"startupshader(?:parameters)?\r?\n"') {
+    Write-Error "Generated settings metadata contains a CRLF-corrupted shader config key in $settingsPath"
+    exit 1
+  }
+
+  Write-Host "Generated settings metadata check passed"
+}
+
 function Invoke-SmokeTest {
   param([string]$BuildDirectory)
 
@@ -879,6 +908,7 @@ if ($BootstrapOnly) {
 Import-VsDevEnvironment
 Set-RepoVcpkgEnvironment -ResolvedVcpkgRoot $resolvedVcpkgRoot -ResolvedBinaryCacheDir $resolvedBinaryCacheDir
 Invoke-CMakeConfigure -BuildDirectory $buildDirPath -ResolvedVcpkgRoot $resolvedVcpkgRoot -TripletName $Triplet -PortablePackage:$Package -ForceLibspectrumRebuild:$RebuildLibspectrum
+Invoke-GeneratedSettingsSanityCheck -BuildDirectory $buildDirPath
 
 if ($ConfigureOnly) {
   exit 0

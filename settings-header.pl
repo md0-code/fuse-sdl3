@@ -36,6 +36,7 @@ while(<>) {
     next if /^\s*#/;
 
     chomp;
+    s/\r\z//;
 
     my( $name, $type, $default, $short, $commandline, $configfile ) =
 	split /\s*,\s*/;
