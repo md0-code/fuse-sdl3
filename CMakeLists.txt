@@ -1051,10 +1051,6 @@ add_dependencies(fuse fuse-generated)
 
 if(WIN32)
   set_target_properties(fuse PROPERTIES WIN32_EXECUTABLE ON)
-  add_executable(fuse-console-launcher compat/win32/fuse_console_launcher.c)
-  set_target_properties(fuse-console-launcher PROPERTIES
-    OUTPUT_NAME "fuse-cli"
-  )
 endif()
 
 if(FUSE_USE_INTERNAL_LIBSPECTRUM AND TARGET ${FUSE_INTERNAL_LIBSPECTRUM_GENERATED_TARGET})
@@ -1224,16 +1220,6 @@ install(TARGETS fuse
     GROUP_READ GROUP_EXECUTE
     WORLD_READ WORLD_EXECUTE
 )
-
-if(WIN32)
-  install(TARGETS fuse-console-launcher
-    RUNTIME DESTINATION "${FUSE_RUNTIME_INSTALL_DESTINATION}"
-    PERMISSIONS
-      OWNER_READ OWNER_WRITE OWNER_EXECUTE
-      GROUP_READ GROUP_EXECUTE
-      WORLD_READ WORLD_EXECUTE
-  )
-endif()
 
 install(SCRIPT "${FUSE_RUNTIME_DEPENDENCY_SCRIPT}")
 
