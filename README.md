@@ -113,7 +113,7 @@ If you want to build from source instead, see [BUILD.md](BUILD.md).
 ./fuse: automatically switching SDL video backend to x11 to avoid known Wayland libdecor crashes
 ```
 
-If you encounter issues with the automatic fix, see [KNOWN_ISSUES.md](KNOWN_ISSUES.md) for manual override options.
+If you need to disable this automatic fix for any reason, set the environment variable `FUSE_SDL_DISABLE_LIBDECOR_WORKAROUND=1`.
 
 ---
 
@@ -123,7 +123,6 @@ If you encounter issues with the automatic fix, see [KNOWN_ISSUES.md](KNOWN_ISSU
 |---|---|
 | [BUILD.md](BUILD.md) | Build dependencies, platform-specific notes, and packaging instructions |
 | [CHANGELOG.md](CHANGELOG.md) | What changed in each release relative to upstream |
-| [KNOWN_ISSUES.md](KNOWN_ISSUES.md) | Troubleshooting guide for common runtime problems |
 | [LICENSE.md](LICENSE.md) | GNU General Public License, version 3 |
 
 ---
