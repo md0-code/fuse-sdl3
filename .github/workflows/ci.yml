@@ -40,7 +40,7 @@ jobs:
           
         # Build SDL3 from source since GitHub runners don't have it
         cd /tmp
-        git clone --depth 1 --branch SDL3 https://github.com/libsdl-org/SDL.git SDL3
+        git clone --depth 1 --branch main https://github.com/libsdl-org/SDL.git SDL3
         cd SDL3
         cmake -B build -DCMAKE_BUILD_TYPE=Release -DSDL_SHARED=ON -DSDL_STATIC=OFF
         cmake --build build --parallel $(nproc)
