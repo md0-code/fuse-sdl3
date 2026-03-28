@@ -4,7 +4,7 @@ if(POLICY CMP0177)
   cmake_policy(SET CMP0177 NEW)
 endif()
 
-project(fuse VERSION 0.1.2 LANGUAGES C)
+project(fuse VERSION 0.1.1 LANGUAGES C)
 
 include(GNUInstallDirs)
 set(CMAKE_C_STANDARD 99)
