@@ -908,13 +908,13 @@ if ($BootstrapOnly) {
 Import-VsDevEnvironment
 Set-RepoVcpkgEnvironment -ResolvedVcpkgRoot $resolvedVcpkgRoot -ResolvedBinaryCacheDir $resolvedBinaryCacheDir
 Invoke-CMakeConfigure -BuildDirectory $buildDirPath -ResolvedVcpkgRoot $resolvedVcpkgRoot -TripletName $Triplet -PortablePackage:$Package -ForceLibspectrumRebuild:$RebuildLibspectrum
-Invoke-GeneratedSettingsSanityCheck -BuildDirectory $buildDirPath
 
 if ($ConfigureOnly) {
   exit 0
 }
 
 Invoke-CMakeBuild -BuildDirectory $buildDirPath
+Invoke-GeneratedSettingsSanityCheck -BuildDirectory $buildDirPath
 
 if ($RuntimeSmokeTest) {
   Invoke-SmokeTest -BuildDirectory $buildDirPath
