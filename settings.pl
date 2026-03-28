@@ -103,8 +103,8 @@ print hashline( __LINE__ ), << 'CODE';
 #include "utils.h"
 
 /* The name of our configuration file */
-#define CONFIG_FILE_NAME "fuse-sdl3"
-#define PORTABLE_DEFAULT_CONFIG_FILE_NAME "fuse-sdl3.default"
+#define CONFIG_FILE_NAME ".fuse-sdl3"
+#define PORTABLE_DEFAULT_CONFIG_FILE_NAME ".fuse-sdl3.default"
 
 /* The current settings of options, etc */
 settings_info settings_current;
