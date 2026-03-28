@@ -3,7 +3,7 @@
 A fork of [Fuse](http://fuse-emulator.sourceforge.net/) — the Free Unix Spectrum Emulator — focused on a modernized SDL3 frontend, a streamlined CMake-based build, and an opinionated set of usability improvements and new features.
 
 Upstream baseline: **fuse 1.6.0**.  
-Current version: **0.1.0** (first public release).
+Current version: **0.1.1** (first public release).
 
 ---
 
