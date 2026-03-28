@@ -29,7 +29,7 @@ jobs:
           libxml2-dev libpng-dev zlib1g-dev libbz2-dev \
           flex bison perl \
           libgl1-mesa-dev libx11-dev libxext-dev libxrandr-dev \
-          libxcursor-dev libxi-dev libxss-dev \
+          libxcursor-dev libxi-dev libxss-dev libxtst-dev \
           libasound2-dev libpulse-dev \
           libwayland-dev libxkbcommon-dev wayland-protocols \
           libdbus-1-dev libdrm-dev libgbm-dev libudev-dev
@@ -62,6 +62,9 @@ jobs:
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
+
+    - name: Install build tools
+      run: choco install winflexbison3 -y
 
     - name: Build
       shell: pwsh
