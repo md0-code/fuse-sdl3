@@ -83,51 +83,11 @@ sdlui_wayland_requested( const char **video_driver_out )
 static int
 sdlui_probe_wayland_libdecor_crash( void )
 {
-  pid_t pid;
-  int status;
-
-  pid = fork();
-  if( pid < 0 ) {
-    fprintf( stderr,
-             "%s: warning: couldn't fork to probe Wayland libdecor startup\n",
-             fuse_progname );
-    return 0;
-  }
-
-  if( !pid ) {
-    unsetenv( "SDL_VIDEO_DRIVER" );
-    unsetenv( "LIBDECOR_PLUGIN_DIR" );
-
-    if( setenv( "SDL_VIDEODRIVER", "wayland", 1 ) ) _exit( 2 );
-
-    if( SDL_Init( SDL_INIT_VIDEO ) ) {
-      SDL_Quit();
-      _exit( 0 );
-    }
-
-    _exit( 1 );
-  }
-
-  while( waitpid( pid, &status, 0 ) < 0 ) {
-    if( errno != EINTR ) {
-      fprintf( stderr,
-               "%s: warning: couldn't wait for Wayland libdecor probe\n",
-               fuse_progname );
-      return 0;
-    }
-  }
-
-  if( !WIFSIGNALED( status ) ) return 0;
-
-  switch( WTERMSIG( status ) ) {
-  case SIGABRT:
-  case SIGBUS:
-  case SIGILL:
-  case SIGSEGV:
-    return 1;
-  default:
-    return 0;
-  }
+  /* Note: The original crash probe was unreliable due to environment
+     differences between parent and child processes. For now, we use
+     a simplified approach that assumes Wayland has compatibility issues
+     and automatically switches to X11 when available. */
+  return 1;  /* Always assume crash risk on Wayland */
 }
 
 static void
@@ -143,33 +103,31 @@ sdlui_configure_video_environment( void )
     return;
   }
 
-  if( !sdlui_probe_wayland_libdecor_crash() ) {
-    return;
-  }
-
+  /* Apply X11 workaround when Wayland is detected to avoid libdecor crashes */
   if( display && display[0] ) {
     if( setenv( "SDL_VIDEODRIVER", "x11", 1 ) ) {
       fprintf( stderr,
-               "%s: warning: couldn't switch SDL video backend to x11 after confirming a Wayland libdecor crash\n",
+               "%s: warning: couldn't switch SDL video backend to x11 to avoid known Wayland libdecor crashes\n",
                fuse_progname );
       return;
     }
 
     fprintf( stderr,
-             "%s: switching SDL video backend to x11 after confirming a Wayland libdecor crash\n",
+             "%s: automatically switching SDL video backend to x11 to avoid known Wayland libdecor crashes\n",
              fuse_progname );
     return;
   }
 
+  /* No X11 available, try disabling libdecor plugins as fallback */
   if( setenv( "LIBDECOR_PLUGIN_DIR", "/nonexistent", 0 ) ) {
     fprintf( stderr,
-             "%s: warning: couldn't disable libdecor plugins after confirming a Wayland libdecor crash\n",
+             "%s: warning: couldn't disable libdecor plugins to avoid Wayland crashes\n",
              fuse_progname );
     return;
   }
 
   fprintf( stderr,
-           "%s: confirmed a Wayland libdecor crash but no X11 display is available; disabling libdecor plugins instead\n",
+           "%s: warning: no X11 display available; disabled libdecor plugins to reduce Wayland crash risk\n",
            fuse_progname );
 }
 #else
