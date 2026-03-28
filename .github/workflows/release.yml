@@ -26,6 +26,7 @@ jobs:
         sudo apt-get update
         sudo apt-get install -y \
           build-essential cmake ninja-build pkg-config \
+          libspectrum-dev libglib2.0-dev libgcrypt20-dev \
           libxml2-dev libpng-dev zlib1g-dev libbz2-dev \
           flex bison perl \
           libgl1-mesa-dev libx11-dev libxext-dev libxrandr-dev \
