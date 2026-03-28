@@ -30,7 +30,7 @@ jobs:
           libxcursor-dev libxi-dev libxss-dev libxtst-dev \
           libasound2-dev libpulse-dev \
           libwayland-dev libxkbcommon-dev wayland-protocols \
-          libdbus-1-dev libdrm-dev libgbm-dev libudev-dev
+          libdecor-0-dev libdbus-1-dev libdrm-dev libgbm-dev libudev-dev
 
         # Build SDL3 from source (not packaged in Ubuntu 24.04)
         cd /tmp
