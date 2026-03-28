@@ -44,12 +44,13 @@ jobs:
       if: matrix.platform == 'linux'
       run: |
         sudo apt-get update
+        
+        # Install basic build tools
         sudo apt-get install -y \
           build-essential \
           cmake \
           ninja-build \
           pkg-config \
-          libsdl3-dev \
           libxml2-dev \
           libpng-dev \
           zlib1g-dev \
@@ -59,16 +60,24 @@ jobs:
           perl \
           libgl1-mesa-dev
           
+        # Build SDL3 from source since GitHub runners don't have it
+        cd /tmp
+        git clone --depth 1 --branch SDL3 https://github.com/libsdl-org/SDL.git SDL3
+        cd SDL3
+        cmake -B build -DCMAKE_BUILD_TYPE=Release -DSDL_SHARED=ON -DSDL_STATIC=OFF
+        cmake --build build --parallel $(nproc)
+        sudo cmake --install build
+          
     - name: Setup MSVC
       if: matrix.platform == 'windows'
       uses: microsoft/setup-msbuild@v2
       
     - name: Setup vcpkg
       if: matrix.platform == 'windows'
-      uses: microsoft/setup-vcpkg@v1
-      with:
-        vcpkg-url: https://github.com/microsoft/vcpkg.git
-        vcpkg-version: 'latest'
+      run: |
+        git clone https://github.com/Microsoft/vcpkg.git external/vcpkg
+        ./external/vcpkg/bootstrap-vcpkg.bat
+        ./external/vcpkg/vcpkg.exe install --triplet=x64-windows
         
     - name: Make script executable (Linux)
       if: matrix.platform == 'linux'
