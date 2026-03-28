@@ -1,0 +1,93 @@
+name: CI
+
+on:
+  push:
+    branches: [ main, master, develop ]
+  pull_request:
+    branches: [ main, master, develop ]
+  workflow_dispatch:
+
+env:
+  BUILD_TYPE: Release
+
+jobs:
+  # Linux Build Job
+  build-linux:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Install dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y \
+          build-essential \
+          cmake \
+          ninja-build \
+          pkg-config \
+          libsdl3-dev \
+          libxml2-dev \
+          libpng-dev \
+          zlib1g-dev \
+          libbz2-dev \
+          flex \
+          bison \
+          perl \
+          libgl1-mesa-dev
+          
+    - name: Build Linux
+      run: |
+        chmod +x scripts/build-linux.sh
+        ./scripts/build-linux.sh --package
+        
+    - name: Run tests
+      run: |
+        cd build-linux
+        ctest --output-on-failure
+        
+    - name: Upload Linux artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: fuse-sdl3-linux
+        path: |
+          build-linux/fuse-sdl3-*-Linux-*.tar.gz
+          build-linux/fuse
+        retention-days: 7
+
+  # Windows Build Job
+  build-windows:
+    runs-on: windows-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Setup MSVC
+      uses: microsoft/setup-msbuild@v2
+      
+    - name: Setup vcpkg
+      uses: microsoft/setup-vcpkg@v1
+      with:
+        vcpkg-url: https://github.com/microsoft/vcpkg.git
+        vcpkg-version: 'latest'
+        
+    - name: Build Windows
+      run: |
+        ./scripts/build-win.ps1 -Package
+        
+    - name: Run tests
+      run: |
+        cd build-windows
+        ctest --output-on-failure
+        
+    - name: Upload Windows artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: fuse-sdl3-windows
+        path: |
+          build-windows/fuse-sdl3-*-Windows-*.zip
+          build-windows/fuse.exe
+        retention-days: 7
+

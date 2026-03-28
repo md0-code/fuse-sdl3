@@ -1,0 +1,175 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Release tag'
+        required: true
+        default: 'v0.1.1'
+
+env:
+  BUILD_TYPE: Release
+
+jobs:
+  # Build for all platforms
+  build:
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-latest
+            platform: linux
+            script: ./scripts/build-linux.sh --package
+            artifacts: |
+              build-linux/fuse-sdl3-*-Linux-*.tar.gz
+            executable: build-linux/fuse
+            
+          - os: windows-latest
+            platform: windows  
+            script: ./scripts/build-win.ps1 -Package
+            artifacts: |
+              build-windows/fuse-sdl3-*-Windows-*.zip
+            executable: build-windows/fuse.exe
+            
+    runs-on: ${{ matrix.os }}
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Install Linux dependencies
+      if: matrix.platform == 'linux'
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y \
+          build-essential \
+          cmake \
+          ninja-build \
+          pkg-config \
+          libsdl3-dev \
+          libxml2-dev \
+          libpng-dev \
+          zlib1g-dev \
+          libbz2-dev \
+          flex \
+          bison \
+          perl \
+          libgl1-mesa-dev
+          
+    - name: Setup MSVC
+      if: matrix.platform == 'windows'
+      uses: microsoft/setup-msbuild@v2
+      
+    - name: Setup vcpkg
+      if: matrix.platform == 'windows'
+      uses: microsoft/setup-vcpkg@v1
+      with:
+        vcpkg-url: https://github.com/microsoft/vcpkg.git
+        vcpkg-version: 'latest'
+        
+    - name: Make script executable (Linux)
+      if: matrix.platform == 'linux'
+      run: chmod +x scripts/build-linux.sh
+        
+    - name: Build
+      run: ${{ matrix.script }}
+        
+    - name: Run tests
+      run: |
+        if [ "${{ matrix.platform }}" = "linux" ]; then
+          cd build-linux && ctest --output-on-failure
+        else
+          cd build-windows && ctest --output-on-failure
+        fi
+      shell: bash
+        
+    - name: Upload artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: fuse-sdl3-${{ matrix.platform }}
+        path: |
+          ${{ matrix.artifacts }}
+          ${{ matrix.executable }}
+        retention-days: 90
+
+  # Create release
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Download all artifacts
+      uses: actions/download-artifact@v4
+      with:
+        path: artifacts/
+        
+    - name: Prepare release assets
+      run: |
+        mkdir -p release-assets
+        
+        # Copy Linux artifacts
+        find artifacts/fuse-sdl3-linux -name "*.tar.gz" -exec cp {} release-assets/ \;
+        
+        # Copy Windows artifacts  
+        find artifacts/fuse-sdl3-windows -name "*.zip" -exec cp {} release-assets/ \;
+        
+        echo "=== Release assets ==="
+        ls -la release-assets/
+        
+    - name: Extract version from tag
+      id: get_version
+      run: |
+        if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+          VERSION="${{ github.event.inputs.tag }}"
+        else
+          VERSION=${GITHUB_REF#refs/tags/}
+        fi
+        echo "version=$VERSION" >> $GITHUB_OUTPUT
+        echo "Version: $VERSION"
+        
+    - name: Read changelog
+      id: changelog
+      run: |
+        if [ -f CHANGELOG.md ]; then
+          # Extract latest version's changelog (between first two ## headings)
+          CHANGELOG=$(awk '/^## / {if(++count==2) exit} count==1 && !/^## / {print}' CHANGELOG.md | head -20)
+          echo "changelog<<EOF" >> $GITHUB_OUTPUT
+          echo "$CHANGELOG" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+        else
+          echo "changelog=Release ${{ steps.get_version.outputs.version }}" >> $GITHUB_OUTPUT
+        fi
+        
+    - name: Create release
+      uses: softprops/action-gh-release@v1
+      with:
+        tag_name: ${{ steps.get_version.outputs.version }}
+        name: Fuse SDL3 ${{ steps.get_version.outputs.version }}
+        body: |
+          ## Fuse SDL3 ${{ steps.get_version.outputs.version }}
+          
+          ZX Spectrum emulator with SDL3 support.
+          
+          ### Downloads
+          - **Linux**: Download the `.tar.gz` archive, extract it, and run `./fuse`
+          - **Windows**: Download the `.zip` archive, extract it, and run `fuse.exe`
+          
+          ### Changes
+          ${{ steps.changelog.outputs.changelog }}
+          
+          ---
+          
+          **Full Changelog**: https://github.com/${{ github.repository }}/compare/${{ steps.get_version.outputs.version }}...HEAD
+          
+        files: release-assets/*
+        draft: false
+        prerelease: false
+        generate_release_notes: true
