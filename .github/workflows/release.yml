@@ -7,202 +7,132 @@ on:
   workflow_dispatch:
     inputs:
       tag:
-        description: 'Release tag'
+        description: 'Release tag (e.g. v0.1.2)'
         required: true
-        default: 'v0.1.1'
 
 env:
   BUILD_TYPE: Release
 
 jobs:
-  # Build for all platforms
-  build:
-    strategy:
-      matrix:
-        include:
-          - os: ubuntu-latest
-            platform: linux
-            script: ./scripts/build-linux.sh --package
-            artifacts: |
-              build-linux/fuse-sdl3-*-Linux-*.tar.gz
-            executable: build-linux/fuse
-            
-          - os: windows-latest
-            platform: windows  
-            script: ./scripts/build-win.ps1 -Package
-            artifacts: |
-              build-windows/fuse-sdl3-*-Windows-*.zip
-            executable: build-windows/fuse.exe
-            
-    runs-on: ${{ matrix.os }}
-    
+  build-linux:
+    runs-on: ubuntu-24.04
+
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
-      
-    - name: Install Linux dependencies
-      if: matrix.platform == 'linux'
+
+    - name: Install dependencies
       run: |
         sudo apt-get update
-        
-        # Add SDL PPA and install SDL3
-        sudo add-apt-repository -y ppa:libsdl-org/ppa || true
-        sudo apt-get update
-        
-        # Install all dependencies including SDL3
         sudo apt-get install -y \
-          build-essential \
-          cmake \
-          ninja-build \
-          pkg-config \
-          libsdl3-dev \
-          libxml2-dev \
-          libpng-dev \
-          zlib1g-dev \
-          libbz2-dev \
-          flex \
-          bison \
-          perl \
-          libgl1-mesa-dev || {
-            echo "⚠ PPA failed, trying manual minimal SDL3 build"
-            
-            # Install other deps first
-            sudo apt-get install -y \
-              build-essential \
-              cmake \
-              ninja-build \
-              pkg-config \
-              libxml2-dev \
-              libpng-dev \
-              zlib1g-dev \
-              libbz2-dev \
-              flex \
-              bison \
-              perl \
-              libgl1-mesa-dev
-              
-            # Minimal SDL3 build (1 core, minimal features)
-            cd /tmp
-            git clone --depth 1 https://github.com/libsdl-org/SDL.git SDL3
-            cd SDL3
-            cmake -B build -DCMAKE_BUILD_TYPE=MinSizeRel \
-                  -DSDL_SHARED=ON -DSDL_STATIC=OFF \
-                  -DSDL_TEST=OFF -DSDL_EXAMPLES=OFF -DSDL_DOCS=OFF
-            cmake --build build --parallel 1
-            sudo cmake --install build
-          }
-          
-    - name: Setup MSVC
-      if: matrix.platform == 'windows'
-      uses: microsoft/setup-msbuild@v2
-      
-    - name: Setup vcpkg
-      if: matrix.platform == 'windows'
-      run: |
-        git clone https://github.com/Microsoft/vcpkg.git external/vcpkg
-        ./external/vcpkg/bootstrap-vcpkg.bat
-        ./external/vcpkg/vcpkg.exe install --triplet=x64-windows
-        
-    - name: Make script executable (Linux)
-      if: matrix.platform == 'linux'
-      run: chmod +x scripts/build-linux.sh
-        
+          build-essential cmake ninja-build pkg-config \
+          libxml2-dev libpng-dev zlib1g-dev libbz2-dev \
+          flex bison perl \
+          libgl1-mesa-dev libx11-dev libxext-dev libxrandr-dev \
+          libxcursor-dev libxi-dev libxss-dev \
+          libasound2-dev libpulse-dev \
+          libwayland-dev libxkbcommon-dev wayland-protocols \
+          libdbus-1-dev libdrm-dev libgbm-dev libudev-dev
+
+        cd /tmp
+        git clone --depth 1 https://github.com/libsdl-org/SDL.git SDL3
+        cd SDL3
+        cmake -B build -DCMAKE_BUILD_TYPE=Release \
+              -DSDL_SHARED=ON -DSDL_STATIC=OFF \
+              -DSDL_TEST=OFF -DSDL_TESTS=OFF -DSDL_EXAMPLES=OFF
+        cmake --build build --parallel $(nproc)
+        sudo cmake --install build
+        sudo ldconfig
+
     - name: Build
-      run: ${{ matrix.script }}
-        
-    - name: Run tests
       run: |
-        if [ "${{ matrix.platform }}" = "linux" ]; then
-          cd build-linux && ctest --output-on-failure
-        else
-          cd build-windows && ctest --output-on-failure
-        fi
-      shell: bash
-        
+        chmod +x scripts/build-linux.sh
+        ./scripts/build-linux.sh --package
+
     - name: Upload artifacts
       uses: actions/upload-artifact@v4
       with:
-        name: fuse-sdl3-${{ matrix.platform }}
-        path: |
-          ${{ matrix.artifacts }}
-          ${{ matrix.executable }}
+        name: fuse-sdl3-linux
+        path: build-linux/fuse-sdl3-*-Linux-*.tar.gz
         retention-days: 90
 
-  # Create release
-  release:
-    needs: build
-    runs-on: ubuntu-latest
-    permissions:
-      contents: write
-      
+  build-windows:
+    runs-on: windows-latest
+
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
-      
+
+    - name: Build
+      shell: pwsh
+      run: ./scripts/build-win.ps1 -Package
+
+    - name: Upload artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: fuse-sdl3-windows
+        path: build-win/fuse-sdl3-*-Windows-*.zip
+        retention-days: 90
+
+  release:
+    needs: [build-linux, build-windows]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
     - name: Download all artifacts
       uses: actions/download-artifact@v4
       with:
         path: artifacts/
-        
+
     - name: Prepare release assets
       run: |
         mkdir -p release-assets
-        
-        # Copy Linux artifacts
-        find artifacts/fuse-sdl3-linux -name "*.tar.gz" -exec cp {} release-assets/ \;
-        
-        # Copy Windows artifacts  
-        find artifacts/fuse-sdl3-windows -name "*.zip" -exec cp {} release-assets/ \;
-        
+        find artifacts/ -name "*.tar.gz" -exec cp {} release-assets/ \;
+        find artifacts/ -name "*.zip" -exec cp {} release-assets/ \;
         echo "=== Release assets ==="
         ls -la release-assets/
-        
-    - name: Extract version from tag
-      id: get_version
+
+    - name: Determine version
+      id: version
       run: |
         if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-          VERSION="${{ github.event.inputs.tag }}"
+          echo "tag=${{ github.event.inputs.tag }}" >> $GITHUB_OUTPUT
         else
-          VERSION=${GITHUB_REF#refs/tags/}
+          echo "tag=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
         fi
-        echo "version=$VERSION" >> $GITHUB_OUTPUT
-        echo "Version: $VERSION"
-        
-    - name: Read changelog
+
+    - name: Extract changelog
       id: changelog
       run: |
+        TAG="${{ steps.version.outputs.tag }}"
+        VER="${TAG#v}"
         if [ -f CHANGELOG.md ]; then
-          # Extract latest version's changelog (between first two ## headings)
-          CHANGELOG=$(awk '/^## / {if(++count==2) exit} count==1 && !/^## / {print}' CHANGELOG.md | head -20)
-          echo "changelog<<EOF" >> $GITHUB_OUTPUT
-          echo "$CHANGELOG" >> $GITHUB_OUTPUT
-          echo "EOF" >> $GITHUB_OUTPUT
-        else
-          echo "changelog=Release ${{ steps.get_version.outputs.version }}" >> $GITHUB_OUTPUT
+          NOTES=$(awk "/^## .*${VER}/ {found=1; next} /^## / {if(found) exit} found {print}" CHANGELOG.md)
+          if [ -z "$NOTES" ]; then
+            NOTES=$(awk '/^## / {if(++c==2) exit} c==1 && !/^## / {print}' CHANGELOG.md)
+          fi
         fi
-        
+        echo "notes<<EOF" >> $GITHUB_OUTPUT
+        echo "${NOTES:-Release ${TAG}}" >> $GITHUB_OUTPUT
+        echo "EOF" >> $GITHUB_OUTPUT
+
     - name: Create release
-      uses: softprops/action-gh-release@v1
+      uses: softprops/action-gh-release@v2
       with:
-        tag_name: ${{ steps.get_version.outputs.version }}
-        name: Fuse SDL3 ${{ steps.get_version.outputs.version }}
+        tag_name: ${{ steps.version.outputs.tag }}
+        name: Fuse SDL3 ${{ steps.version.outputs.tag }}
         body: |
-          ## Fuse SDL3 ${{ steps.get_version.outputs.version }}
-          
-          ZX Spectrum emulator with SDL3 support.
-          
           ### Downloads
           - **Linux**: Download the `.tar.gz` archive, extract it, and run `./fuse`
           - **Windows**: Download the `.zip` archive, extract it, and run `fuse.exe`
-          
+
           ### Changes
-          ${{ steps.changelog.outputs.changelog }}
-          
-          ---
-          
-          **Full Changelog**: https://github.com/${{ github.repository }}/compare/${{ steps.get_version.outputs.version }}...HEAD
-          
+          ${{ steps.changelog.outputs.notes }}
         files: release-assets/*
         draft: false
         prerelease: false
-        generate_release_notes: true

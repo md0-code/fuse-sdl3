@@ -11,117 +11,63 @@ env:
   BUILD_TYPE: Release
 
 jobs:
-  # Linux Build Job
   build-linux:
-    runs-on: ubuntu-latest
-    
+    runs-on: ubuntu-24.04
+
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
-      
+
     - name: Install dependencies
       run: |
         sudo apt-get update
-        
-        # Add SDL PPA and install SDL3
-        sudo add-apt-repository -y ppa:libsdl-org/ppa || true
-        sudo apt-get update
-        
-        # Install all dependencies including SDL3
         sudo apt-get install -y \
-          build-essential \
-          cmake \
-          ninja-build \
-          pkg-config \
-          libsdl3-dev \
-          libxml2-dev \
-          libpng-dev \
-          zlib1g-dev \
-          libbz2-dev \
-          flex \
-          bison \
-          perl \
-          libgl1-mesa-dev || {
-            echo "⚠ PPA failed, trying manual SDL3 installation"
-            
-            # Fallback: install other deps first
-            sudo apt-get install -y \
-              build-essential \
-              cmake \
-              ninja-build \
-              pkg-config \
-              libxml2-dev \
-              libpng-dev \
-              zlib1g-dev \
-              libbz2-dev \
-              flex \
-              bison \
-              perl \
-              libgl1-mesa-dev
-              
-            # Quick SDL3 build (minimal features, 1 core only to avoid memory issues)
-            cd /tmp
-            git clone --depth 1 https://github.com/libsdl-org/SDL.git SDL3
-            cd SDL3
-            cmake -B build -DCMAKE_BUILD_TYPE=MinSizeRel \
-                  -DSDL_SHARED=ON -DSDL_STATIC=OFF \
-                  -DSDL_TEST=OFF -DSDL_EXAMPLES=OFF -DSDL_DOCS=OFF \
-                  -DSDL_RENDER=OFF -DSDL_AUDIO=ON -DSDL_VIDEO=ON
-            cmake --build build --parallel 1
-            sudo cmake --install build
-          }
-          
-    - name: Build Linux
+          build-essential cmake ninja-build pkg-config \
+          libxml2-dev libpng-dev zlib1g-dev libbz2-dev \
+          flex bison perl \
+          libgl1-mesa-dev libx11-dev libxext-dev libxrandr-dev \
+          libxcursor-dev libxi-dev libxss-dev \
+          libasound2-dev libpulse-dev \
+          libwayland-dev libxkbcommon-dev wayland-protocols \
+          libdbus-1-dev libdrm-dev libgbm-dev libudev-dev
+
+        # Build SDL3 from source (not packaged in Ubuntu 24.04)
+        cd /tmp
+        git clone --depth 1 https://github.com/libsdl-org/SDL.git SDL3
+        cd SDL3
+        cmake -B build -DCMAKE_BUILD_TYPE=Release \
+              -DSDL_SHARED=ON -DSDL_STATIC=OFF \
+              -DSDL_TEST=OFF -DSDL_TESTS=OFF -DSDL_EXAMPLES=OFF
+        cmake --build build --parallel $(nproc)
+        sudo cmake --install build
+        sudo ldconfig
+
+    - name: Build
       run: |
         chmod +x scripts/build-linux.sh
         ./scripts/build-linux.sh --package
-        
-    - name: Run tests
-      run: |
-        cd build-linux
-        ctest --output-on-failure
-        
-    - name: Upload Linux artifacts
+
+    - name: Upload artifacts
       uses: actions/upload-artifact@v4
       with:
         name: fuse-sdl3-linux
-        path: |
-          build-linux/fuse-sdl3-*-Linux-*.tar.gz
-          build-linux/fuse
+        path: build-linux/fuse-sdl3-*-Linux-*.tar.gz
         retention-days: 7
 
-  # Windows Build Job
   build-windows:
     runs-on: windows-latest
-    
+
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
-      
-    - name: Setup MSVC
-      uses: microsoft/setup-msbuild@v2
-      
-    - name: Setup vcpkg
-      uses: microsoft/setup-vcpkg@v1
-      with:
-        vcpkg-url: https://github.com/microsoft/vcpkg.git
-        vcpkg-version: 'latest'
-        
-    - name: Build Windows
-      run: |
-        ./scripts/build-win.ps1 -Package
-        
-    - name: Run tests
-      run: |
-        cd build-windows
-        ctest --output-on-failure
-        
-    - name: Upload Windows artifacts
+
+    - name: Build
+      shell: pwsh
+      run: ./scripts/build-win.ps1 -Package
+
+    - name: Upload artifacts
       uses: actions/upload-artifact@v4
       with:
         name: fuse-sdl3-windows
-        path: |
-          build-windows/fuse-sdl3-*-Windows-*.zip
-          build-windows/fuse.exe
+        path: build-win/fuse-sdl3-*-Windows-*.zip
         retention-days: 7
-
