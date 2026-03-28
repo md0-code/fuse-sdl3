@@ -45,12 +45,17 @@ jobs:
       run: |
         sudo apt-get update
         
-        # Install basic build tools
+        # Add SDL PPA and install SDL3
+        sudo add-apt-repository -y ppa:libsdl-org/ppa || true
+        sudo apt-get update
+        
+        # Install all dependencies including SDL3
         sudo apt-get install -y \
           build-essential \
           cmake \
           ninja-build \
           pkg-config \
+          libsdl3-dev \
           libxml2-dev \
           libpng-dev \
           zlib1g-dev \
@@ -58,15 +63,34 @@ jobs:
           flex \
           bison \
           perl \
-          libgl1-mesa-dev
-          
-        # Build SDL3 from source since GitHub runners don't have it
-        cd /tmp
-        git clone --depth 1 --branch main https://github.com/libsdl-org/SDL.git SDL3
-        cd SDL3
-        cmake -B build -DCMAKE_BUILD_TYPE=Release -DSDL_SHARED=ON -DSDL_STATIC=OFF
-        cmake --build build --parallel $(nproc)
-        sudo cmake --install build
+          libgl1-mesa-dev || {
+            echo "⚠ PPA failed, trying manual minimal SDL3 build"
+            
+            # Install other deps first
+            sudo apt-get install -y \
+              build-essential \
+              cmake \
+              ninja-build \
+              pkg-config \
+              libxml2-dev \
+              libpng-dev \
+              zlib1g-dev \
+              libbz2-dev \
+              flex \
+              bison \
+              perl \
+              libgl1-mesa-dev
+              
+            # Minimal SDL3 build (1 core, minimal features)
+            cd /tmp
+            git clone --depth 1 https://github.com/libsdl-org/SDL.git SDL3
+            cd SDL3
+            cmake -B build -DCMAKE_BUILD_TYPE=MinSizeRel \
+                  -DSDL_SHARED=ON -DSDL_STATIC=OFF \
+                  -DSDL_TEST=OFF -DSDL_EXAMPLES=OFF -DSDL_DOCS=OFF
+            cmake --build build --parallel 1
+            sudo cmake --install build
+          }
           
     - name: Setup MSVC
       if: matrix.platform == 'windows'
