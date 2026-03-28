@@ -292,3 +292,17 @@ teletext_port_1, numeric, 19761
 teletext_port_2, numeric, 19762
 teletext_port_3, numeric, 19763
 teletext_port_4, numeric, 19764
+
+# Platform-specific path settings for cross-platform config compatibility
+linux_file_selection_directories, string, NULL,, linux-file-selection-directories
+windows_file_selection_directories, string, NULL,, windows-file-selection-directories
+linux_tape_file, string, NULL,, linux-tape-file
+windows_tape_file, string, NULL,, windows-tape-file
+linux_record_file, string, NULL,, linux-record-file
+windows_record_file, string, NULL,, windows-record-file
+linux_playback_file, string, NULL,, linux-playback-file
+windows_playback_file, string, NULL,, windows-playback-file
+linux_printer_graphics_filename, string, "printout.pbm",, linux-graphics-file
+windows_printer_graphics_filename, string, "printout.pbm",, windows-graphics-file
+linux_printer_text_filename, string, "printout.txt",, linux-text-file
+windows_printer_text_filename, string, "printout.txt",, windows-text-file

@@ -103,8 +103,8 @@ print hashline( __LINE__ ), << 'CODE';
 #include "utils.h"
 
 /* The name of our configuration file */
-#define CONFIG_FILE_NAME ".fuserc"
-#define PORTABLE_DEFAULT_CONFIG_FILE_NAME ".fuserc.default"
+#define CONFIG_FILE_NAME "fuse-sdl3"
+#define PORTABLE_DEFAULT_CONFIG_FILE_NAME "fuse-sdl3.default"
 
 /* The current settings of options, etc */
 settings_info settings_current;
@@ -131,6 +131,7 @@ static int read_config_file( settings_info *settings );
 static int get_config_file_path( char *path, size_t path_length );
 static int get_portable_config_path( char *path, size_t path_length );
 static int config_setting_is_ignored( const char *name, size_t length );
+static void apply_platform_specific_settings( settings_info *settings );
 
 #ifdef HAVE_LIB_XML2
 static int parse_xml( xmlDocPtr doc, settings_info *settings );
@@ -174,6 +175,9 @@ settings_init( int *first_arg, int argc, char **argv )
   error = read_config_file( &settings_current );
   if( error ) return error;
 
+  /* Apply platform-specific settings overrides */
+  apply_platform_specific_settings( &settings_current );
+
   error = settings_command_line( &settings_current, first_arg, argc, argv );
   if( error ) return error;
 
@@ -184,6 +188,89 @@ settings_init( int *first_arg, int argc, char **argv )
 void settings_defaults( settings_info *settings )
 {
   settings_copy_internal( settings, &settings_default );
+}
+
+/* Apply platform-specific settings overrides */
+static void
+apply_platform_specific_settings( settings_info *settings )
+{
+#ifdef __linux__
+  /* Linux-specific overrides */
+  if( settings->linux_file_selection_directories ) {
+    if( settings->file_selection_directories ) {
+      libspectrum_free( settings->file_selection_directories );
+    }
+    settings->file_selection_directories = utils_safe_strdup( settings->linux_file_selection_directories );
+  }
+  if( settings->linux_tape_file ) {
+    if( settings->tape_file ) {
+      libspectrum_free( settings->tape_file );
+    }
+    settings->tape_file = utils_safe_strdup( settings->linux_tape_file );
+  }
+  if( settings->linux_record_file ) {
+    if( settings->record_file ) {
+      libspectrum_free( settings->record_file );
+    }
+    settings->record_file = utils_safe_strdup( settings->linux_record_file );
+  }
+  if( settings->linux_playback_file ) {
+    if( settings->playback_file ) {
+      libspectrum_free( settings->playback_file );
+    }
+    settings->playback_file = utils_safe_strdup( settings->linux_playback_file );
+  }
+  if( settings->linux_printer_graphics_filename ) {
+    if( settings->printer_graphics_filename ) {
+      libspectrum_free( settings->printer_graphics_filename );
+    }
+    settings->printer_graphics_filename = utils_safe_strdup( settings->linux_printer_graphics_filename );
+  }
+  if( settings->linux_printer_text_filename ) {
+    if( settings->printer_text_filename ) {
+      libspectrum_free( settings->printer_text_filename );
+    }
+    settings->printer_text_filename = utils_safe_strdup( settings->linux_printer_text_filename );
+  }
+#elif defined(_WIN32) || defined(_WIN64)
+  /* Windows-specific overrides */
+  if( settings->windows_file_selection_directories ) {
+    if( settings->file_selection_directories ) {
+      libspectrum_free( settings->file_selection_directories );
+    }
+    settings->file_selection_directories = utils_safe_strdup( settings->windows_file_selection_directories );
+  }
+  if( settings->windows_tape_file ) {
+    if( settings->tape_file ) {
+      libspectrum_free( settings->tape_file );
+    }
+    settings->tape_file = utils_safe_strdup( settings->windows_tape_file );
+  }
+  if( settings->windows_record_file ) {
+    if( settings->record_file ) {
+      libspectrum_free( settings->record_file );
+    }
+    settings->record_file = utils_safe_strdup( settings->windows_record_file );
+  }
+  if( settings->windows_playback_file ) {
+    if( settings->playback_file ) {
+      libspectrum_free( settings->playback_file );
+    }
+    settings->playback_file = utils_safe_strdup( settings->windows_playback_file );
+  }
+  if( settings->windows_printer_graphics_filename ) {
+    if( settings->printer_graphics_filename ) {
+      libspectrum_free( settings->printer_graphics_filename );
+    }
+    settings->printer_graphics_filename = utils_safe_strdup( settings->windows_printer_graphics_filename );
+  }
+  if( settings->windows_printer_text_filename ) {
+    if( settings->printer_text_filename ) {
+      libspectrum_free( settings->printer_text_filename );
+    }
+    settings->printer_text_filename = utils_safe_strdup( settings->windows_printer_text_filename );
+  }
+#endif
 }
 
 static int
