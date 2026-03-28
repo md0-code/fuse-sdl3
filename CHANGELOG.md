@@ -1,5 +1,13 @@
 # Fuse SDL3 Changelog
 
+## Version 0.1.1
+
+- Fixed automatic Wayland crash detection that wasn't working properly - now reliably fails back to X11 when Wayland causes segfaults
+- Implemented cross-platform configuration system with separate Linux and Windows path settings in settings.dat
+- Updated configuration file naming from `.fuserc.default` to `.fuse-sdl3.default` for better project identification
+- Fixed missing string.h include in menu.c that caused compilation errors on some systems
+- Improved build system reliability and package naming consistency
+
 ## Version 0.1.0 (first public release)
 
 - Native SDL3 port for the maintained frontend: SDL video, audio, and input were moved onto the SDL3 path, with follow-up fixes for startup and audio regressions.
