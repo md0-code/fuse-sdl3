@@ -105,17 +105,15 @@ If you want to build from source instead, see [BUILD.md](BUILD.md).
 
 ## Troubleshooting
 
-### Segmentation fault on startup (Linux/Wayland)
+### Segmentation fault on startup (Linux/Wayland) - RESOLVED
 
-If Fuse crashes immediately on startup with a segmentation fault, this is likely due to a compatibility issue between SDL3's Wayland backend and system graphics libraries. 
+**This issue is now automatically fixed.** Fuse SDL3 detects Wayland usage and automatically switches to X11 to prevent crashes. You should see:
 
-**Quick fix:** Force Fuse to use X11 instead of Wayland:
-
-```bash
-SDL_VIDEODRIVER=x11 ./fuse
+```
+./fuse: automatically switching SDL video backend to x11 to avoid known Wayland libdecor crashes
 ```
 
-For more details and alternative solutions, see [KNOWN_ISSUES.md](KNOWN_ISSUES.md).
+If you encounter issues with the automatic fix, see [KNOWN_ISSUES.md](KNOWN_ISSUES.md) for manual override options.
 
 ---
 
