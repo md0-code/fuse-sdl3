@@ -22,12 +22,13 @@ jobs:
     - name: Install dependencies
       run: |
         sudo apt-get update
+        
+        # Install basic build tools
         sudo apt-get install -y \
           build-essential \
           cmake \
           ninja-build \
           pkg-config \
-          libsdl3-dev \
           libxml2-dev \
           libpng-dev \
           zlib1g-dev \
@@ -36,6 +37,14 @@ jobs:
           bison \
           perl \
           libgl1-mesa-dev
+          
+        # Build SDL3 from source since GitHub runners don't have it
+        cd /tmp
+        git clone --depth 1 --branch SDL3 https://github.com/libsdl-org/SDL.git SDL3
+        cd SDL3
+        cmake -B build -DCMAKE_BUILD_TYPE=Release -DSDL_SHARED=ON -DSDL_STATIC=OFF
+        cmake --build build --parallel $(nproc)
+        sudo cmake --install build
           
     - name: Build Linux
       run: |

@@ -1,6 +1,6 @@
 # Fuse SDL3 Changelog
 
-## Version 0.1.1
+## v0.1.1
 
 - Fixed automatic Wayland crash detection that wasn't working properly - now reliably fails back to X11 when Wayland causes segfaults
 - Implemented cross-platform configuration system with separate Linux and Windows path settings in settings.dat
