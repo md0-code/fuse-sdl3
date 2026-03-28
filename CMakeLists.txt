@@ -39,9 +39,9 @@ find_package(Threads)
 find_package(OpenGL QUIET)
 find_package(ZLIB)
 find_package(BZip2)
-find_program(FLEX_EXECUTABLE NAMES win_flex flex REQUIRED)
-find_program(BISON_EXECUTABLE NAMES win_bison bison REQUIRED)
 
+# On Windows, check WinGet install locations before the REQUIRED find_program
+# so that winget-installed flex/bison are discovered even if not on PATH.
 if(WIN32 AND DEFINED ENV{LOCALAPPDATA})
   file(GLOB _fuse_winget_flex_candidates "$ENV{LOCALAPPDATA}/Microsoft/WinGet/Packages/*/win_flex.exe")
   list(LENGTH _fuse_winget_flex_candidates _fuse_winget_flex_count)
@@ -55,6 +55,9 @@ if(WIN32 AND DEFINED ENV{LOCALAPPDATA})
     list(GET _fuse_winget_bison_candidates 0 BISON_EXECUTABLE)
   endif()
 endif()
+
+find_program(FLEX_EXECUTABLE NAMES win_flex flex REQUIRED)
+find_program(BISON_EXECUTABLE NAMES win_bison bison REQUIRED)
 
 string(TOUPPER "${CMAKE_BUILD_TYPE}" FUSE_BUILD_TYPE_UPPER)
 
