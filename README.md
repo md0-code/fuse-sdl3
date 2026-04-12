@@ -3,7 +3,7 @@
 A fork of [Fuse](http://fuse-emulator.sourceforge.net/) — the Free Unix Spectrum Emulator — focused on a modernized SDL3 frontend, a streamlined CMake-based build, and an opinionated set of usability improvements and new features.
 
 Upstream baseline: **fuse 1.6.0**.  
-Current version: **0.1.1** (first public release).
+Current version: **0.2.0**.
 
 ---
 
@@ -36,6 +36,7 @@ This is a personal project. It is not an official Fuse release and is not affili
 ### New and changed in this fork
 
 - **SDL3 frontend** — video, audio, and input fully ported to SDL3, with follow-up fixes for startup and audio regressions introduced during the migration.
+- **Libretro core target** — in-repo libretro build with software video/audio/input integration, save states, disk and playlist handling, frontend descriptors, and dedicated Linux and Windows distribution packaging paths.
 - **CMake build** — replaces autotools; supports Linux and native Windows (via Visual Studio / clang-cl and a repo-local vcpkg manifest). See [BUILD.md](BUILD.md) for full dependency lists and build instructions.
 - **Correct fullscreen scaling** — fullscreen keeps the correct aspect ratio instead of stretching to fill the display.
 - **OpenGL shader backend** — loads RetroArch-compatible `.glslp` shader presets (examples provided in `shaders/`). Shader parameters can be edited at runtime under *Options → Shader parameters…*. The backend falls back gracefully to the plain SDL renderer when OpenGL or `SDL3_shadercross` is unavailable.
@@ -121,7 +122,7 @@ If you need to disable this automatic fix for any reason, set the environment va
 
 | Document | Contents |
 |---|---|
-| [BUILD.md](BUILD.md) | Build dependencies, platform-specific notes, and packaging instructions |
+| [BUILD.md](BUILD.md) | Build dependencies, platform-specific notes, libretro build details, and packaging instructions |
 | [CHANGELOG.md](CHANGELOG.md) | What changed in each release relative to upstream |
 | [LICENSE.md](LICENSE.md) | GNU General Public License, version 3 |
 

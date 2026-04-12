@@ -101,6 +101,54 @@ Windows PowerShell:
 Both commands configure a CMake build, compile Fuse SDL3, and finish with a
 compiled binary in the selected build directory.
 
+## Building the libretro core
+
+The repo also builds an in-tree libretro core target named `fuse-libretro`.
+On Windows this produces `fuse_libretro.dll` in the selected build directory.
+
+After configuring the build tree, build only the libretro target with:
+
+```powershell
+cmake --build build-win --target fuse-libretro
+```
+
+The libretro target stages the runtime asset directories it needs into the same
+build output directory:
+
+- `build-win/roms`
+- `build-win/lib`
+
+Those staged directories are required because the core resolves ROMs and other
+auxiliary assets relative to the current working directory when hosted by
+RetroArch.
+
+## RetroArch smoke test
+
+For Windows, the repo includes a repeatable RetroArch smoke test script for the
+libretro target:
+
+```powershell
+./scripts/smoke-test-libretro.ps1 -RetroArchRoot "D:\oldgames\frontends\retroarch"
+```
+
+By default the script:
+
+- uses `build-win/fuse_libretro.dll`
+- creates a tiny deterministic Interface 2 cartridge at
+  `build-win/libretro-smoke/if2-loop.rom`
+- runs RetroArch for a fixed number of frames using `--max-frames`
+- writes a log to `build-win/libretro-smoke/retroarch-smoke.log`
+- captures a screenshot to `build-win/libretro-smoke/retroarch-smoke.png`
+
+You can override the content path if you want to test a real snapshot, tape,
+disk, or cartridge file:
+
+```powershell
+./scripts/smoke-test-libretro.ps1 `
+  -RetroArchRoot "D:\oldgames\frontends\retroarch" `
+  -ContentPath .\some-test.z80
+```
+
 To also produce binary distribution archives from the install tree:
 
 Linux:

@@ -174,6 +174,12 @@ spectrum_frame( void )
   return 0;
 }
 
+libspectrum_dword
+spectrum_frame_count( void )
+{
+  return frames_since_reset;
+}
+
 libspectrum_byte
 spectrum_contend_delay_none( libspectrum_dword time )
 {
