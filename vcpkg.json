@@ -1,6 +1,6 @@
 {
   "name": "fuse-sdl3",
-"version-string": "0.1.0",
+  "version-string": "0.2.0",
   "builtin-baseline": "58950f88544e4637524dbd6a01d0317cf4cb77fc",
   "dependencies": [
     "bzip2",

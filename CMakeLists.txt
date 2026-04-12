@@ -4,7 +4,7 @@ if(POLICY CMP0177)
   cmake_policy(SET CMP0177 NEW)
 endif()
 
-project(fuse VERSION 0.1.2 LANGUAGES C)
+project(fuse VERSION 0.2.0 LANGUAGES C)
 
 include(GNUInstallDirs)
 set(CMAKE_C_STANDARD 99)
@@ -239,7 +239,7 @@ set(FUSE_NAME "Fuse SDL3")
 set(FUSE_URL "https://github.com/md0-code/fuse-sdl3")
 set(FUSE_VERSION "${PROJECT_VERSION}")
 set(FUSE_COPYRIGHT "Published under the GNU General Public License, version 3 or later")
-set(FUSE_RC_VERSION "0,1,0,0")
+set(FUSE_RC_VERSION "0,2,0,0")
 set(PACKAGE "fuse-sdl3")
 set(PACKAGE_BUGREPORT "https://github.com/md0-code/fuse-sdl3/issues")
 set(PACKAGE_NAME "Fuse SDL3")
@@ -1013,6 +1013,46 @@ endif()
 list(APPEND FUSE_SOURCES sound/sdlsound.c timer/sdl.c)
 set(SOUND_FIFO 1)
 
+set(FUSE_LIBRETRO_EXCLUDED_SOURCES
+  fuse.c
+  ui/sdl/sdlglsl.c
+  ui/sdl/sdlshader.c
+  ui/sdl/sdldisplay.c
+  ui/sdl/sdljoystick.c
+  ui/sdl/sdlkeyboard.c
+  ui/sdl/sdlui.c
+  ui/widget/about.c
+  ui/widget/binary.c
+  ui/widget/browse.c
+  ui/widget/debugger.c
+  ui/widget/error.c
+  ui/widget/filesel.c
+  ui/widget/memory.c
+  ui/widget/menu.c
+  ui/widget/picture.c
+  ui/widget/pokefinder.c
+  ui/widget/pokemem.c
+  ui/widget/query.c
+  ui/widget/roms.c
+  ui/widget/select.c
+  ui/widget/text.c
+  ui/widget/widget.c
+  unittests/unittests.c
+  sound/sdlsound.c
+  timer/sdl.c
+  "${GENERATED_WIDGET_OPTIONS_C}"
+  "${GENERATED_WIDGET_MENU_DATA}"
+)
+
+set(FUSE_LIBRETRO_SOURCES ${FUSE_SOURCES})
+list(REMOVE_ITEM FUSE_LIBRETRO_SOURCES ${FUSE_LIBRETRO_EXCLUDED_SOURCES})
+list(APPEND FUSE_LIBRETRO_SOURCES
+  frontend/runtime.c
+  libretro/libretro_core.c
+  libretro/libretro_frontend.c
+  libretro/libretro_option_stubs.c
+)
+
 add_library(fuse-scalers16 OBJECT ui/scaler/scalers.c)
 add_library(fuse-scalers32 OBJECT ui/scaler/scalers.c)
 
@@ -1052,6 +1092,9 @@ add_dependencies(fuse-scalers32 fuse-generated)
 add_executable(fuse ${FUSE_SOURCES})
 add_dependencies(fuse fuse-generated)
 
+add_library(fuse-libretro SHARED ${FUSE_LIBRETRO_SOURCES})
+add_dependencies(fuse-libretro fuse-generated)
+
 if(WIN32)
   set_target_properties(fuse PROPERTIES WIN32_EXECUTABLE ON)
 endif()
@@ -1060,6 +1103,7 @@ if(FUSE_USE_INTERNAL_LIBSPECTRUM AND TARGET ${FUSE_INTERNAL_LIBSPECTRUM_GENERATE
   add_dependencies(fuse-scalers16 ${FUSE_INTERNAL_LIBSPECTRUM_GENERATED_TARGET})
   add_dependencies(fuse-scalers32 ${FUSE_INTERNAL_LIBSPECTRUM_GENERATED_TARGET})
   add_dependencies(fuse ${FUSE_INTERNAL_LIBSPECTRUM_GENERATED_TARGET})
+  add_dependencies(fuse-libretro ${FUSE_INTERNAL_LIBSPECTRUM_GENERATED_TARGET})
 endif()
 
 if(FUSE_PORTABLE_PACKAGE AND UNIX AND NOT WIN32)
@@ -1107,16 +1151,36 @@ target_include_directories(fuse PRIVATE
   ${SDL_INCLUDE_DIRS}
 )
 
+target_include_directories(fuse-libretro PRIVATE
+  "${CMAKE_BINARY_DIR}"
+  "${CMAKE_SOURCE_DIR}"
+  "${CMAKE_SOURCE_DIR}/compat"
+  ${LIBSPECTRUM_INCLUDE_DIRS}
+  ${SDL_INCLUDE_DIRS}
+)
+
 if(HAVE_LIB_GLIB)
   target_include_directories(fuse PRIVATE ${GLIB_INCLUDE_DIRS})
   target_compile_options(fuse PRIVATE ${GLIB_CFLAGS_OTHER})
+  target_include_directories(fuse-libretro PRIVATE ${GLIB_INCLUDE_DIRS})
+  target_compile_options(fuse-libretro PRIVATE ${GLIB_CFLAGS_OTHER})
 endif()
 
 target_compile_definitions(fuse PRIVATE HAVE_CONFIG_H FUSEDATADIR=\"${CMAKE_BINARY_DIR}\")
+target_compile_definitions(fuse-libretro PRIVATE HAVE_CONFIG_H FUSEDATADIR="${CMAKE_BINARY_DIR}")
+
+set_target_properties(fuse-libretro PROPERTIES
+  PREFIX ""
+  OUTPUT_NAME "fuse_libretro"
+)
 
 target_link_libraries(fuse PRIVATE
   ${FUSE_LIBSPECTRUM_TARGET}
   ${FUSE_SDL_TARGET}
+)
+
+target_link_libraries(fuse-libretro PRIVATE
+  ${FUSE_LIBSPECTRUM_TARGET}
 )
 
 if(TARGET libdecor-wayland-repro)
@@ -1155,26 +1219,32 @@ endif()
 
 if(HAVE_LIB_GLIB)
   target_link_libraries(fuse PRIVATE PkgConfig::GLIB)
+  target_link_libraries(fuse-libretro PRIVATE PkgConfig::GLIB)
 endif()
 
 if(HAVE_LIB_XML2)
   if(WIN32)
     target_link_libraries(fuse PRIVATE LibXml2::LibXml2)
+    target_link_libraries(fuse-libretro PRIVATE LibXml2::LibXml2)
   else()
     target_link_libraries(fuse PRIVATE PkgConfig::XML)
+    target_link_libraries(fuse-libretro PRIVATE PkgConfig::XML)
   endif()
 endif()
 
 if(USE_LIBPNG)
   if(WIN32)
     target_link_libraries(fuse PRIVATE PNG::PNG)
+    target_link_libraries(fuse-libretro PRIVATE PNG::PNG)
   else()
     target_link_libraries(fuse PRIVATE PkgConfig::PNG)
+    target_link_libraries(fuse-libretro PRIVATE PkgConfig::PNG)
   endif()
 endif()
 
 if(ZLIB_FOUND)
   target_link_libraries(fuse PRIVATE ZLIB::ZLIB)
+  target_link_libraries(fuse-libretro PRIVATE ZLIB::ZLIB)
 endif()
 
 if(HAVE_PTHREAD)
@@ -1183,6 +1253,7 @@ endif()
 
 if(MATH_LIBRARY)
   target_link_libraries(fuse PRIVATE "${MATH_LIBRARY}")
+  target_link_libraries(fuse-libretro PRIVATE "${MATH_LIBRARY}")
 endif()
 
 if(HAVE_OPENGL)
@@ -1191,9 +1262,23 @@ endif()
 
 if(WIN32 AND HAVE_SOCKETS)
   target_link_libraries(fuse PRIVATE ws2_32)
+  target_link_libraries(fuse-libretro PRIVATE ws2_32)
+endif()
+
+set(FUSE_VCPKG_RUNTIME_DLLS)
+if(WIN32 AND DEFINED VCPKG_TARGET_TRIPLET)
+  file(GLOB FUSE_VCPKG_RUNTIME_DLLS
+    "${CMAKE_BINARY_DIR}/vcpkg_installed/${VCPKG_TARGET_TRIPLET}/bin/*.dll"
+    "${CMAKE_BINARY_DIR}/vcpkg_installed/${VCPKG_TARGET_TRIPLET}/debug/bin/*.dll"
+  )
 endif()
 
 target_sources(fuse PRIVATE
+  $<TARGET_OBJECTS:fuse-scalers16>
+  $<TARGET_OBJECTS:fuse-scalers32>
+)
+
+target_sources(fuse-libretro PRIVATE
   $<TARGET_OBJECTS:fuse-scalers16>
   $<TARGET_OBJECTS:fuse-scalers32>
 )
@@ -1208,12 +1293,34 @@ add_custom_command(TARGET fuse POST_BUILD
   VERBATIM
 )
 
+add_custom_command(TARGET fuse-libretro POST_BUILD
+  COMMAND "${CMAKE_COMMAND}" -E make_directory "$<TARGET_FILE_DIR:fuse-libretro>/lib"
+  COMMAND "${CMAKE_COMMAND}" -E make_directory "$<TARGET_FILE_DIR:fuse-libretro>/roms"
+  COMMAND "${CMAKE_COMMAND}" -E copy_directory "${CMAKE_SOURCE_DIR}/lib" "$<TARGET_FILE_DIR:fuse-libretro>/lib"
+  COMMAND "${CMAKE_COMMAND}" -E copy_directory "${CMAKE_SOURCE_DIR}/roms" "$<TARGET_FILE_DIR:fuse-libretro>/roms"
+  VERBATIM
+)
+
 if(WIN32)
   add_custom_command(TARGET fuse POST_BUILD
     COMMAND "${CMAKE_COMMAND}" -E copy_if_different $<TARGET_RUNTIME_DLLS:fuse> "$<TARGET_FILE_DIR:fuse>"
     COMMAND_EXPAND_LISTS
     VERBATIM
   )
+
+  add_custom_command(TARGET fuse-libretro POST_BUILD
+    COMMAND "${CMAKE_COMMAND}" -E copy_if_different $<TARGET_RUNTIME_DLLS:fuse-libretro> "$<TARGET_FILE_DIR:fuse-libretro>"
+    COMMAND_EXPAND_LISTS
+    VERBATIM
+  )
+
+  if(FUSE_VCPKG_RUNTIME_DLLS)
+    add_custom_command(TARGET fuse-libretro POST_BUILD
+      COMMAND "${CMAKE_COMMAND}" -E copy_if_different ${FUSE_VCPKG_RUNTIME_DLLS} "$<TARGET_FILE_DIR:fuse-libretro>"
+      COMMAND_EXPAND_LISTS
+      VERBATIM
+    )
+  endif()
 endif()
 
 install(TARGETS fuse
