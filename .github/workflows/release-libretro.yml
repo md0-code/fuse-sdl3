@@ -24,6 +24,7 @@ jobs:
     runs-on: ubuntu-24.04
 
     outputs:
+      tag: ${{ steps.version.outputs.raw }}
       version: ${{ steps.version.outputs.value }}
 
     steps:
@@ -42,6 +43,7 @@ jobs:
             tag="${GITHUB_REF_NAME}"
           fi
 
+          echo "raw=$tag" >> "$GITHUB_OUTPUT"
           tag="${tag#v}"
           project_version="$(tr -d '\r' < CMakeLists.txt | sed -n 's/^project(fuse VERSION \([^ ]*\) LANGUAGES C)$/\1/p')"
 
@@ -58,43 +60,9 @@ jobs:
           echo "value=$tag" >> "$GITHUB_OUTPUT"
 
       - name: Extract changelog section
-        env:
-          RELEASE_VERSION: ${{ steps.version.outputs.value }}
         shell: bash
         run: |
-          python3 - <<'PY'
-          import os
-          import pathlib
-          import re
-          import sys
-
-          version = os.environ['RELEASE_VERSION']
-          changelog = pathlib.Path('CHANGELOG.md').read_text(encoding='utf-8').splitlines()
-          heading = f'## Version {version}'
-
-          start = None
-          for index, line in enumerate(changelog):
-              if line.strip() == heading:
-                  start = index
-                  break
-
-          if start is None:
-              sys.stderr.write(f'No changelog section found for {version}\n')
-              sys.exit(1)
-
-          end = len(changelog)
-          for index in range(start + 1, len(changelog)):
-              if changelog[index].startswith('## '):
-                  end = index
-                  break
-
-          body = '\n'.join(changelog[start + 1:end]).strip()
-          if not body:
-              sys.stderr.write(f'Changelog section for {version} is empty\n')
-              sys.exit(1)
-
-          pathlib.Path('release-notes.md').write_text(f'{heading}\n\n{body}\n', encoding='utf-8')
-          PY
+          python3 scripts/extract_release_notes.py CHANGELOG.md "${{ steps.version.outputs.raw }}" release-notes.md
 
       - name: Upload release notes artifact
         uses: actions/upload-artifact@v4
@@ -219,11 +187,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         shell: bash
         run: |
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            tag="${{ github.event.inputs.tag }}"
-          else
-            tag="${GITHUB_REF_NAME}"
-          fi
+          tag="${{ needs.prepare.outputs.tag }}"
 
           notes_file="dist/release-notes.md"
 
