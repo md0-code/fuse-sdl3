@@ -13,6 +13,9 @@ on:
 env:
   BUILD_TYPE: Release
 
+permissions:
+  contents: read
+
 jobs:
   build-linux:
     runs-on: ubuntu-24.04
@@ -101,8 +104,8 @@ jobs:
         echo "=== Release assets ==="
         ls -la release-assets/
 
-    - name: Determine version
-      id: version
+    - name: Determine tag
+      id: tag
       run: |
         if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
           echo "tag=${{ github.event.inputs.tag }}" >> $GITHUB_OUTPUT
@@ -111,32 +114,19 @@ jobs:
         fi
 
     - name: Extract changelog
-      id: changelog
       run: |
-        TAG="${{ steps.version.outputs.tag }}"
-        VER="${TAG#v}"
-        if [ -f CHANGELOG.md ]; then
-          NOTES=$(awk "/^## .*${VER}/ {found=1; next} /^## / {if(found) exit} found {print}" CHANGELOG.md)
-          if [ -z "$NOTES" ]; then
-            NOTES=$(awk '/^## / {if(++c==2) exit} c==1 && !/^## / {print}' CHANGELOG.md)
-          fi
+        python3 scripts/extract_release_notes.py CHANGELOG.md "${{ steps.tag.outputs.tag }}" release-notes.md
+
+    - name: Create or update release
+      env:
+        GH_TOKEN: ${{ github.token }}
+      run: |
+        tag="${{ steps.tag.outputs.tag }}"
+
+        if gh release view "$tag" >/dev/null 2>&1; then
+          gh release edit "$tag" --title "$tag" --notes-file release-notes.md
+        else
+          gh release create "$tag" --title "$tag" --notes-file release-notes.md
         fi
-        echo "notes<<EOF" >> $GITHUB_OUTPUT
-        echo "${NOTES:-Release ${TAG}}" >> $GITHUB_OUTPUT
-        echo "EOF" >> $GITHUB_OUTPUT
 
-    - name: Create release
-      uses: softprops/action-gh-release@v2
-      with:
-        tag_name: ${{ steps.version.outputs.tag }}
-        name: Fuse SDL3 ${{ steps.version.outputs.tag }}
-        body: |
-          ### Downloads
-          - **Linux**: Download the `.tar.gz` archive, extract it, and run `./fuse`
-          - **Windows**: Download the `.zip` archive, extract it, and run `fuse.exe`
-
-          ### Changes
-          ${{ steps.changelog.outputs.notes }}
-        files: release-assets/*
-        draft: false
-        prerelease: false
+        gh release upload "$tag" release-assets/* --clobber
