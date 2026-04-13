@@ -5,9 +5,11 @@ set -eu
 build_dir_name="build-linux"
 build_package=0
 build_appimage=0
+build_libretro=0
 build_install=0
 build_uninstall=0
 install_prefix=""
+build_dir_overridden=0
 
 for arg in "$@"; do
   case "$arg" in
@@ -16,6 +18,7 @@ for arg in "$@"; do
 Usage: build-linux.sh [OPTIONS] [BUILD_DIR]
 
 Options:
+  --libretro             Build the libretro core instead of the desktop app
   --package              Build portable release archive (.tar.gz)
   --appimage             Build AppImage
   --install              Install after building (may require sudo)
@@ -46,17 +49,47 @@ EOF
     --package)
       build_package=1
       ;;
+    --libretro)
+      build_libretro=1
+      ;;
     --appimage)
       build_appimage=1
       ;;
     *)
       build_dir_name="$arg"
+      build_dir_overridden=1
       ;;
   esac
 done
 
+if [ "$build_libretro" -eq 1 ] && [ "$build_dir_overridden" -eq 0 ]; then
+  build_dir_name="build-linux-libretro"
+fi
+
 root_dir=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
 build_dir="$root_dir/$build_dir_name"
+
+if [ "$build_libretro" -eq 1 ]; then
+  if [ "$build_appimage" -eq 1 ]; then
+    echo "--libretro cannot be combined with --appimage" >&2
+    exit 1
+  fi
+
+  if [ "$build_install" -eq 1 ]; then
+    echo "--libretro cannot be combined with --install" >&2
+    exit 1
+  fi
+
+  if [ "$build_uninstall" -eq 1 ]; then
+    echo "--libretro cannot be combined with --uninstall" >&2
+    exit 1
+  fi
+
+  if [ -n "$install_prefix" ]; then
+    echo "--libretro cannot be combined with --install-prefix" >&2
+    exit 1
+  fi
+fi
 
 if [ "$build_uninstall" -eq 1 ]; then
   manifest="$build_dir/install_manifest.txt"
@@ -82,27 +115,91 @@ cpu_count() {
   echo 1
 }
 
+get_project_version() {
+  tr -d '\r' < "$root_dir/CMakeLists.txt" |
+    sed -n 's/^project(fuse VERSION \([^ ]*\) LANGUAGES C)$/\1/p'
+}
+
 jobs="${JOBS:-$(cpu_count)}"
 
 set -- cmake -S "$root_dir" -B "$build_dir"
 
-if [ "$build_package" -eq 1 ] || [ "$build_appimage" -eq 1 ]; then
+if [ "$build_libretro" -eq 1 ]; then
+  set -- "$@" -DFUSE_PORTABLE_PACKAGE=OFF -DCMAKE_BUILD_TYPE=Release
+elif [ "$build_package" -eq 1 ] || [ "$build_appimage" -eq 1 ]; then
   set -- "$@" -DFUSE_PORTABLE_PACKAGE=ON
 else
   set -- "$@" -DFUSE_PORTABLE_PACKAGE=OFF
 fi
 
-if [ "$build_package" -eq 1 ] || [ "$build_appimage" -eq 1 ]; then
+if [ "$build_libretro" -eq 0 ] && { [ "$build_package" -eq 1 ] || [ "$build_appimage" -eq 1 ]; }; then
   set -- "$@" -DCMAKE_BUILD_TYPE=Release
 fi
 
-if [ "$build_package" -eq 1 ]; then
+if [ "$build_libretro" -eq 0 ] && [ "$build_package" -eq 1 ]; then
   set -- "$@" -DCPACK_GENERATOR=TGZ
 fi
 
 "$@"
 
-cmake --build "$build_dir" --parallel "$jobs"
+if [ "$build_libretro" -eq 1 ]; then
+  cmake --build "$build_dir" --target fuse-libretro --parallel "$jobs"
+else
+  cmake --build "$build_dir" --parallel "$jobs"
+fi
+
+if [ "$build_libretro" -eq 1 ]; then
+  core_path="$build_dir/fuse-sdl3_libretro.so"
+  info_path="$build_dir/fuse-sdl3_libretro.info"
+  libretro_rom_dir="$build_dir/roms"
+  libretro_lib_dir="$build_dir/lib"
+
+  if [ ! -f "$core_path" ]; then
+    echo "Expected libretro core not found: $core_path" >&2
+    exit 1
+  fi
+
+  if [ ! -f "$info_path" ]; then
+    echo "Expected libretro info file not found: $info_path" >&2
+    exit 1
+  fi
+
+  if [ ! -d "$libretro_rom_dir" ] || [ ! -d "$libretro_lib_dir" ]; then
+    echo "Expected staged libretro asset directories not found in $build_dir" >&2
+    exit 1
+  fi
+
+  chmod 755 "$core_path"
+
+  if [ "$build_package" -eq 1 ]; then
+    version=$(get_project_version)
+    if [ -z "$version" ]; then
+      echo "Failed to resolve project version from $root_dir/CMakeLists.txt" >&2
+      exit 1
+    fi
+
+    arch=$(uname -m)
+    archive_base="fuse-sdl3_libretro-${version}-Linux-${arch}"
+    staging_dir="$build_dir/$archive_base"
+    archive_path="$build_dir/${archive_base}.tar.gz"
+
+    rm -rf "$staging_dir"
+    rm -f "$archive_path"
+    mkdir -p "$staging_dir"
+
+    cp "$core_path" "$staging_dir/"
+    cp "$info_path" "$staging_dir/"
+    cp -a "$libretro_lib_dir" "$staging_dir/lib"
+    cp -a "$libretro_rom_dir" "$staging_dir/roms"
+
+    tar -C "$build_dir" -czf "$archive_path" "$archive_base"
+    rm -rf "$staging_dir"
+
+    echo "Libretro package generated in $archive_path"
+  fi
+
+  exit 0
+fi
 
 exe_path="$build_dir/fuse"
 if [ ! -f "$exe_path" ]; then
@@ -130,7 +227,7 @@ if [ "$build_appimage" -eq 1 ]; then
   appimage_tool="${APPIMAGETOOL:-}"
   appimage_tool_appstream_flag="--no-appstream"
   arch=$(uname -m)
-  version=$(sed -n 's/^project(fuse VERSION \([^ ]*\) LANGUAGES C)$/\1/p' "$root_dir/CMakeLists.txt")
+  version=$(get_project_version)
   appimage_path="$build_dir/fuse-sdl3-${version}-${arch}.AppImage"
   desktop_file_name="io.github.md0_code.FuseSDL3.desktop"
   appstream_file_name="io.github.md0_code.FuseSDL3.appdata.xml"

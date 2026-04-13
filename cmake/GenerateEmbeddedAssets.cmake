@@ -31,6 +31,8 @@ foreach(spec_line IN LISTS spec_lines)
 
   if(asset_type STREQUAL "LIB")
     set(asset_type_enum "UTILS_AUXILIARY_LIB")
+  elseif(asset_type STREQUAL "ROM")
+    set(asset_type_enum "UTILS_AUXILIARY_ROM")
   elseif(asset_type STREQUAL "WIDGET")
     set(asset_type_enum "UTILS_AUXILIARY_WIDGET")
   else()

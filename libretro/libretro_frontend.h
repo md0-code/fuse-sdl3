@@ -9,6 +9,8 @@
 void libretro_frontend_set_environment( retro_environment_t cb );
 void libretro_frontend_set_input_callbacks( retro_input_poll_t poll_cb,
                                             retro_input_state_t state_cb );
+void libretro_frontend_set_controller_port_device( unsigned port,
+                                                   unsigned device );
 void libretro_frontend_capture_input( void );
 void libretro_frontend_keyboard_event( bool down, unsigned keycode,
                                        uint32_t character,

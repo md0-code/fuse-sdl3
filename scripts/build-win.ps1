@@ -19,7 +19,8 @@
     Optional path for the vcpkg binary cache directory.
 
 .PARAMETER Package
-    Build a portable release archive (.zip) after compiling.
+  Build a release archive after compiling. With -Libretro, package only the
+  libretro DLL and matching .info file.
 
 .PARAMETER Install
     Install after building using cmake --install.
@@ -31,7 +32,11 @@
     Uninstall using BUILD_DIR/install_manifest.txt.
 
 .PARAMETER RuntimeSmokeTest
-    Run a runtime smoke test after building.
+  Run the desktop runtime smoke test after building.
+
+.PARAMETER Libretro
+  Build the libretro core as a standalone single-DLL artifact using the
+  x64-windows-static vcpkg triplet and a dedicated build directory by default.
 
 .PARAMETER ShaderSmokeTest
     Run a shader smoke test after building.
@@ -70,6 +75,14 @@
 .EXAMPLE
     .\scripts\build-win.ps1 -Uninstall
     Uninstalls Fuse SDL3 using the install manifest from the build directory.
+
+.EXAMPLE
+  .\scripts\build-win.ps1 -Libretro
+  Configures and builds a standalone libretro core in build-win-libretro-standalone.
+
+.EXAMPLE
+  .\scripts\build-win.ps1 -Libretro -Package
+  Builds the standalone libretro core and packages the DLL and .info file in a zip archive.
 #>
 [CmdletBinding()]
 param(
@@ -82,6 +95,8 @@ param(
   [string]$InstallPrefix,
   [switch]$Uninstall,
   [switch]$RuntimeSmokeTest,
+  [Alias('LibretroStandalone')]
+  [switch]$Libretro,
   [switch]$ShaderSmokeTest,
   [switch]$BootstrapOnly,
   [switch]$ConfigureOnly,
@@ -93,6 +108,28 @@ param(
 $ErrorActionPreference = "Stop"
 $RepoRoot = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
 
+if ($Libretro) {
+  if (-not $PSBoundParameters.ContainsKey('BuildDir')) {
+    $BuildDir = 'build-win-libretro-standalone'
+  }
+
+  if (-not $PSBoundParameters.ContainsKey('Triplet')) {
+    $Triplet = 'x64-windows-static'
+  }
+
+  if ($Install) {
+    throw '-Libretro cannot be combined with -Install.'
+  }
+
+  if ($ShaderSmokeTest) {
+    throw '-Libretro cannot be combined with -ShaderSmokeTest.'
+  }
+
+  if ($RuntimeSmokeTest) {
+    throw '-Libretro cannot be combined with -RuntimeSmokeTest.'
+  }
+}
+
 function Resolve-RepoPath {
   param([string]$Path)
 
@@ -101,6 +138,43 @@ function Resolve-RepoPath {
   }
 
   return [System.IO.Path]::GetFullPath((Join-Path $RepoRoot $Path))
+}
+
+function Get-RepoProjectVersion {
+  $cmakeListsPath = Join-Path $RepoRoot 'CMakeLists.txt'
+  $cmakeText = [System.IO.File]::ReadAllText($cmakeListsPath)
+  $match = [System.Text.RegularExpressions.Regex]::Match(
+    $cmakeText,
+    'project\s*\(\s*fuse\s+VERSION\s+([0-9]+(?:\.[0-9]+)*)\b'
+  )
+
+  if (-not $match.Success) {
+    throw "Could not determine the project version from $cmakeListsPath"
+  }
+
+  return $match.Groups[1].Value
+}
+
+function Get-WindowsPackageArchitectureLabel {
+  param([string]$TripletName)
+
+  if ($TripletName -match '^x64-') {
+    return 'AMD64'
+  }
+
+  if ($TripletName -match '^x86-') {
+    return 'x86'
+  }
+
+  if ($TripletName -match '^arm64-') {
+    return 'ARM64'
+  }
+
+  if ($TripletName -match '^arm-') {
+    return 'ARM'
+  }
+
+  return $env:PROCESSOR_ARCHITECTURE
 }
 
 function Set-RepoVcpkgEnvironment {
@@ -620,6 +694,7 @@ function Invoke-CMakeConfigure {
     [string]$ResolvedVcpkgRoot,
     [string]$TripletName,
     [switch]$PortablePackage,
+    [switch]$StandaloneLibretro,
     [switch]$ForceLibspectrumRebuild
   )
 
@@ -662,6 +737,9 @@ function Invoke-CMakeConfigure {
       "-DCPACK_GENERATOR=ZIP",
       "-DFUSE_PORTABLE_PACKAGE=ON"
     )
+  }
+  elseif ($StandaloneLibretro) {
+    $cmakeArgs += "-DCMAKE_BUILD_TYPE=Release"
   }
 
   & $cmakePath @cmakeArgs
@@ -753,6 +831,55 @@ function Invoke-SmokeTest {
   }
 
   Write-Host "Runtime smoke test passed: fuse.exe -V"
+}
+
+function Invoke-LibretroPackage {
+  param(
+    [string]$BuildDirectory,
+    [string]$TripletName
+  )
+
+  $dllPath = Join-Path $BuildDirectory 'fuse-sdl3_libretro.dll'
+  $infoPath = Join-Path $BuildDirectory 'fuse-sdl3_libretro.info'
+  $packageOutputDir = Join-Path $RepoRoot 'build-win'
+  $projectVersion = Get-RepoProjectVersion
+  $architectureLabel = Get-WindowsPackageArchitectureLabel -TripletName $TripletName
+  $archiveName = "fuse-sdl3_libretro-$projectVersion-Windows-$architectureLabel.zip"
+  $archivePath = Join-Path $packageOutputDir $archiveName
+  $legacyArchivePaths = @(
+    (Join-Path $packageOutputDir 'fuse-sdl3_libretro-windows-x64.zip'),
+    (Join-Path $BuildDirectory 'fuse-sdl3_libretro-windows-x64.zip'),
+    (Join-Path $BuildDirectory $archiveName)
+  )
+  $stagingDir = Join-Path $BuildDirectory 'libretro-package'
+
+  if (-not (Test-Path $dllPath)) {
+    Write-Error "Expected libretro core not found: $dllPath"
+    exit 1
+  }
+
+  if (-not (Test-Path $infoPath)) {
+    Write-Error "Expected libretro info file not found: $infoPath"
+    exit 1
+  }
+
+  New-Item -ItemType Directory -Force -Path $packageOutputDir | Out-Null
+  Remove-Item -Recurse -Force $stagingDir -ErrorAction SilentlyContinue
+  Remove-Item $archivePath -Force -ErrorAction SilentlyContinue
+  foreach ($legacyArchivePath in $legacyArchivePaths | Select-Object -Unique) {
+    if ($legacyArchivePath -ne $archivePath) {
+      Remove-Item $legacyArchivePath -Force -ErrorAction SilentlyContinue
+    }
+  }
+  New-Item -ItemType Directory -Force -Path $stagingDir | Out-Null
+
+  Copy-Item $dllPath $stagingDir
+  Copy-Item $infoPath $stagingDir
+
+  Compress-Archive -Path (Join-Path $stagingDir '*') -DestinationPath $archivePath -CompressionLevel Optimal -Force
+  Remove-Item -Recurse -Force $stagingDir -ErrorAction SilentlyContinue
+
+  Write-Host "Libretro package generated: $archivePath"
 }
 
 function Read-TextFileShared {
@@ -907,26 +1034,38 @@ if ($BootstrapOnly) {
 
 Import-VsDevEnvironment
 Set-RepoVcpkgEnvironment -ResolvedVcpkgRoot $resolvedVcpkgRoot -ResolvedBinaryCacheDir $resolvedBinaryCacheDir
-Invoke-CMakeConfigure -BuildDirectory $buildDirPath -ResolvedVcpkgRoot $resolvedVcpkgRoot -TripletName $Triplet -PortablePackage:$Package -ForceLibspectrumRebuild:$RebuildLibspectrum
+$portablePackage = $Package -and -not $Libretro
+Invoke-CMakeConfigure -BuildDirectory $buildDirPath -ResolvedVcpkgRoot $resolvedVcpkgRoot -TripletName $Triplet -PortablePackage:$portablePackage -StandaloneLibretro:$Libretro -ForceLibspectrumRebuild:$RebuildLibspectrum
 
 if ($ConfigureOnly) {
   exit 0
 }
 
-Invoke-CMakeBuild -BuildDirectory $buildDirPath
+if ($Libretro) {
+  Invoke-CMakeBuild -BuildDirectory $buildDirPath -Target 'fuse-libretro'
+}
+else {
+  Invoke-CMakeBuild -BuildDirectory $buildDirPath
+}
 Invoke-GeneratedSettingsSanityCheck -BuildDirectory $buildDirPath
 
 if ($RuntimeSmokeTest) {
   Invoke-SmokeTest -BuildDirectory $buildDirPath
 }
 
+
 if ($ShaderSmokeTest) {
   Invoke-ShaderSmokeTest -BuildDirectory $buildDirPath
 }
 
 if ($Package) {
-  Invoke-CMakeBuild -BuildDirectory $buildDirPath -Target "package"
-  Write-Host "Package archives generated in $buildDirPath"
+  if ($Libretro) {
+    Invoke-LibretroPackage -BuildDirectory $buildDirPath -TripletName $Triplet
+  }
+  else {
+    Invoke-CMakeBuild -BuildDirectory $buildDirPath -Target "package"
+    Write-Host "Package archives generated in $buildDirPath"
+  }
 }
 
 if ($Install) {
