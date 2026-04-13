@@ -2,20 +2,13 @@
 
 ## Version 0.2.0
 
-- Added an in-tree libretro core target alongside the SDL3 desktop frontend,
-  backed by a reusable runtime shared between both entry points.
-- Expanded the libretro feature set with save states, cheat translation,
-  no-content boot, disk playlists and disk control, categorized options,
-  controller descriptors, RetroPad media actions, and published memory maps.
-- Added Linux and Windows libretro distribution packaging flows, including
-  Windows standalone packaging with bundled `.info` metadata and embedded
-  asset support.
-- Tightened the Windows build helper around generated-settings validation and
-  libretro packaging behavior.
-- Added repository release automation for publishing Linux and Windows
-  libretro packages with changelog-based release notes.
+- Added an in-tree libretro core target alongside the SDL3 desktop frontend, backed by a reusable runtime shared between both entry points.
+- Expanded the libretro feature set with save states, cheat translation, no-content boot, disk playlists and disk control, categorized options, controller descriptors, RetroPad media actions, and published memory maps.
+- Added Linux and Windows libretro distribution packaging flows, including Windows standalone packaging with bundled `.info` metadata and embedded asset support.
+- Tightened the Windows build helper around generated-settings validation and libretro packaging behavior.
+- Added repository release automation for publishing Linux and Windows libretro packages with changelog-based release notes.
 
-## v0.1.1
+## Version 0.1.1
 
 - Fixed automatic Wayland crash detection that wasn't working properly - now reliably fails back to X11 when Wayland causes segfaults
 - Implemented cross-platform configuration system with separate Linux and Windows path settings in settings.dat
