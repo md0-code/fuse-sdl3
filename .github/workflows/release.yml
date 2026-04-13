@@ -3,11 +3,11 @@ name: Release
 on:
   push:
     tags:
-      - 'v*'
+      - '*.*.*'
   workflow_dispatch:
     inputs:
       tag:
-        description: 'Release tag (e.g. v0.1.2)'
+        description: 'Release tag (e.g. 0.2.0)'
         required: true
 
 env:
@@ -48,16 +48,28 @@ jobs:
         sudo cmake --install build
         sudo ldconfig
 
-    - name: Build
+    - name: Build main package
       run: |
         chmod +x scripts/build-linux.sh
         ./scripts/build-linux.sh --package
 
-    - name: Upload artifacts
+    - name: Build libretro package
+      run: |
+        chmod +x scripts/build-linux.sh
+        ./scripts/build-linux.sh --libretro --package build-linux-libretro
+
+    - name: Upload main Linux package
       uses: actions/upload-artifact@v4
       with:
         name: fuse-sdl3-linux
         path: build-linux/fuse-sdl3-*-Linux-*.tar.gz
+        retention-days: 90
+
+    - name: Upload libretro Linux package
+      uses: actions/upload-artifact@v4
+      with:
+        name: fuse-sdl3-libretro-linux
+        path: build-linux-libretro/fuse-sdl3_libretro-*.tar.gz
         retention-days: 90
 
   build-windows:
@@ -70,15 +82,26 @@ jobs:
     - name: Install build tools
       run: choco install winflexbison3 -y
 
-    - name: Build
+    - name: Build main package
       shell: pwsh
       run: ./scripts/build-win.ps1 -Package
 
-    - name: Upload artifacts
+    - name: Build libretro package
+      shell: pwsh
+      run: ./scripts/build-win.ps1 -Libretro -BuildDir build-win-libretro-standalone -Package
+
+    - name: Upload main Windows package
       uses: actions/upload-artifact@v4
       with:
         name: fuse-sdl3-windows
         path: build-win/fuse-sdl3-*-Windows-*.zip
+        retention-days: 90
+
+    - name: Upload libretro Windows package
+      uses: actions/upload-artifact@v4
+      with:
+        name: fuse-sdl3-libretro-windows
+        path: build-win/fuse-sdl3_libretro-*.zip
         retention-days: 90
 
   release:
@@ -91,10 +114,29 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v4
 
-    - name: Download all artifacts
+    - name: Download main Linux package
       uses: actions/download-artifact@v4
       with:
-        path: artifacts/
+        name: fuse-sdl3-linux
+        path: artifacts/fuse-sdl3-linux
+
+    - name: Download libretro Linux package
+      uses: actions/download-artifact@v4
+      with:
+        name: fuse-sdl3-libretro-linux
+        path: artifacts/fuse-sdl3-libretro-linux
+
+    - name: Download main Windows package
+      uses: actions/download-artifact@v4
+      with:
+        name: fuse-sdl3-windows
+        path: artifacts/fuse-sdl3-windows
+
+    - name: Download libretro Windows package
+      uses: actions/download-artifact@v4
+      with:
+        name: fuse-sdl3-libretro-windows
+        path: artifacts/fuse-sdl3-libretro-windows
 
     - name: Prepare release assets
       run: |
