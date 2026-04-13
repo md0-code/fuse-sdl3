@@ -90,8 +90,29 @@ enum retro_environment {
   RETRO_ENVIRONMENT_SET_MEMORY_MAPS = 36,
   RETRO_ENVIRONMENT_SET_GEOMETRY = 37,
   RETRO_ENVIRONMENT_GET_USERNAME = 38,
-  RETRO_ENVIRONMENT_GET_LANGUAGE = 39
+  RETRO_ENVIRONMENT_GET_LANGUAGE = 39,
+  RETRO_ENVIRONMENT_GET_CORE_OPTIONS_VERSION = 52,
+  RETRO_ENVIRONMENT_SET_CORE_OPTIONS = 53,
+  RETRO_ENVIRONMENT_SET_CORE_OPTIONS_INTL = 54,
+  RETRO_ENVIRONMENT_GET_DISK_CONTROL_INTERFACE_VERSION = 57,
+  RETRO_ENVIRONMENT_SET_DISK_CONTROL_EXT_INTERFACE = 58,
+  RETRO_ENVIRONMENT_SET_CORE_OPTIONS_V2 = 67,
+  RETRO_ENVIRONMENT_SET_CORE_OPTIONS_V2_INTL = 68
 };
+
+#define RETRO_MEMORY_MASK 0xff
+
+#define RETRO_MEMORY_SAVE_RAM 0
+#define RETRO_MEMORY_RTC 1
+#define RETRO_MEMORY_SYSTEM_RAM 2
+#define RETRO_MEMORY_VIDEO_RAM 3
+#define RETRO_MEMORY_ROM 4
+
+#define RETRO_MEMDESC_CONST ( 1ULL << 0 )
+#define RETRO_MEMDESC_BIGENDIAN ( 1ULL << 1 )
+#define RETRO_MEMDESC_SYSTEM_RAM ( 1ULL << 2 )
+#define RETRO_MEMDESC_SAVE_RAM ( 1ULL << 3 )
+#define RETRO_MEMDESC_VIDEO_RAM ( 1ULL << 4 )
 
 enum retro_log_level {
   RETRO_LOG_DEBUG = 0,
@@ -210,6 +231,17 @@ enum retro_key {
   RETROK_MODE = 313
 };
 
+enum retro_mod {
+  RETROKMOD_NONE = 0x0000,
+  RETROKMOD_SHIFT = 0x01,
+  RETROKMOD_CTRL = 0x02,
+  RETROKMOD_ALT = 0x04,
+  RETROKMOD_META = 0x08,
+  RETROKMOD_NUMLOCK = 0x10,
+  RETROKMOD_CAPSLOCK = 0x20,
+  RETROKMOD_SCROLLOCK = 0x40
+};
+
 struct retro_game_info {
   const char *path;
   const void *data;
@@ -243,9 +275,125 @@ struct retro_system_av_info {
   struct retro_system_timing timing;
 };
 
+struct retro_input_descriptor {
+  unsigned port;
+  unsigned device;
+  unsigned index;
+  unsigned id;
+  const char *description;
+};
+
+struct retro_memory_descriptor {
+  uint64_t flags;
+  void *ptr;
+  size_t offset;
+  size_t start;
+  size_t select;
+  size_t disconnect;
+  size_t len;
+  const char *addrspace;
+};
+
+struct retro_memory_map {
+  const struct retro_memory_descriptor *descriptors;
+  unsigned num_descriptors;
+};
+
+struct retro_controller_description {
+  const char *desc;
+  unsigned id;
+};
+
+struct retro_controller_info {
+  const struct retro_controller_description *types;
+  unsigned num_types;
+};
+
+struct retro_message {
+  const char *msg;
+  unsigned frames;
+};
+
 struct retro_variable {
   const char *key;
   const char *value;
+};
+
+struct retro_game_info;
+
+#define RETRO_NUM_CORE_OPTION_VALUES_MAX 128
+
+struct retro_core_option_value {
+  const char *value;
+  const char *label;
+};
+
+struct retro_core_option_definition {
+  const char *key;
+  const char *desc;
+  const char *info;
+  struct retro_core_option_value values[ RETRO_NUM_CORE_OPTION_VALUES_MAX ];
+  const char *default_value;
+};
+
+struct retro_core_option_v2_category {
+  const char *key;
+  const char *desc;
+  const char *info;
+};
+
+struct retro_core_option_v2_definition {
+  const char *key;
+  const char *desc;
+  const char *desc_categorized;
+  const char *info;
+  const char *info_categorized;
+  const char *category_key;
+  struct retro_core_option_value values[ RETRO_NUM_CORE_OPTION_VALUES_MAX ];
+  const char *default_value;
+};
+
+struct retro_core_options_v2 {
+  struct retro_core_option_v2_category *categories;
+  struct retro_core_option_v2_definition *definitions;
+};
+
+typedef bool (RETRO_CALLCONV *retro_set_eject_state_t)( bool ejected );
+typedef bool (RETRO_CALLCONV *retro_get_eject_state_t)( void );
+typedef unsigned (RETRO_CALLCONV *retro_get_image_index_t)( void );
+typedef bool (RETRO_CALLCONV *retro_set_image_index_t)( unsigned index );
+typedef unsigned (RETRO_CALLCONV *retro_get_num_images_t)( void );
+typedef bool (RETRO_CALLCONV *retro_replace_image_index_t)(
+  unsigned index, const struct retro_game_info *info );
+typedef bool (RETRO_CALLCONV *retro_add_image_index_t)( void );
+typedef bool (RETRO_CALLCONV *retro_set_initial_image_t)( unsigned index,
+                                                          const char *path );
+typedef bool (RETRO_CALLCONV *retro_get_image_path_t)( unsigned index,
+                                                       char *s, size_t len );
+typedef bool (RETRO_CALLCONV *retro_get_image_label_t)( unsigned index,
+                                                        char *s, size_t len );
+
+struct retro_disk_control_callback {
+  retro_set_eject_state_t set_eject_state;
+  retro_get_eject_state_t get_eject_state;
+  retro_get_image_index_t get_image_index;
+  retro_set_image_index_t set_image_index;
+  retro_get_num_images_t get_num_images;
+  retro_replace_image_index_t replace_image_index;
+  retro_add_image_index_t add_image_index;
+};
+
+struct retro_disk_control_ext_callback {
+  retro_set_eject_state_t set_eject_state;
+  retro_get_eject_state_t get_eject_state;
+  retro_get_image_index_t get_image_index;
+  retro_set_image_index_t set_image_index;
+  retro_get_num_images_t get_num_images;
+  retro_replace_image_index_t replace_image_index;
+  retro_add_image_index_t add_image_index;
+  retro_set_initial_image_t set_initial_image;
+  retro_get_image_path_t get_image_path;
+  retro_get_image_label_t get_image_label;
 };
 
 struct retro_log_callback {

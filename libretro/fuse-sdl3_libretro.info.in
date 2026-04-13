@@ -1,0 +1,20 @@
+# Software Information
+display_name = "Sinclair - ZX Spectrum (Fuse SDL3)"
+authors = "Fuse SDL3 contributors"
+supported_extensions = "szx|z80|sna|tap|tzx|pzx|csw|dsk|trd|fdi|udi|mgt|img|opd|opu|hdf|mdr|dck|rom|rzx|pok|m3u"
+corename = "Fuse SDL3"
+categories = "Emulator"
+license = "GPLv3"
+permissions = ""
+display_version = "@PROJECT_VERSION@"
+
+# Hardware Information
+manufacturer = "Sinclair|Amstrad"
+systemname = "ZX Spectrum (various)"
+systemid = "zx_spectrum"
+
+# Libretro Features
+supports_no_game = "true"
+database = "Sinclair - ZX Spectrum +3|Sinclair - ZX Spectrum"
+
+description = "Fuse SDL3 libretro core. Supports Spectrum, Timex, Pentagon and Scorpion variants. Standalone Windows libretro builds embed the bundled ROM and UI assets."

@@ -43,16 +43,41 @@ static size_t audio_capacity;
 static size_t audio_count;
 static int audio_channels = 2;
 static int audio_sample_rate = 44100;
+static int libretro_altgr_symbol_active;
+static unsigned libretro_port_device[ 2 ] = {
+  RETRO_DEVICE_JOYPAD,
+  RETRO_DEVICE_JOYPAD,
+};
 
 static int joypad_state[ 2 ][ 16 ];
 static int joypad_previous[ 2 ][ 16 ];
 
+static const struct {
+  unsigned retro_id;
+  input_key fuse_button;
+} libretro_joypad_mappings[] = {
+  { RETRO_DEVICE_ID_JOYPAD_UP, INPUT_JOYSTICK_UP },
+  { RETRO_DEVICE_ID_JOYPAD_DOWN, INPUT_JOYSTICK_DOWN },
+  { RETRO_DEVICE_ID_JOYPAD_LEFT, INPUT_JOYSTICK_LEFT },
+  { RETRO_DEVICE_ID_JOYPAD_RIGHT, INPUT_JOYSTICK_RIGHT },
+  { RETRO_DEVICE_ID_JOYPAD_B, INPUT_JOYSTICK_FIRE_1 },
+  { RETRO_DEVICE_ID_JOYPAD_A, INPUT_JOYSTICK_FIRE_2 },
+  { RETRO_DEVICE_ID_JOYPAD_Y, INPUT_JOYSTICK_FIRE_3 },
+  { RETRO_DEVICE_ID_JOYPAD_X, INPUT_JOYSTICK_FIRE_4 },
+  { RETRO_DEVICE_ID_JOYPAD_L, INPUT_JOYSTICK_FIRE_5 },
+  { RETRO_DEVICE_ID_JOYPAD_R, INPUT_JOYSTICK_FIRE_6 },
+};
+
 static input_key libretro_map_keycode( unsigned keycode );
 static input_key libretro_map_character( uint32_t character );
-static void libretro_emit_keyboard_event( int down, input_key native_key,
-                                          input_key spectrum_key );
+static int libretro_is_modifier_key( input_key key );
+static int libretro_altgr_symbol_required( input_key mapped_key,
+                                           uint16_t key_modifiers );
+static void libretro_update_altgr_symbol_state( int required );
 static void libretro_emit_joystick_event( int which, input_key button,
                                           int pressed );
+static void libretro_emit_keyboard_event( int down, input_key native_key,
+                                          input_key spectrum_key );
 static uint32_t libretro_palette_colour( int colour );
 static int libretro_audio_ensure_capacity( size_t samples );
 
@@ -77,6 +102,31 @@ libretro_frontend_set_input_callbacks( retro_input_poll_t poll_cb,
 {
   input_poll_callback = poll_cb;
   input_state_callback = state_cb;
+}
+
+void
+libretro_frontend_set_controller_port_device( unsigned port, unsigned device )
+{
+  size_t i;
+
+  if( port >= ARRAY_SIZE( libretro_port_device ) ) return;
+  if( libretro_port_device[ port ] == device ) return;
+
+  if( libretro_port_device[ port ] == RETRO_DEVICE_JOYPAD ) {
+    for( i = 0; i < ARRAY_SIZE( libretro_joypad_mappings ); i++ ) {
+      unsigned id = libretro_joypad_mappings[ i ].retro_id;
+
+      if( joypad_previous[ port ][ id ] ) {
+        libretro_emit_joystick_event( (int)port,
+                                      libretro_joypad_mappings[ i ].fuse_button,
+                                      0 );
+      }
+    }
+  }
+
+  memset( joypad_previous[ port ], 0, sizeof( joypad_previous[ port ] ) );
+  memset( joypad_state[ port ], 0, sizeof( joypad_state[ port ] ) );
+  libretro_port_device[ port ] = device;
 }
 
 void
@@ -111,6 +161,11 @@ libretro_frontend_capture_input( void )
   if( input_poll_callback ) input_poll_callback();
 
   for( port = 0; port < 2; port++ ) {
+    if( libretro_port_device[ port ] != RETRO_DEVICE_JOYPAD ) {
+      memset( joypad_state[ port ], 0, sizeof( joypad_state[ port ] ) );
+      continue;
+    }
+
     for( id = 0; id < 16; id++ ) {
       joypad_state[ port ][ id ] =
         input_state_callback( port, RETRO_DEVICE_JOYPAD, 0, id ) ? 1 : 0;
@@ -133,34 +188,25 @@ libretro_emit_joystick_event( int which, input_key button, int pressed )
 void
 ui_joystick_poll( void )
 {
-  static const struct {
-    unsigned retro_id;
-    input_key fuse_button;
-  } mappings[] = {
-    { RETRO_DEVICE_ID_JOYPAD_UP, INPUT_JOYSTICK_UP },
-    { RETRO_DEVICE_ID_JOYPAD_DOWN, INPUT_JOYSTICK_DOWN },
-    { RETRO_DEVICE_ID_JOYPAD_LEFT, INPUT_JOYSTICK_LEFT },
-    { RETRO_DEVICE_ID_JOYPAD_RIGHT, INPUT_JOYSTICK_RIGHT },
-    { RETRO_DEVICE_ID_JOYPAD_B, INPUT_JOYSTICK_FIRE_1 },
-    { RETRO_DEVICE_ID_JOYPAD_A, INPUT_JOYSTICK_FIRE_2 },
-    { RETRO_DEVICE_ID_JOYPAD_Y, INPUT_JOYSTICK_FIRE_3 },
-    { RETRO_DEVICE_ID_JOYPAD_X, INPUT_JOYSTICK_FIRE_4 },
-    { RETRO_DEVICE_ID_JOYPAD_L, INPUT_JOYSTICK_FIRE_5 },
-    { RETRO_DEVICE_ID_JOYPAD_R, INPUT_JOYSTICK_FIRE_6 },
-  };
   size_t port, i;
 
   for( port = 0; port < 2; port++ ) {
-    for( i = 0; i < ARRAY_SIZE( mappings ); i++ ) {
-      unsigned id = mappings[i].retro_id;
+    if( libretro_port_device[ port ] != RETRO_DEVICE_JOYPAD ) continue;
+
+    for( i = 0; i < ARRAY_SIZE( libretro_joypad_mappings ); i++ ) {
+      unsigned id = libretro_joypad_mappings[ i ].retro_id;
       int current = joypad_state[ port ][ id ];
       int previous = joypad_previous[ port ][ id ];
 
       if( current != previous ) {
-        libretro_emit_joystick_event( (int)port, mappings[i].fuse_button,
-                                      current );
-        joypad_previous[ port ][ id ] = current;
+        libretro_emit_joystick_event(
+          (int)port,
+          libretro_joypad_mappings[ i ].fuse_button,
+          current
+        );
       }
+
+      joypad_previous[ port ][ id ] = current;
     }
   }
 }
@@ -170,6 +216,8 @@ ui_joystick_init( void )
 {
   memset( joypad_state, 0, sizeof( joypad_state ) );
   memset( joypad_previous, 0, sizeof( joypad_previous ) );
+  libretro_port_device[ 0 ] = RETRO_DEVICE_JOYPAD;
+  libretro_port_device[ 1 ] = RETRO_DEVICE_JOYPAD;
   return 2;
 }
 
@@ -239,6 +287,46 @@ libretro_map_keycode( unsigned keycode )
   }
 }
 
+static int
+libretro_is_modifier_key( input_key key )
+{
+  switch( key ) {
+  case INPUT_KEY_Shift_L:
+  case INPUT_KEY_Shift_R:
+  case INPUT_KEY_Control_L:
+  case INPUT_KEY_Control_R:
+  case INPUT_KEY_Alt_L:
+  case INPUT_KEY_Alt_R:
+  case INPUT_KEY_Meta_L:
+  case INPUT_KEY_Meta_R:
+  case INPUT_KEY_Super_L:
+  case INPUT_KEY_Super_R:
+  case INPUT_KEY_Mode_switch:
+    return 1;
+  default:
+    return 0;
+  }
+}
+
+static int
+libretro_altgr_symbol_required( input_key mapped_key, uint16_t key_modifiers )
+{
+  if( libretro_is_modifier_key( mapped_key ) ) return 0;
+
+  return ( key_modifiers & ( RETROKMOD_CTRL | RETROKMOD_ALT ) ) ==
+         ( RETROKMOD_CTRL | RETROKMOD_ALT );
+}
+
+static void
+libretro_update_altgr_symbol_state( int required )
+{
+  if( required == libretro_altgr_symbol_active ) return;
+
+  libretro_emit_keyboard_event( required, INPUT_KEY_Control_R,
+                                INPUT_KEY_Control_R );
+  libretro_altgr_symbol_active = required;
+}
+
 static void
 libretro_emit_keyboard_event( int down, input_key native_key,
                               input_key spectrum_key )
@@ -261,10 +349,11 @@ libretro_frontend_keyboard_event( bool down, unsigned keycode,
   input_key mapped_key;
   input_key mapped_char;
 
-  (void)key_modifiers;
-
   mapped_key = libretro_map_keycode( keycode );
   mapped_char = libretro_map_character( character );
+  libretro_update_altgr_symbol_state(
+    libretro_altgr_symbol_required( mapped_key, key_modifiers )
+  );
 
   if( down ) {
     libretro_emit_keyboard_event( 1,
@@ -823,6 +912,12 @@ libretro_frontend_get_video_data( size_t *pitch )
 void
 libretro_frontend_reset_runtime_state( void )
 {
+  if( libretro_altgr_symbol_active ) {
+    libretro_emit_keyboard_event( 0, INPUT_KEY_Control_R,
+                                  INPUT_KEY_Control_R );
+    libretro_altgr_symbol_active = 0;
+  }
+
   memset( joypad_previous, 0, sizeof( joypad_previous ) );
   memset( joypad_state, 0, sizeof( joypad_state ) );
   audio_count = 0;
