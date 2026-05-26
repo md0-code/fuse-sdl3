@@ -43,6 +43,7 @@ jobs:
         cd SDL3
         cmake -B build -DCMAKE_BUILD_TYPE=Release \
               -DSDL_SHARED=ON -DSDL_STATIC=OFF \
+              -DSDL_RPATH=OFF -DSDL_DEPS_SHARED=OFF \
               -DSDL_TEST=OFF -DSDL_TESTS=OFF -DSDL_EXAMPLES=OFF
         cmake --build build --parallel $(nproc)
         sudo cmake --install build

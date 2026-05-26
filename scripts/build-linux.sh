@@ -122,6 +122,76 @@ get_project_version() {
 
 jobs="${JOBS:-$(cpu_count)}"
 
+verify_linux_package() {
+  archive_path="$1"
+  runtime_path="$2"
+  package_kind="$3"
+
+  if ! command -v readelf >/dev/null 2>&1; then
+    echo "readelf is required to verify Linux packages" >&2
+    exit 1
+  fi
+
+  if ! command -v ldd >/dev/null 2>&1; then
+    echo "ldd is required to verify Linux packages" >&2
+    exit 1
+  fi
+
+  verify_dir=$(mktemp -d "${TMPDIR:-/tmp}/fuse-sdl3-package-check.XXXXXX")
+  tar -xzf "$archive_path" -C "$verify_dir"
+  package_root=$(find "$verify_dir" -mindepth 1 -maxdepth 1 -type d | head -n 1)
+  runtime_file="$package_root/$runtime_path"
+
+  if [ ! -f "$runtime_file" ]; then
+    echo "Expected runtime file not found in package: $runtime_path" >&2
+    rm -rf "$verify_dir"
+    exit 1
+  fi
+
+  if readelf -d "$runtime_file" | grep -q '/usr/local/lib'; then
+    echo "Package runtime contains a non-portable /usr/local/lib rpath: $runtime_path" >&2
+    readelf -d "$runtime_file" | grep 'RPATH\|RUNPATH' >&2 || true
+    rm -rf "$verify_dir"
+    exit 1
+  fi
+
+  if readelf -d "$runtime_file" | grep -q 'RUNPATH'; then
+    echo "Package runtime uses DT_RUNPATH instead of inheritable DT_RPATH: $runtime_path" >&2
+    readelf -d "$runtime_file" | grep 'RPATH\|RUNPATH' >&2 || true
+    rm -rf "$verify_dir"
+    exit 1
+  fi
+
+  if ! readelf -d "$runtime_file" | grep -q 'RPATH.*\$ORIGIN/lib'; then
+    echo "Package runtime is missing portable \$ORIGIN/lib RPATH: $runtime_path" >&2
+    readelf -d "$runtime_file" | grep 'RPATH\|RUNPATH' >&2 || true
+    rm -rf "$verify_dir"
+    exit 1
+  fi
+
+  if ! find "$package_root/lib" -maxdepth 1 -name 'libspectrum.so*' | grep -q .; then
+    echo "Package is missing bundled libspectrum runtime libraries" >&2
+    rm -rf "$verify_dir"
+    exit 1
+  fi
+
+  if [ "$package_kind" = "desktop" ] && ! find "$package_root/lib" -maxdepth 1 -name 'libSDL3.so*' | grep -q .; then
+    echo "Desktop package is missing bundled SDL3 runtime libraries" >&2
+    rm -rf "$verify_dir"
+    exit 1
+  fi
+
+  if ldd "$runtime_file" | grep -q 'not found'; then
+    echo "Package runtime has unresolved shared libraries: $runtime_path" >&2
+    ldd "$runtime_file" >&2 || true
+    rm -rf "$verify_dir"
+    exit 1
+  fi
+
+  rm -rf "$verify_dir"
+  echo "Linux package verification passed: $(basename "$archive_path")"
+}
+
 set -- cmake -S "$root_dir" -B "$build_dir"
 
 if [ "$build_libretro" -eq 1 ]; then
@@ -171,6 +241,11 @@ if [ "$build_libretro" -eq 1 ]; then
 
   chmod 755 "$core_path"
 
+  cmake \
+    -DFUSE_RUNTIME_LIBRARY="$core_path" \
+    -DFUSE_RUNTIME_DESTINATION="$libretro_lib_dir" \
+    -P "$build_dir/cmake/InstallRuntimeDependencies.cmake"
+
   if [ "$build_package" -eq 1 ]; then
     version=$(get_project_version)
     if [ -z "$version" ]; then
@@ -195,6 +270,8 @@ if [ "$build_libretro" -eq 1 ]; then
     tar -C "$build_dir" -czf "$archive_path" "$archive_base"
     rm -rf "$staging_dir"
 
+    verify_linux_package "$archive_path" "fuse-sdl3_libretro.so" "libretro"
+
     echo "Libretro package generated in $archive_path"
   fi
 
@@ -211,6 +288,12 @@ chmod 755 "$exe_path"
 
 if [ "$build_package" -eq 1 ]; then
   cmake --build "$build_dir" --target package --parallel "$jobs"
+  package_path=$(find "$build_dir" -maxdepth 1 -name 'fuse-sdl3-[0-9]*-Linux-*.tar.gz' | sort | tail -n 1)
+  if [ -z "$package_path" ]; then
+    echo "Expected Linux package archive not found in $build_dir" >&2
+    exit 1
+  fi
+  verify_linux_package "$package_path" "fuse" "desktop"
   echo "Package archives generated in $build_dir"
 fi
 
