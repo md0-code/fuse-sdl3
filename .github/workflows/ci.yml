@@ -38,21 +38,34 @@ jobs:
         cd SDL3
         cmake -B build -DCMAKE_BUILD_TYPE=Release \
               -DSDL_SHARED=ON -DSDL_STATIC=OFF \
+              -DSDL_RPATH=OFF -DSDL_DEPS_SHARED=OFF \
               -DSDL_TEST=OFF -DSDL_TESTS=OFF -DSDL_EXAMPLES=OFF
         cmake --build build --parallel $(nproc)
         sudo cmake --install build
         sudo ldconfig
 
-    - name: Build
+    - name: Build main package
       run: |
         chmod +x scripts/build-linux.sh
         ./scripts/build-linux.sh --package
 
-    - name: Upload artifacts
+    - name: Build libretro package
+      run: |
+        chmod +x scripts/build-linux.sh
+        ./scripts/build-linux.sh --libretro --package build-linux-libretro
+
+    - name: Upload main Linux package
       uses: actions/upload-artifact@v4
       with:
         name: fuse-sdl3-linux
         path: build-linux/fuse-sdl3-*-Linux-*.tar.gz
+        retention-days: 7
+
+    - name: Upload libretro Linux package
+      uses: actions/upload-artifact@v4
+      with:
+        name: fuse-sdl3-libretro-linux
+        path: build-linux-libretro/fuse-sdl3_libretro-*.tar.gz
         retention-days: 7
 
   build-windows:

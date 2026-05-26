@@ -114,6 +114,40 @@ else()
   pkg_check_modules(SDLSHADERCROSS QUIET IMPORTED_TARGET sdl3-shadercross)
 endif()
 
+function(fuse_strip_imported_rpath target_name)
+  if(NOT TARGET "${target_name}")
+    return()
+  endif()
+
+  foreach(property_name IN ITEMS INTERFACE_LINK_OPTIONS INTERFACE_LINK_LIBRARIES)
+    get_target_property(link_values "${target_name}" "${property_name}")
+    if(NOT link_values OR link_values STREQUAL "link_values-NOTFOUND")
+      continue()
+    endif()
+
+    set(filtered_values "")
+    set(skip_next_value OFF)
+    foreach(link_value IN LISTS link_values)
+      if(skip_next_value)
+        set(skip_next_value OFF)
+        continue()
+      endif()
+
+      if(link_value STREQUAL "-Wl,-rpath" OR link_value STREQUAL "-rpath")
+        set(skip_next_value ON)
+      elseif(link_value MATCHES "^-Wl,-rpath,.*")
+      elseif(link_value STREQUAL "-Wl,--enable-new-dtags")
+      else()
+        list(APPEND filtered_values "${link_value}")
+      endif()
+    endforeach()
+
+    set_target_properties("${target_name}" PROPERTIES "${property_name}" "${filtered_values}")
+  endforeach()
+endfunction()
+
+fuse_strip_imported_rpath("${FUSE_SDL_TARGET}")
+
 set(HAVE_SDL_SHADERCROSS 0)
 if(TARGET SDL3_shadercross::SDL3_shadercross OR TARGET PkgConfig::SDLSHADERCROSS)
   set(HAVE_SDL_SHADERCROSS 1)
@@ -229,6 +263,8 @@ if(NOT FUSE_LIBSPECTRUM_TARGET)
   )
 endif()
 
+fuse_strip_imported_rpath("${FUSE_LIBSPECTRUM_TARGET}")
+
 option(FUSE_WITH_LIBXML2 "Build with XML settings support" ON)
 option(FUSE_WITH_PNG "Build with PNG screenshot support when available" ON)
 option(FUSE_WITH_SOCKETS "Enable sockets-dependent features" ON)
@@ -336,6 +372,7 @@ if(NOT LIBSPECTRUM_HAS_INTERNAL_GLIB)
     message(FATAL_ERROR "pkg-config is required to locate glib-2.0 for this build")
   endif()
   pkg_check_modules(GLIB REQUIRED IMPORTED_TARGET glib-2.0>=2.20.0)
+  fuse_strip_imported_rpath(PkgConfig::GLIB)
   set(HAVE_LIB_GLIB 1)
 endif()
 
@@ -364,6 +401,7 @@ if(FUSE_WITH_LIBXML2)
       message(FATAL_ERROR "pkg-config is required to locate libxml2 on this platform")
     endif()
     pkg_check_modules(XML REQUIRED IMPORTED_TARGET libxml-2.0>=2.6.0)
+    fuse_strip_imported_rpath(PkgConfig::XML)
   endif()
   set(HAVE_LIB_XML2 1)
 endif()
@@ -381,6 +419,7 @@ if(FUSE_WITH_PNG)
       pkg_check_modules(PNG IMPORTED_TARGET libpng)
     endif()
     if(PNG_FOUND)
+      fuse_strip_imported_rpath(PkgConfig::PNG)
       set(USE_LIBPNG 1)
     endif()
   endif()
@@ -1137,6 +1176,19 @@ if(FUSE_PORTABLE_PACKAGE AND UNIX AND NOT WIN32)
     BUILD_RPATH "\$ORIGIN/lib"
     INSTALL_RPATH "\$ORIGIN/lib"
   )
+endif()
+
+if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+  if(FUSE_PORTABLE_PACKAGE)
+    target_link_options(fuse PRIVATE "-Wl,--disable-new-dtags")
+  endif()
+
+  set_target_properties(fuse-libretro PROPERTIES
+    BUILD_RPATH "\$ORIGIN/lib"
+    INSTALL_RPATH "\$ORIGIN/lib"
+    BUILD_WITH_INSTALL_RPATH TRUE
+  )
+  target_link_options(fuse-libretro PRIVATE "-Wl,--disable-new-dtags")
 endif()
 
 if(EXISTS "${CMAKE_SOURCE_DIR}/repro/libdecor-wayland-repro.c")
