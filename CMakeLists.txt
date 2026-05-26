@@ -119,6 +119,11 @@ function(fuse_strip_imported_rpath target_name)
     return()
   endif()
 
+  get_target_property(aliased_target "${target_name}" ALIASED_TARGET)
+  if(aliased_target)
+    return()
+  endif()
+
   foreach(property_name IN ITEMS INTERFACE_LINK_OPTIONS INTERFACE_LINK_LIBRARIES)
     get_target_property(link_values "${target_name}" "${property_name}")
     if(NOT link_values OR link_values STREQUAL "link_values-NOTFOUND")
