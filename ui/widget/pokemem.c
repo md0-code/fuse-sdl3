@@ -340,13 +340,16 @@ widget_pokemem_store_new( void )
     pokemem_count = store->len;
   }
 
-  /* Adjust default selection to current data */
+  /* Adjust default selection to current data. Note that a valid store always
+     draws row 0 highlighted, so `selected' must point at a real row (0) rather
+     than staying at its initial -1; otherwise toggling before moving would
+     index the array out of bounds. */
   if( pokemem_count == 0 ) {
     selected = -1;
     top_index = 0;
     highlight_line = 0;
   }
-  else if( selected > pokemem_count ) {
+  else if( selected < 0 || selected >= (int) pokemem_count ) {
     selected = 0;
     top_index = 0;
     highlight_line = 0;
@@ -403,12 +406,23 @@ widget_pokemem_trainer_click( int index )
 
   /* Toggle current selection */
   entry->checked = !entry->checked;
-  widget_pokemem_update_line( menu_left_edge_x, menu_width, selected );
 
-  /* Request user for custom value */
+  /* Request user for custom value before applying */
   if( entry->checked && trainer->ask_value ) {
     widget_pokemem_ask_value( trainer );
   }
+
+  /* Apply (or undo) the poke straight away, so ticking a cheat takes effect
+     immediately and the ticked state is retained if the dialog is closed with
+     anything other than OK. Emulation is paused while this widget is open, so
+     the write happens against the game's current memory paging. */
+  if( entry->checked ) {
+    pokemem_trainer_activate( trainer );
+  } else {
+    pokemem_trainer_deactivate( trainer );
+  }
+
+  widget_pokemem_update_line( menu_left_edge_x, menu_width, selected );
 
   return 0;
 }
