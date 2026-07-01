@@ -122,6 +122,13 @@ pokemem_read_from_file( const char *filename )
 
   if( !filename ) return 1;
 
+  /* If this exact .pok is already loaded, keep the existing trainers and their
+     applied/checked state instead of clearing (which would deactivate every
+     applied poke and reset all checkboxes). Reopening the same file via
+     File > Open must not silently revert cheats the user already enabled. */
+  if( pokfile && trainer_list && !strcmp( pokfile, filename ) )
+    return 0;
+
   pokemem_clear();
 
   error = utils_read_file( filename, &file );
@@ -441,6 +448,42 @@ pokemem_poke_deactivate( gpointer data, gpointer user_data GCC_UNUSED )
     RAM[ bank ][ address & 0x3fff ] = value;
   }
 
+}
+
+/* Called once per emulated frame. Re-writes the value of every active poke
+   whose target byte has been overwritten (typically by a multiload reloading
+   that section of code). This mirrors what emulators like Spectaculator do to
+   keep cheats effective across level loads. */
+void
+pokemem_frame( void )
+{
+  GSList *tl, *pl;
+
+  if( !trainer_list ) return;
+
+  for( tl = trainer_list; tl; tl = tl->next ) {
+    trainer_t *trainer = tl->data;
+
+    if( !trainer || !trainer->active || trainer->disabled ) continue;
+
+    for( pl = trainer->poke_list; pl; pl = pl->next ) {
+      poke_t *poke = pl->data;
+      libspectrum_byte value =
+        ( poke->value > 255 )? trainer->value : poke->value;
+      libspectrum_byte mem = pokemem_mem_value( poke->bank, poke->address );
+
+      if( mem == value ) continue;
+
+      /* Byte was overwritten since we applied it (e.g. a multiload reloaded
+         this code): re-apply. Trap/fast loading loads each block atomically,
+         so writing between frames cannot corrupt a partially-loaded block. */
+      if( poke->bank == 8 ) {
+        writebyte_internal( poke->address, value );
+      } else {
+        RAM[ poke->bank ][ poke->address & 0x3fff ] = value;
+      }
+    }
+  }
 }
 
 /* Open or Drag'n'Drop a .pok file */

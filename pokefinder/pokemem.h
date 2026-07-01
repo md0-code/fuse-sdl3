@@ -64,4 +64,8 @@ trainer_t *pokemem_trainer_list_add( libspectrum_byte bank,
 int pokemem_trainer_activate( trainer_t *trainer );
 int pokemem_trainer_deactivate( trainer_t *trainer );
 
+/* Re-assert all active pokes; call once per emulated frame. Keeps cheats
+   working across multiloads that reload (and thus overwrite) the poked code. */
+void pokemem_frame( void );
+
 #endif
