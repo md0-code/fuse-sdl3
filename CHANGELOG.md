@@ -1,5 +1,13 @@
 # Fuse SDL3 Changelog
 
+## Version 0.2.1
+
+- Fixed the Windows release failing to start with a `VCRUNTIME140D.dll was not found` error: the portable package is now built as a fully static binary (static libraries and static C runtime), so `fuse.exe` no longer depends on any external DLLs or the Visual C++ runtime. The previous dynamic build could bundle debug-configuration dependency DLLs (notably a debug `spectrum-9.dll`), which require a runtime only present on machines with Visual Studio installed.
+- Fixed a crash when opening the file dialog a second time on Windows. The remembered per-category directory was allocated by libspectrum but released with the C runtime's `free()`; the mismatched allocators corrupted the heap. All such file-selector allocations now pair with their correct allocator.
+- Fixed an out-of-bounds crash in the Poke Memory dialog that occurred when toggling a cheat before moving the selection (the selection index could stay at its initial `-1`).
+- Poke Memory: enabling a cheat now applies it immediately and keeps its checkbox state, and reopening the same `.pok` file no longer reverts pokes that were already applied.
+- Poke Memory: active pokes are now re-asserted every frame, so cheats keep working on multiload games that reload (and overwrite) the poked code mid-game.
+
 ## Version 0.2.0
 
 - Added an in-tree libretro core target alongside the SDL3 desktop frontend, backed by a reusable runtime shared between both entry points.
