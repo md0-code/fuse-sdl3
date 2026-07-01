@@ -130,6 +130,19 @@ if ($Libretro) {
   }
 }
 
+# The portable release package is built fully static (static libs + static CRT)
+# so the shipped fuse.exe has no external DLL dependencies at all - in
+# particular no dependency on the Visual C++ runtime (VCRUNTIME140.dll) or its
+# non-redistributable debug variant (VCRUNTIME140D.dll). Building against the
+# dynamic x64-windows triplet previously bundled per-config dependency DLLs and
+# could ship the debug spectrum-9.dll, which made the release fail to start on
+# machines without Visual Studio installed.
+if ($Package -and -not $Libretro) {
+  if (-not $PSBoundParameters.ContainsKey('Triplet')) {
+    $Triplet = 'x64-windows-static'
+  }
+}
+
 function Resolve-RepoPath {
   param([string]$Path)
 

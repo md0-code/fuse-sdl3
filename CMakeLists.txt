@@ -1427,15 +1427,22 @@ else()
 endif()
 
 if(WIN32)
+  # $<TARGET_RUNTIME_DLLS:...> is empty for a fully static build (no dependency
+  # DLLs to stage). copy_if_different with only a destination and no sources is
+  # an error, so fall back to a no-op ("true") whenever the DLL list is empty.
   add_custom_command(TARGET fuse POST_BUILD
-    COMMAND "${CMAKE_COMMAND}" -E copy_if_different $<TARGET_RUNTIME_DLLS:fuse> "$<TARGET_FILE_DIR:fuse>"
+    COMMAND "${CMAKE_COMMAND}" -E
+            $<IF:$<BOOL:$<TARGET_RUNTIME_DLLS:fuse>>,copy_if_different,true>
+            $<TARGET_RUNTIME_DLLS:fuse> "$<TARGET_FILE_DIR:fuse>"
     COMMAND_EXPAND_LISTS
     VERBATIM
   )
 
   if(NOT FUSE_LIBRETRO_SINGLE_FILE_BUNDLE)
     add_custom_command(TARGET fuse-libretro POST_BUILD
-      COMMAND "${CMAKE_COMMAND}" -E copy_if_different $<TARGET_RUNTIME_DLLS:fuse-libretro> "$<TARGET_FILE_DIR:fuse-libretro>"
+      COMMAND "${CMAKE_COMMAND}" -E
+              $<IF:$<BOOL:$<TARGET_RUNTIME_DLLS:fuse-libretro>>,copy_if_different,true>
+              $<TARGET_RUNTIME_DLLS:fuse-libretro> "$<TARGET_FILE_DIR:fuse-libretro>"
       COMMAND_EXPAND_LISTS
       VERBATIM
     )
