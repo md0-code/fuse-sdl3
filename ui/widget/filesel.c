@@ -130,6 +130,25 @@ char* widget_filesel_name;
 /* Should we exit all widgets when we're done with this selector? */
 static int exit_all_widgets;
 
+/* strdup() using the C runtime's malloc, so the result pairs with the plain
+   free() used throughout this file. Do NOT use utils_safe_strdup() here: that
+   allocates via libspectrum_malloc, which must be released with libspectrum_free
+   rather than free() (and would corrupt the heap outright when libspectrum is a
+   separate DLL with its own CRT). */
+static char *
+widget_filesel_strdup( const char *src )
+{
+  char *dest = NULL;
+
+  if( src ) {
+    size_t length = strlen( src ) + 1;
+    dest = malloc( length );
+    if( dest ) memcpy( dest, src, length );
+  }
+
+  return dest;
+}
+
 static char *
 widget_get_filename( const char *title, int saving )
 {
@@ -146,10 +165,13 @@ widget_get_filename( const char *title, int saving )
 
   initial_directory = widget_filesel_get_saved_directory( category );
   if( initial_directory && chdir( initial_directory ) ) {
-    free( initial_directory );
+    libspectrum_free( initial_directory );
     initial_directory = NULL;
   }
-  free( initial_directory );
+  /* initial_directory comes from widget_filesel_unescape() via libspectrum_new,
+     so it must be released with libspectrum_free to match its allocator, not
+     the C runtime's free(). */
+  libspectrum_free( initial_directory );
 
   data.exit_all_widgets = 1;
   data.title = title;
@@ -539,7 +561,7 @@ amiga_asl( char *title, BOOL is_saving ) {
 #else				/* #ifndef __MORPHOS__ */
         AddPart( filename, filereq->fr_File, 1024 );
 #endif				/* #ifndef __MORPHOS__ */
-        widget_filesel_name = utils_safe_strdup( filename );
+        widget_filesel_name = widget_filesel_strdup( filename );
 #ifndef __MORPHOS__
         IExec->FreeVec( filename );
 #else				/* #ifndef __MORPHOS__ */
@@ -793,7 +815,7 @@ widget_filesel_draw( void *data )
 
 #ifdef WIN32
   if( directory == NULL ) {
-    directory = utils_safe_strdup( "Drive selection" );
+    directory = widget_filesel_strdup( "Drive selection" );
   }
 #endif				/* #ifdef WIN32 */
 
@@ -1211,7 +1233,7 @@ widget_filesel_keyhandler( input_key key )
         strcat( fn, FUSE_DIR_SEP_STR );
         strcat( fn, widget_text_text );
       } else {						/* absolute name */
-	fn = utils_safe_strdup( widget_text_text );
+	fn = widget_filesel_strdup( widget_text_text );
       }
       widget_filesel_name = fn;
       if( exit_all_widgets ) {
@@ -1246,7 +1268,7 @@ widget_filesel_keyhandler( input_key key )
 
 #ifdef WIN32
   if( is_drivesel ) {
-    dirtitle = utils_safe_strdup( "Drive selection" );
+    dirtitle = widget_filesel_strdup( "Drive selection" );
   } else {
 #endif				/* #ifdef WIN32 */
     dirtitle = widget_getcwd();
