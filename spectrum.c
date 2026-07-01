@@ -40,6 +40,7 @@
 #include "peripherals/printer.h"
 #include "peripherals/ula.h"
 #include "phantom_typist.h"
+#include "pokefinder/pokemem.h"
 #include "psg.h"
 #include "profile.h"
 #include "rzx.h"
@@ -168,6 +169,8 @@ spectrum_frame( void )
 
   loader_frame( frame_length );
   phantom_typist_frame();
+
+  pokemem_frame();
 
   frames_since_reset++;
 
