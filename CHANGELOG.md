@@ -1,5 +1,10 @@
 # Fuse SDL3 Changelog
 
+## Version 0.2.2
+
+- Tape autoload now works with custom machine ROMs when Auto Load is enabled, including tapes opened through File → Open. Fuse resets the machine and waits for the ROM to scan the keyboard before typing the load command.
+- If a custom ROM does not scan the keyboard within 500 frames, Fuse stops the phantom typist and leaves the tape inserted for manual loading.
+
 ## Version 0.2.1
 
 - Fixed the Windows release failing to start with a `VCRUNTIME140D.dll was not found` error: the portable package is now built as a fully static binary (static libraries and static C runtime), so `fuse.exe` no longer depends on any external DLLs or the Visual C++ runtime. The previous dynamic build could bundle debug-configuration dependency DLLs (notably a debug `spectrum-9.dll`), which require a runtime only present on machines with Visual Studio installed.

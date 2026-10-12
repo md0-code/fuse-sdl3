@@ -3,7 +3,7 @@
 A fork of [Fuse](http://fuse-emulator.sourceforge.net/) — the Free Unix Spectrum Emulator — focused on a modernized SDL3 frontend, a streamlined CMake-based build, and an opinionated set of usability improvements and new features.
 
 Upstream baseline: **fuse 1.6.0**.  
-Current version: **0.2.1**.
+Current version: **0.2.2**.
 
 ---
 
@@ -41,6 +41,7 @@ This is a personal project. It is not an official Fuse release and is not affili
 - **Correct fullscreen scaling** — fullscreen keeps the correct aspect ratio instead of stretching to fill the display.
 - **OpenGL shader backend** — loads RetroArch-compatible `.glslp` shader presets (examples provided in `shaders/`). Shader parameters can be edited at runtime under *Options → Shader parameters…*. The backend falls back gracefully to the plain SDL renderer when OpenGL or `SDL3_shadercross` is unavailable.
 - **Dandanator cartridge emulation** — full 512 KB ROM-set support with insert/eject, startup autoload, and EEPROM programming simulation.
+- **Custom-ROM tape autoload** — with Auto Load enabled, *File → Open* can reset and type the tape's load command even when a custom machine ROM is active. Fuse waits for the ROM to scan the keyboard and leaves the tape inserted without typing if that scan never happens.
 - **Keyboard joystick** — cursor keys map to joystick directions, left Alt is fire. `F12` toggles cursor keys between joystick control and normal cursor-key behaviour.
 - **`F11` for fullscreen** — direct toggle without going through the menu.
 - **Per-file-type directory memory** — the file selector remembers the last-used directory separately for each content type (tape, snapshot, ROM, shader, etc.) and restores them across restarts.
