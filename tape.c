@@ -246,8 +246,9 @@ static int
 tape_autoload( libspectrum_machine hardware )
 {
   int needs_code = does_tape_load_with_code();
-  machine_reset( 0 );
-  phantom_typist_activate( hardware, needs_code );
+  int error = machine_reset( 0 );
+  if( error ) return error;
+  phantom_typist_activate( hardware, needs_code, memory_custom_rom() );
   return 0;
 }
 
@@ -372,7 +373,7 @@ tape_write( const char* filename )
 
 int tape_can_autoload( void )
 {
-  return( settings_current.auto_load && !memory_custom_rom() );
+  return settings_current.auto_load;
 }
 
 /* Load the next tape block into memory; returns 0 if a block was
