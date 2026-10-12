@@ -30,7 +30,8 @@ phantom_typist_register_startup( void );
 /* Activate the phantom typist for a given machine, and optionally
    for a tape that needs LOAD ""CODE rather than just LOAD "" */
 void
-phantom_typist_activate( libspectrum_machine machine, int needs_code );
+phantom_typist_activate( libspectrum_machine machine, int needs_code,
+                         int custom_rom );
 
 /* Activate the phantom typist to load a +3 disk */
 void

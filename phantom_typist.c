@@ -23,6 +23,7 @@
 
 #include <config.h>
 
+#include <stdio.h>
 #include <string.h>
 #include <strings.h>
 
@@ -205,6 +206,8 @@ static phantom_typist_state_t next_phantom_typist_state = PHANTOM_TYPIST_STATE_I
 static int delay = 0;
 static libspectrum_byte keyboard_ports_read = 0x00;
 static int command_count;
+static int custom_rom_pending;
+static unsigned custom_rom_wait_frames;
 
 static module_info_t phantom_typist_module_info = {
   phantom_typist_reset,
@@ -235,6 +238,8 @@ phantom_typist_reset( int hard_reset )
 {
   phantom_typist_state = PHANTOM_TYPIST_STATE_INACTIVE;
   next_phantom_typist_state = PHANTOM_TYPIST_STATE_INACTIVE;
+  custom_rom_pending = 0;
+  custom_rom_wait_frames = 0;
 }
 
 static phantom_typist_highlevel_mode_t
@@ -291,7 +296,8 @@ set_state_waiting( void )
 }
 
 void
-phantom_typist_activate( libspectrum_machine machine, int needs_code )
+phantom_typist_activate( libspectrum_machine machine, int needs_code,
+                         int custom_rom )
 {
   phantom_typist_highlevel_mode_t highlevel_mode;
   const char *setting = settings_current.phantom_typist_mode;
@@ -349,6 +355,10 @@ phantom_typist_activate( libspectrum_machine machine, int needs_code )
 
 
   set_state_waiting();
+  custom_rom_pending = custom_rom;
+  custom_rom_wait_frames = 0;
+  if( custom_rom )
+    fprintf( stderr, "Custom ROM tape autoload: waiting for keyboard scan\n" );
 }
 
 void
@@ -356,6 +366,7 @@ phantom_typist_activate_disk( void )
 {
   phantom_typist_mode = PHANTOM_TYPIST_MODE_ENTER;
   set_state_waiting();
+  custom_rom_pending = 0;
 }
 
 void
@@ -384,6 +395,10 @@ process_waiting_state( libspectrum_byte high_byte )
   }
 
   if( keyboard_ports_read == 0xff ) {
+    if( custom_rom_pending ) {
+      fprintf( stderr, "Custom ROM tape autoload: keyboard scan passed\n" );
+      custom_rom_pending = 0;
+    }
     switch( phantom_typist_mode ) {
       case PHANTOM_TYPIST_MODE_JPP:
       case PHANTOM_TYPIST_MODE_JPPI:
@@ -530,6 +545,13 @@ phantom_typist_is_active( void )
 void
 phantom_typist_frame( void )
 {
+  if( custom_rom_pending &&
+      phantom_typist_state == PHANTOM_TYPIST_STATE_WAITING &&
+      ++custom_rom_wait_frames >= 500 ) {
+    fprintf( stderr, "Custom ROM tape autoload: no keyboard scan after 500 frames; tape left inserted\n" );
+    custom_rom_pending = 0;
+    next_phantom_typist_state = PHANTOM_TYPIST_STATE_INACTIVE;
+  }
   keyboard_ports_read = 0x00;
   if( next_phantom_typist_state != phantom_typist_state ) {
     if( phantom_typist_mode == PHANTOM_TYPIST_MODE_PLUS3_CODE_BLOCK &&
