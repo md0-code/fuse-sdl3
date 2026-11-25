@@ -884,7 +884,8 @@ function Invoke-LibretroPackage {
   Copy-Item $infoPath $stagingDir
   Copy-Item (Join-Path $RepoRoot 'README.md') $stagingDir
   New-Item -ItemType Directory -Force (Join-Path $stagingDir 'docs'), (Join-Path $stagingDir 'roms') | Out-Null
-  foreach ($doc in 'LICENSE','NOTES.md','CHANGELOG.md','THIRD_PARTY.md') {
+  Copy-Item (Join-Path $RepoRoot 'LICENSE') $stagingDir
+  foreach ($doc in 'NOTES.md','CHANGELOG.md','THIRD_PARTY.md') {
     Copy-Item (Join-Path $RepoRoot "docs/$doc") (Join-Path $stagingDir 'docs')
   }
   Copy-Item (Join-Path $RepoRoot 'roms/README.copyright') (Join-Path $stagingDir 'roms')

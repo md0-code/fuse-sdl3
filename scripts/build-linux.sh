@@ -284,7 +284,8 @@ if [ "$build_libretro" -eq 1 ]; then
     cp -a "$libretro_lib_dir" "$staging_dir/lib"
     mkdir -p "$staging_dir/roms" "$staging_dir/docs"
     cp "$root_dir/README.md" "$staging_dir/"
-    for doc in LICENSE CHANGELOG.md NOTES.md THIRD_PARTY.md; do cp "$root_dir/docs/$doc" "$staging_dir/docs/"; done
+    cp "$root_dir/LICENSE" "$staging_dir/"
+    for doc in CHANGELOG.md NOTES.md THIRD_PARTY.md; do cp "$root_dir/docs/$doc" "$staging_dir/docs/"; done
     cp "$root_dir/roms/README.copyright" "$staging_dir/roms/"
     while IFS= read -r rom; do
       cp "$root_dir/roms/$rom" "$staging_dir/roms/"

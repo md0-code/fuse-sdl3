@@ -125,12 +125,12 @@ If you need to disable this automatic fix for any reason, set the environment va
 |---|---|
 | [docs/NOTES.md](docs/NOTES.md) | Build dependencies, platform-specific notes, libretro build details, and packaging instructions |
 | [docs/CHANGELOG.md](docs/CHANGELOG.md) | What changed in each release relative to upstream |
-| [docs/LICENSE](docs/LICENSE) | GNU General Public License, version 3 |
+| [LICENSE](LICENSE) | GNU General Public License, version 3 |
 
 ---
 
 ## License
 
-Fuse SDL3 is free software distributed under the **GNU General Public License, version 3 or later**. See [docs/LICENSE](docs/LICENSE) for the full text.
+Fuse SDL3 is free software distributed under the **GNU General Public License, version 3 or later**. See [LICENSE](LICENSE) for the full text.
 
 The original Fuse source code is copyright © 1999–2018 Philip Kendall and other contributors. This fork retains those copyright notices in all source files where they appear.
