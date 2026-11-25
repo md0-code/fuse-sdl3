@@ -160,7 +160,7 @@ sh ./scripts/build-linux.sh --libretro --package
 
 This writes:
 
-- `build-linux-libretro/fuse-sdl3_libretro-<version>-Linux-<arch>.tar.gz`
+- `build-linux-libretro/fuse-sdl3-Libretro-<version>-linux-<arch>.tar.gz`
 
 The Linux libretro archive contains the core, its `.info` metadata file, and
 the staged `lib/` and `roms/` directories.
@@ -192,7 +192,7 @@ file:
 
 This writes:
 
-- `dist/releases/fuse-sdl3_libretro-<version>-Windows-AMD64.zip`
+- `dist/releases/fuse-sdl3-Libretro-<version>-windows-x64.zip`
 
 To also produce binary distribution archives from the install tree:
 

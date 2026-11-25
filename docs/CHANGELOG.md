@@ -1,5 +1,10 @@
 # Fuse SDL3 Changelog
 
+## 0.2.4 (2026-11-25)
+
+- Release archives are named by system and architecture in lower case (`windows-x64`, `linux-x64`); the Libretro core archives are `fuse-sdl3-Libretro-…`.
+- The license is at the top of the repository and of every package.
+
 ## 0.2.3 (2026-11-25)
 
 - Respect the frontend pixel format negotiation and safely read unaligned libretro save states.

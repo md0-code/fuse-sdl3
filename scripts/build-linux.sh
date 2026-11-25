@@ -122,16 +122,25 @@ get_project_version() {
   tr -d '\r\n' < "$root_dir/src/VERSION"
 }
 
+# The architecture in release archive names: x64 or arm64.
+release_arch() {
+  case "$(uname -m)" in
+    x86_64|amd64) echo x64 ;;
+    aarch64|arm64) echo arm64 ;;
+    *) uname -m ;;
+  esac
+}
+
 publish_archive() {
   releases="$root_dir/dist/releases"
   version=$(get_project_version)
   mkdir -p "$releases"
   cp "$1" "$releases/"
-  for prefix in fuse-sdl3 fuse-sdl3_libretro; do
+  for prefix in fuse-sdl3 fuse-sdl3-Libretro fuse-sdl3_libretro; do
     for archive in "$releases/$prefix"-[0-9]*; do
       case "$(basename "$archive")" in
         "$prefix-$version"-*) ;;
-        "$prefix"-*-Windows-*.zip|"$prefix"-*-Linux-*.tar.gz) rm -f -- "$archive" ;;
+        "$prefix"-*-[Ww]indows-*.zip|"$prefix"-*-[Ll]inux-*.tar.gz) rm -f -- "$archive" ;;
       esac
     done
   done
@@ -270,8 +279,7 @@ if [ "$build_libretro" -eq 1 ]; then
       exit 1
     fi
 
-    arch=$(uname -m)
-    archive_base="fuse-sdl3_libretro-${version}-Linux-${arch}"
+    archive_base="fuse-sdl3-Libretro-${version}-linux-$(release_arch)"
     staging_dir="$build_dir/$archive_base"
     archive_path="$build_dir/${archive_base}.tar.gz"
 
@@ -314,7 +322,7 @@ chmod 755 "$exe_path"
 
 if [ "$build_package" -eq 1 ]; then
   cmake --build "$build_dir" --target package --parallel "$jobs"
-  package_path="$build_dir/fuse-sdl3-$(get_project_version)-Linux-$(uname -m).tar.gz"
+  package_path="$build_dir/fuse-sdl3-$(get_project_version)-linux-$(release_arch).tar.gz"
   if [ ! -f "$package_path" ]; then
     echo "Expected Linux package archive not found in $build_dir" >&2
     exit 1

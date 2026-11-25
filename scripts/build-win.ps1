@@ -161,7 +161,7 @@ function Get-WindowsPackageArchitectureLabel {
   param([string]$TripletName)
 
   if ($TripletName -match '^x64-') {
-    return 'AMD64'
+    return 'x64'
   }
 
   if ($TripletName -match '^x86-') {
@@ -169,7 +169,7 @@ function Get-WindowsPackageArchitectureLabel {
   }
 
   if ($TripletName -match '^arm64-') {
-    return 'ARM64'
+    return 'arm64'
   }
 
   if ($TripletName -match '^arm-') {
@@ -851,7 +851,7 @@ function Invoke-LibretroPackage {
   $packageOutputDir = Join-Path $RepoRoot 'dist/releases'
   $projectVersion = Get-RepoProjectVersion
   $architectureLabel = Get-WindowsPackageArchitectureLabel -TripletName $TripletName
-  $archiveName = "fuse-sdl3_libretro-$projectVersion-Windows-$architectureLabel.zip"
+  $archiveName = "fuse-sdl3-Libretro-$projectVersion-windows-$architectureLabel.zip"
   $archivePath = Join-Path $packageOutputDir $archiveName
   $legacyArchivePaths = @(
     (Join-Path $packageOutputDir 'fuse-sdl3_libretro-windows-x64.zip'),
@@ -1083,7 +1083,7 @@ if ($Package) {
     Invoke-CMakeBuild -BuildDirectory $buildDirPath -Target "package"
     $dist = Join-Path $RepoRoot 'dist'
     New-Item -ItemType Directory -Force (Join-Path $dist 'releases') | Out-Null
-    $archive = "fuse-sdl3-$(Get-RepoProjectVersion)-Windows-$(Get-WindowsPackageArchitectureLabel $Triplet).zip"
+    $archive = "fuse-sdl3-$(Get-RepoProjectVersion)-windows-$(Get-WindowsPackageArchitectureLabel $Triplet).zip"
     Copy-Item (Join-Path $buildDirPath $archive) (Join-Path $dist 'releases') -Force
     & (Get-PreferredCMakePath) --install $buildDirPath --prefix $dist
     if ($LASTEXITCODE) { exit $LASTEXITCODE }
@@ -1093,7 +1093,7 @@ if ($Package) {
 if ($Package) {
   $version = Get-RepoProjectVersion
   Get-ChildItem -LiteralPath (Join-Path $RepoRoot 'dist/releases') -File | ForEach-Object {
-    if ($_.Name -match '^fuse-sdl3(?:_libretro)?-(\d+\.\d+\.\d+)-(?:Windows-[\w-]+\.zip|Linux-[\w-]+\.tar\.gz)$' -and $Matches[1] -ne $version) {
+    if ($_.Name -match '^fuse-sdl3(?:_libretro|-Libretro)?-(\d+\.\d+\.\d+)-(?:windows-[\w-]+\.zip|linux-[\w-]+\.tar\.gz)$' -and $Matches[1] -ne $version) {
       Remove-Item -LiteralPath $_.FullName -Force
     }
   }
