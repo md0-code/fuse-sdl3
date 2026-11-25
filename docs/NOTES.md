@@ -192,7 +192,7 @@ file:
 
 This writes:
 
-- `build-win/fuse-sdl3_libretro-<version>-Windows-AMD64.zip`
+- `dist/releases/fuse-sdl3_libretro-<version>-Windows-AMD64.zip`
 
 To also produce binary distribution archives from the install tree:
 
@@ -214,8 +214,7 @@ To build a Linux AppImage from the same portable layout:
 sh ./scripts/build-linux.sh --appimage
 ```
 
-Each packaging flow emits one platform-specific archive into the selected build
-directory: Linux writes `.tar.gz`, while Windows writes `.zip`. The archive is
+Release archives appear in `dist/releases/` and the unpacked Windows desktop app and core are in `dist/`. Linux writes `.tar.gz` and Windows writes `.zip`. Use `--verify` with the Linux packaging command to check the runtime libraries. The archive is
 laid out as a portable bundle with the executable and default config file at
 the archive root.
 

@@ -853,6 +853,12 @@ retro_get_system_av_info( struct retro_system_av_info *info )
 void RETRO_API RETRO_CALLCONV
 retro_init( void )
 {
+  /* SZX compression changes state size; the envelope uses native endianness. */
+  uint64_t quirks = RETRO_SERIALIZATION_QUIRK_CORE_VARIABLE_SIZE |
+                    RETRO_SERIALIZATION_QUIRK_ENDIAN_DEPENDENT;
+  if( environment_callback )
+    environment_callback( RETRO_ENVIRONMENT_SET_SERIALIZATION_QUIRKS, &quirks );
+
   runtime_initialised = 0;
   game_loaded = 0;
   options_dirty = 1;
@@ -868,17 +874,23 @@ retro_init( void )
 }
 
 void RETRO_API RETRO_CALLCONV
-retro_deinit( void )
+retro_unload_game( void )
 {
   if( runtime_initialised ) {
     fuse_runtime_shutdown();
-    runtime_initialised = 0;
-    game_loaded = 0;
   }
 
+  runtime_initialised = 0;
+  game_loaded = 0;
   libretro_disk_reset_content( 0 );
-  libretro_reset_frontend_actions();
   libretro_reset_cheats();
+}
+
+void RETRO_API RETRO_CALLCONV
+retro_deinit( void )
+{
+  retro_unload_game();
+  libretro_reset_frontend_actions();
 }
 
 void RETRO_API RETRO_CALLCONV
@@ -895,14 +907,14 @@ retro_load_game( const struct retro_game_info *game )
 {
   enum retro_pixel_format pixel_format = RETRO_PIXEL_FORMAT_XRGB8888;
 
-  if( environment_callback ) {
-    environment_callback( RETRO_ENVIRONMENT_SET_PIXEL_FORMAT, &pixel_format );
+  if( !environment_callback ||
+      !environment_callback( RETRO_ENVIRONMENT_SET_PIXEL_FORMAT, &pixel_format ) ) {
+    libretro_log_message( RETRO_LOG_ERROR, "libretro: frontend requires an unsupported pixel format\n" );
+    return false;
   }
 
   if( runtime_initialised ) {
-    fuse_runtime_shutdown();
-    runtime_initialised = 0;
-    game_loaded = 0;
+    retro_unload_game();
   }
 
   libretro_disk_reset_content( 1 );
@@ -940,19 +952,6 @@ retro_load_game( const struct retro_game_info *game )
   geometry_dirty = 0;
   game_loaded = 1;
   return true;
-}
-
-void RETRO_API RETRO_CALLCONV
-retro_unload_game( void )
-{
-  if( runtime_initialised ) {
-    fuse_runtime_shutdown();
-  }
-
-  runtime_initialised = 0;
-  game_loaded = 0;
-  libretro_disk_reset_content( 0 );
-  libretro_reset_cheats();
 }
 
 unsigned RETRO_API RETRO_CALLCONV
@@ -1037,7 +1036,7 @@ retro_serialize( void *data, size_t size )
   unsigned char *buffer = NULL;
   size_t length = 0;
 
-  if( !runtime_initialised ) return false;
+  if( !runtime_initialised || !data ) return false;
   if( libretro_build_state( &buffer, &length ) ) return false;
 
   if( size < length ) {
@@ -1053,22 +1052,23 @@ retro_serialize( void *data, size_t size )
 bool RETRO_API RETRO_CALLCONV
 retro_unserialize( const void *data, size_t size )
 {
-  const libretro_state_header *header = data;
+  libretro_state_header header;
   const unsigned char *payload;
 
-  if( !runtime_initialised || !data || size < sizeof( *header ) ) return false;
+  if( !runtime_initialised || !data || size < sizeof( header ) ) return false;
 
-  if( header->magic != FUSE_LIBRETRO_STATE_MAGIC ||
-      header->version != FUSE_LIBRETRO_STATE_VERSION ) {
+  memcpy( &header, data, sizeof( header ) );
+  if( header.magic != FUSE_LIBRETRO_STATE_MAGIC ||
+      header.version != FUSE_LIBRETRO_STATE_VERSION ) {
     return false;
   }
 
-  if( sizeof( *header ) + header->payload_size > size ) return false;
+  if( header.payload_size > size - sizeof( header ) ) return false;
 
-  payload = (const unsigned char *)data + sizeof( *header );
+  payload = (const unsigned char *)data + sizeof( header );
 
-  if( snapshot_read_buffer( payload, header->payload_size,
-                            (libspectrum_id_t)header->snapshot_type ) ) {
+  if( snapshot_read_buffer( payload, header.payload_size,
+                            (libspectrum_id_t)header.snapshot_type ) ) {
     return false;
   }
 

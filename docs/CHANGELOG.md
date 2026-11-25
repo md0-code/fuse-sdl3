@@ -1,11 +1,17 @@
 # Fuse SDL3 Changelog
 
-## Version 0.2.2
+## 0.2.3 (2026-11-25)
+
+- Respect the frontend pixel format negotiation and safely read unaligned libretro save states.
+- Preserve relative content paths when launching the AppImage.
+- Package only the bundled firmware set and include the release documentation.
+
+## 0.2.2 (2026-10-13)
 
 - Tape autoload now works with custom machine ROMs when Auto Load is enabled, including tapes opened through File → Open. Fuse resets the machine and waits for the ROM to scan the keyboard before typing the load command.
 - If a custom ROM does not scan the keyboard within 500 frames, Fuse stops the phantom typist and leaves the tape inserted for manual loading.
 
-## Version 0.2.1
+## 0.2.1 (2026-07-01)
 
 - Fixed the Windows release failing to start with a `VCRUNTIME140D.dll was not found` error: the portable package is now built as a fully static binary (static libraries and static C runtime), so `fuse.exe` no longer depends on any external DLLs or the Visual C++ runtime. The previous dynamic build could bundle debug-configuration dependency DLLs (notably a debug `spectrum-9.dll`), which require a runtime only present on machines with Visual Studio installed.
 - Fixed a crash when opening the file dialog a second time on Windows. The remembered per-category directory was allocated by libspectrum but released with the C runtime's `free()`; the mismatched allocators corrupted the heap. All such file-selector allocations now pair with their correct allocator.
@@ -13,7 +19,7 @@
 - Poke Memory: enabling a cheat now applies it immediately and keeps its checkbox state, and reopening the same `.pok` file no longer reverts pokes that were already applied.
 - Poke Memory: active pokes are now re-asserted every frame, so cheats keep working on multiload games that reload (and overwrite) the poked code mid-game.
 
-## Version 0.2.0
+## 0.2.0 (2026-04-13)
 
 - Added an in-tree libretro core target alongside the SDL3 desktop frontend, backed by a reusable runtime shared between both entry points.
 - Expanded the libretro feature set with save states, cheat translation, no-content boot, disk playlists and disk control, categorized options, controller descriptors, RetroPad media actions, and published memory maps.
@@ -21,7 +27,7 @@
 - Tightened the Windows build helper around generated-settings validation and libretro packaging behavior.
 - Added repository release automation for publishing Linux and Windows libretro packages with changelog-based release notes.
 
-## Version 0.1.1
+## 0.1.1 (2026-04-13)
 
 - Fixed automatic Wayland crash detection that wasn't working properly - now reliably fails back to X11 when Wayland causes segfaults
 - Implemented cross-platform configuration system with separate Linux and Windows path settings in settings.dat
@@ -29,7 +35,7 @@
 - Fixed missing string.h include in menu.c that caused compilation errors on some systems
 - Improved build system reliability and package naming consistency
 
-## Version 0.1.0 (first public release)
+## 0.1.0 (2026-03-19)
 
 - Native SDL3 port for the maintained frontend: SDL video, audio, and input were moved onto the SDL3 path, with follow-up fixes for startup and audio regressions.
 - Modernized build and packaging: Fuse-SDL3 moved to a CMake-based build, added native Linux and Windows workflows, portable archives, AppImage output, embedded UI assets, and improved runtime dependency bundling.

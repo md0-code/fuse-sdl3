@@ -3,7 +3,7 @@
 A fork of [Fuse](http://fuse-emulator.sourceforge.net/) — the Free Unix Spectrum Emulator — focused on a modernized SDL3 frontend, a streamlined CMake-based build, and an opinionated set of usability improvements and new features.
 
 Upstream baseline: **fuse 1.6.0**.  
-Current version: **0.2.2**.
+
 
 ---
 
@@ -37,7 +37,7 @@ This is a personal project. It is not an official Fuse release and is not affili
 
 - **SDL3 frontend** — video, audio, and input fully ported to SDL3, with follow-up fixes for startup and audio regressions introduced during the migration.
 - **Libretro core target** — in-repo libretro build with software video/audio/input integration, save states, disk and playlist handling, frontend descriptors, and dedicated Linux and Windows distribution packaging paths.
-- **CMake build** — replaces autotools; supports Linux and native Windows (via Visual Studio / clang-cl and a repo-local vcpkg manifest). See [BUILD.md](BUILD.md) for full dependency lists and build instructions.
+- **CMake build** — replaces autotools; supports Linux and native Windows (via Visual Studio / clang-cl and a repo-local vcpkg manifest). See [docs/NOTES.md](docs/NOTES.md) for full dependency lists and build instructions.
 - **Correct fullscreen scaling** — fullscreen keeps the correct aspect ratio instead of stretching to fill the display.
 - **OpenGL shader backend** — loads RetroArch-compatible `.glslp` shader presets (examples provided in `shaders/`). Shader parameters can be edited at runtime under *Options → Shader parameters…*. The backend falls back gracefully to the plain SDL renderer when OpenGL or `SDL3_shadercross` is unavailable.
 - **Dandanator cartridge emulation** — full 512 KB ROM-set support with insert/eject, startup autoload, and EEPROM programming simulation.
@@ -82,7 +82,7 @@ macOS is not currently supported or tested.
 
 ## Quick start
 
-Pre-built binaries are available on the [Releases](../../releases) page.
+Pre-built binaries are available on the [Releases](https://github.com/md0-code/fuse-sdl3/releases) page.
 
 **Linux:** download the `.tar.gz` archive, extract it, and run the `fuse` binary inside:
 
@@ -101,7 +101,7 @@ chmod +x fuse-sdl3-<version>.AppImage
 
 **Windows:** download the `.zip` archive, extract it, and run `fuse.exe`.
 
-If you want to build from source instead, see [BUILD.md](BUILD.md).
+If you want to build from source instead, see [docs/NOTES.md](docs/NOTES.md).
 
 ---
 
@@ -123,14 +123,14 @@ If you need to disable this automatic fix for any reason, set the environment va
 
 | Document | Contents |
 |---|---|
-| [BUILD.md](BUILD.md) | Build dependencies, platform-specific notes, libretro build details, and packaging instructions |
-| [CHANGELOG.md](CHANGELOG.md) | What changed in each release relative to upstream |
-| [LICENSE.md](LICENSE.md) | GNU General Public License, version 3 |
+| [docs/NOTES.md](docs/NOTES.md) | Build dependencies, platform-specific notes, libretro build details, and packaging instructions |
+| [docs/CHANGELOG.md](docs/CHANGELOG.md) | What changed in each release relative to upstream |
+| [docs/LICENSE](docs/LICENSE) | GNU General Public License, version 3 |
 
 ---
 
 ## License
 
-Fuse SDL3 is free software distributed under the **GNU General Public License, version 3 or later**. See [LICENSE.md](LICENSE.md) for the full text.
+Fuse SDL3 is free software distributed under the **GNU General Public License, version 3 or later**. See [docs/LICENSE](docs/LICENSE) for the full text.
 
 The original Fuse source code is copyright © 1999–2018 Philip Kendall and other contributors. This fork retains those copyright notices in all source files where they appear.

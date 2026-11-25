@@ -4,6 +4,7 @@ set -eu
 
 build_dir_name="build-linux"
 build_package=0
+verify=0
 build_appimage=0
 build_libretro=0
 build_install=0
@@ -20,6 +21,7 @@ Usage: build-linux.sh [OPTIONS] [BUILD_DIR]
 Options:
   --libretro             Build the libretro core instead of the desktop app
   --package              Build portable release archive (.tar.gz)
+  --verify               Check the generated package or AppImage
   --appimage             Build AppImage
   --install              Install after building (may require sudo)
   --install-prefix=DIR   Set installation prefix used with --install
@@ -37,6 +39,7 @@ Environment:
 EOF
       exit 0
       ;;
+    --verify) verify=1 ;;
     --install)
       build_install=1
       ;;
@@ -117,6 +120,21 @@ cpu_count() {
 
 get_project_version() {
   tr -d '\r\n' < "$root_dir/src/VERSION"
+}
+
+publish_archive() {
+  releases="$root_dir/dist/releases"
+  version=$(get_project_version)
+  mkdir -p "$releases"
+  cp "$1" "$releases/"
+  for prefix in fuse-sdl3 fuse-sdl3_libretro; do
+    for archive in "$releases/$prefix"-[0-9]*; do
+      case "$(basename "$archive")" in
+        "$prefix-$version"-*) ;;
+        "$prefix"-*-Windows-*.zip|"$prefix"-*-Linux-*.tar.gz) rm -f -- "$archive" ;;
+      esac
+    done
+  done
 }
 
 jobs="${JOBS:-$(cpu_count)}"
@@ -264,12 +282,20 @@ if [ "$build_libretro" -eq 1 ]; then
     cp "$core_path" "$staging_dir/"
     cp "$info_path" "$staging_dir/"
     cp -a "$libretro_lib_dir" "$staging_dir/lib"
-    cp -a "$libretro_rom_dir" "$staging_dir/roms"
+    mkdir -p "$staging_dir/roms" "$staging_dir/docs"
+    cp "$root_dir/README.md" "$staging_dir/"
+    for doc in LICENSE CHANGELOG.md NOTES.md THIRD_PARTY.md; do cp "$root_dir/docs/$doc" "$staging_dir/docs/"; done
+    cp "$root_dir/roms/README.copyright" "$staging_dir/roms/"
+    while IFS= read -r rom; do
+      cp "$root_dir/roms/$rom" "$staging_dir/roms/"
+    done < "$root_dir/roms/distribution.list"
+
 
     tar -C "$build_dir" -czf "$archive_path" "$archive_base"
     rm -rf "$staging_dir"
 
-    verify_linux_package "$archive_path" "fuse-sdl3_libretro.so" "libretro"
+    publish_archive "$archive_path"
+    [ "$verify" -eq 0 ] || verify_linux_package "$archive_path" "fuse-sdl3_libretro.so" "libretro"
 
     echo "Libretro package generated in $archive_path"
   fi
@@ -287,12 +313,13 @@ chmod 755 "$exe_path"
 
 if [ "$build_package" -eq 1 ]; then
   cmake --build "$build_dir" --target package --parallel "$jobs"
-  package_path=$(find "$build_dir" -maxdepth 1 -name 'fuse-sdl3-[0-9]*-Linux-*.tar.gz' | sort | tail -n 1)
-  if [ -z "$package_path" ]; then
+  package_path="$build_dir/fuse-sdl3-$(get_project_version)-Linux-$(uname -m).tar.gz"
+  if [ ! -f "$package_path" ]; then
     echo "Expected Linux package archive not found in $build_dir" >&2
     exit 1
   fi
-  verify_linux_package "$package_path" "fuse" "desktop"
+  publish_archive "$package_path"
+  [ "$verify" -eq 0 ] || verify_linux_package "$package_path" "fuse" "desktop"
   echo "Package archives generated in $build_dir"
 fi
 
@@ -370,7 +397,6 @@ if [ "$build_appimage" -eq 1 ]; then
     '#!/usr/bin/env sh' \
     'set -eu' \
     'HERE=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)' \
-    'cd "$HERE"' \
     'export LD_LIBRARY_PATH="$HERE/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"' \
     'exec "$HERE/fuse" "$@"' > "$appdir/AppRun"
   chmod 755 "$appdir/AppRun"
@@ -385,6 +411,8 @@ if [ "$build_appimage" -eq 1 ]; then
 
   chmod 755 "$appimage_path"
 
+  echo "AppImage generated in $appimage_path"
+  [ "$verify" -eq 1 ] || exit 0
   appimage_smoke_stdout="$build_dir/appimage-smoke-output.txt"
   appimage_smoke_stderr="$build_dir/appimage-smoke-error.txt"
   rm -f "$appimage_smoke_stdout" "$appimage_smoke_stderr"

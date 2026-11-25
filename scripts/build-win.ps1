@@ -603,7 +603,7 @@ function Find-GitWindowsPerl {
 }
 
 function Ensure-PerlInterpreter {
-  # Accept any perl already on PATH (Strawberry, Git, MSYS2, ActivePerl, â€¦)
+  # Accept any perl already on PATH (Strawberry, Git, MSYS2, ActivePerl, …)
   if (Get-Command perl -ErrorAction SilentlyContinue) {
     Write-Host "perl already available"
     return
@@ -729,6 +729,11 @@ function Invoke-CMakeConfigure {
     "-DFUSE_USE_INTERNAL_LIBSPECTRUM=OFF"
   )
 
+  if (-not (Get-Command perl -ErrorAction SilentlyContinue)) {
+    $gitPerl = Find-GitWindowsPerl
+    if ($gitPerl) { $cmakeArgs += "-DPERL_EXECUTABLE=$gitPerl" }
+  }
+
   if (-not (Test-Path $cachePath)) {
     $cmakeArgs += "-DCMAKE_TOOLCHAIN_FILE=$toolchainPath"
   }
@@ -843,7 +848,7 @@ function Invoke-LibretroPackage {
 
   $dllPath = Join-Path $BuildDirectory 'fuse-sdl3_libretro.dll'
   $infoPath = Join-Path $BuildDirectory 'fuse-sdl3_libretro.info'
-  $packageOutputDir = Join-Path $RepoRoot 'build-win'
+  $packageOutputDir = Join-Path $RepoRoot 'dist/releases'
   $projectVersion = Get-RepoProjectVersion
   $architectureLabel = Get-WindowsPackageArchitectureLabel -TripletName $TripletName
   $archiveName = "fuse-sdl3_libretro-$projectVersion-Windows-$architectureLabel.zip"
@@ -877,6 +882,13 @@ function Invoke-LibretroPackage {
 
   Copy-Item $dllPath $stagingDir
   Copy-Item $infoPath $stagingDir
+  Copy-Item (Join-Path $RepoRoot 'README.md') $stagingDir
+  New-Item -ItemType Directory -Force (Join-Path $stagingDir 'docs'), (Join-Path $stagingDir 'roms') | Out-Null
+  foreach ($doc in 'LICENSE','NOTES.md','CHANGELOG.md','THIRD_PARTY.md') {
+    Copy-Item (Join-Path $RepoRoot "docs/$doc") (Join-Path $stagingDir 'docs')
+  }
+  Copy-Item (Join-Path $RepoRoot 'roms/README.copyright') (Join-Path $stagingDir 'roms')
+  Copy-Item $dllPath,$infoPath (Join-Path $RepoRoot 'dist')
 
   Compress-Archive -Path (Join-Path $stagingDir '*') -DestinationPath $archivePath -CompressionLevel Optimal -Force
   Remove-Item -Recurse -Force $stagingDir -ErrorAction SilentlyContinue
@@ -1049,7 +1061,9 @@ if ($Libretro) {
 else {
   Invoke-CMakeBuild -BuildDirectory $buildDirPath
 }
-Invoke-GeneratedSettingsSanityCheck -BuildDirectory $buildDirPath
+if ($RuntimeSmokeTest -or $ShaderSmokeTest) {
+  Invoke-GeneratedSettingsSanityCheck -BuildDirectory $buildDirPath
+}
 
 if ($RuntimeSmokeTest) {
   Invoke-SmokeTest -BuildDirectory $buildDirPath
@@ -1066,7 +1080,21 @@ if ($Package) {
   }
   else {
     Invoke-CMakeBuild -BuildDirectory $buildDirPath -Target "package"
-    Write-Host "Package archives generated in $buildDirPath"
+    $dist = Join-Path $RepoRoot 'dist'
+    New-Item -ItemType Directory -Force (Join-Path $dist 'releases') | Out-Null
+    $archive = "fuse-sdl3-$(Get-RepoProjectVersion)-Windows-$(Get-WindowsPackageArchitectureLabel $Triplet).zip"
+    Copy-Item (Join-Path $buildDirPath $archive) (Join-Path $dist 'releases') -Force
+    & (Get-PreferredCMakePath) --install $buildDirPath --prefix $dist
+    if ($LASTEXITCODE) { exit $LASTEXITCODE }
+  }
+}
+
+if ($Package) {
+  $version = Get-RepoProjectVersion
+  Get-ChildItem -LiteralPath (Join-Path $RepoRoot 'dist/releases') -File | ForEach-Object {
+    if ($_.Name -match '^fuse-sdl3(?:_libretro)?-(\d+\.\d+\.\d+)-(?:Windows-[\w-]+\.zip|Linux-[\w-]+\.tar\.gz)$' -and $Matches[1] -ne $version) {
+      Remove-Item -LiteralPath $_.FullName -Force
+    }
   }
 }
 

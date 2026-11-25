@@ -727,9 +727,9 @@ set(GENERATED_Z80_DDFD "${CMAKE_BINARY_DIR}/z80/z80_ddfd.c")
 set(GENERATED_Z80_DDFDCB "${CMAKE_BINARY_DIR}/z80/z80_ddfdcb.c")
 set(GENERATED_Z80_ED "${CMAKE_BINARY_DIR}/z80/z80_ed.c")
 
-file(GLOB FUSE_EMBEDDED_ROM_FILES CONFIGURE_DEPENDS
-  "${CMAKE_SOURCE_DIR}/roms/*.rom"
-)
+set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS "${CMAKE_SOURCE_DIR}/roms/distribution.list")
+file(STRINGS "${CMAKE_SOURCE_DIR}/roms/distribution.list" FUSE_EMBEDDED_ROM_FILES)
+list(TRANSFORM FUSE_EMBEDDED_ROM_FILES PREPEND "${CMAKE_SOURCE_DIR}/roms/")
 list(SORT FUSE_EMBEDDED_ROM_FILES)
 
 fuse_command_to_file(
@@ -1165,6 +1165,16 @@ add_executable(fuse ${FUSE_SOURCES})
 add_dependencies(fuse fuse-generated)
 
 add_library(fuse-libretro SHARED ${FUSE_LIBRETRO_SOURCES})
+if(WIN32)
+  enable_language(RC)
+  set(FUSE_FULL_VERSION "${PROJECT_VERSION}.0")
+  configure_file(data/win32/fuse.manifest.in fuse.manifest @ONLY)
+  configure_file(windres.rc fuse-version.rc @ONLY)
+  target_sources(fuse PRIVATE "${CMAKE_CURRENT_BINARY_DIR}/fuse-version.rc")
+  target_sources(fuse-libretro PRIVATE "${CMAKE_CURRENT_BINARY_DIR}/fuse-version.rc")
+  target_compile_definitions(fuse-libretro PRIVATE "$<$<COMPILE_LANGUAGE:RC>:FUSE_RC_LIBRETRO>")
+endif()
+
 add_dependencies(fuse-libretro fuse-generated)
 
 if(WIN32)
@@ -1474,7 +1484,7 @@ install(FILES "${FUSE_GENERATED_DEFAULT_CONFIG}"
   RENAME "${FUSE_INSTALLED_DEFAULT_CONFIG_NAME}"
 )
 
-install(DIRECTORY "${CMAKE_SOURCE_DIR}/roms/"
+install(FILES ${FUSE_EMBEDDED_ROM_FILES} "${CMAKE_SOURCE_DIR}/roms/README.copyright"
   DESTINATION "${FUSE_ROMS_INSTALL_DESTINATION}"
 )
 
@@ -1516,6 +1526,12 @@ if(UNIX AND NOT APPLE AND NOT FUSE_PORTABLE_PACKAGE)
   endif()
 endif()
 
+if(FUSE_PORTABLE_PACKAGE)
+  install(FILES "${CMAKE_SOURCE_DIR}/README.md" DESTINATION ".")
+  install(FILES docs/LICENSE docs/CHANGELOG.md docs/NOTES.md docs/THIRD_PARTY.md DESTINATION docs)
+endif()
+
+set(CPACK_PACKAGE_DIRECTORY "${CMAKE_BINARY_DIR}")
 set(CPACK_PACKAGE_NAME "fuse-sdl3")
 set(CPACK_PACKAGE_VENDOR "Fuse SDL3")
 set(CPACK_PACKAGE_VERSION "${PROJECT_VERSION}")
@@ -1525,7 +1541,24 @@ set(CPACK_MONOLITHIC_INSTALL ON)
 set(CPACK_INCLUDE_TOPLEVEL_DIRECTORY ON)
 set(CPACK_STRIP_FILES OFF)
 set(CPACK_VERBATIM_VARIABLES YES)
-set(CPACK_PACKAGE_FILE_NAME "fuse-sdl3-${PROJECT_VERSION}-${CMAKE_SYSTEM_NAME}-${CMAKE_SYSTEM_PROCESSOR}")
+set(fuse_archive_arch "${CMAKE_SYSTEM_PROCESSOR}")
+if(WIN32)
+  if(VCPKG_TARGET_TRIPLET)
+    string(REGEX REPLACE "-.*" "" fuse_archive_arch "${VCPKG_TARGET_TRIPLET}")
+  elseif(CMAKE_C_COMPILER_ARCHITECTURE_ID)
+    set(fuse_archive_arch "${CMAKE_C_COMPILER_ARCHITECTURE_ID}")
+  endif()
+  string(TOLOWER "${fuse_archive_arch}" fuse_archive_arch)
+  if(fuse_archive_arch MATCHES "^(x64|amd64|x86_64)$")
+    set(fuse_archive_arch "AMD64")
+  elseif(fuse_archive_arch MATCHES "^arm")
+    string(TOUPPER "${fuse_archive_arch}" fuse_archive_arch)
+  endif()
+endif()
+if(NOT fuse_archive_arch)
+  message(FATAL_ERROR "Cannot determine release architecture")
+endif()
+set(CPACK_PACKAGE_FILE_NAME "fuse-sdl3-${PROJECT_VERSION}-${CMAKE_SYSTEM_NAME}-${fuse_archive_arch}")
 set(CPACK_ARCHIVE_COMPONENT_INSTALL OFF)
 if(NOT DEFINED CPACK_GENERATOR OR CPACK_GENERATOR STREQUAL "")
   if(WIN32)

@@ -25,7 +25,14 @@
 
 #include <windows.h>
 
-win32_icon ICON "data/win32/winfuse.ico"
+#ifdef FUSE_RC_LIBRETRO
+#define FUSE_RC_TYPE VFT_DLL
+#define FUSE_RC_FILENAME "fuse-sdl3_libretro.dll"
+#else
+#define FUSE_RC_TYPE VFT_APP
+#define FUSE_RC_FILENAME "fuse.exe"
+win32_icon ICON "@CMAKE_CURRENT_SOURCE_DIR@/data/win32/winfuse.ico"
+#endif
 
 /* VERSIONINFO specs: http://msdn.microsoft.com/en-us/library/aa381058%28VS.85%29.aspx */
 VS_VERSION_INFO VERSIONINFO
@@ -34,7 +41,7 @@ PRODUCTVERSION 	FUSE_RC_VERSION
 FILEFLAGSMASK  	VS_FFI_FILEFLAGSMASK
 FILEFLAGS      	0x0L
 FILEOS         	VOS__WINDOWS32
-FILETYPE       	VFT_APP
+FILETYPE       	FUSE_RC_TYPE
 FILESUBTYPE    	VFT2_UNKNOWN
 BEGIN
   BLOCK "StringFileInfo"
@@ -43,13 +50,13 @@ BEGIN
     BEGIN
       VALUE "CompanyName",      "\0"
       VALUE "FileDescription",  "Fuse SDL3\0"
-      VALUE "FileVersion",      VERSION##"\0"
+      VALUE "FileVersion",      VERSION
       VALUE "InternalName",     "Fuse SDL3\0"
-      VALUE "LegalCopyright",   FUSE_COPYRIGHT##"\0"
+      VALUE "LegalCopyright",   FUSE_COPYRIGHT
       VALUE "License",          "Fuse SDL3 is licensed under the GNU General Public License, version 3 or later\0"
-      VALUE "OriginalFilename", "fuse.exe\0"
+      VALUE "OriginalFilename", FUSE_RC_FILENAME
       VALUE "ProductName",      "Fuse SDL3\0"
-      VALUE "ProductVersion",   VERSION##"\0"
+      VALUE "ProductVersion",   VERSION
     END
  END
 
@@ -61,6 +68,6 @@ END
 
 /* Reference a manifest for visual styles. It must happen at the end.
    Visual Studio generates the manifest automatically */
-#ifdef __GNUC__
-CREATEPROCESS_MANIFEST_RESOURCE_ID RT_MANIFEST "data/win32/fuse.manifest"
+#if defined(__GNUC__) && !defined(FUSE_RC_LIBRETRO)
+CREATEPROCESS_MANIFEST_RESOURCE_ID RT_MANIFEST "@CMAKE_CURRENT_BINARY_DIR@/fuse.manifest"
 #endif
