@@ -95,3 +95,14 @@ tags
 /z80/z80_ddfdcb.c
 /z80/z80_ed.c
 dandanator/
+
+/work/
+/dist/
+/build/
+/AGENTS.md
+/ISSUES.md
+/TODO.md
+/PLAN.md
+/docs/DEVELOPMENT.md
+/docs/dev/
+/.claude/

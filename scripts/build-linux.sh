@@ -116,8 +116,7 @@ cpu_count() {
 }
 
 get_project_version() {
-  tr -d '\r' < "$root_dir/CMakeLists.txt" |
-    sed -n 's/^project(fuse VERSION \([^ ]*\) LANGUAGES C)$/\1/p'
+  tr -d '\r\n' < "$root_dir/src/VERSION"
 }
 
 jobs="${JOBS:-$(cpu_count)}"

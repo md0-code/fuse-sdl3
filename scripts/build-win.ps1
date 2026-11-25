@@ -154,18 +154,7 @@ function Resolve-RepoPath {
 }
 
 function Get-RepoProjectVersion {
-  $cmakeListsPath = Join-Path $RepoRoot 'CMakeLists.txt'
-  $cmakeText = [System.IO.File]::ReadAllText($cmakeListsPath)
-  $match = [System.Text.RegularExpressions.Regex]::Match(
-    $cmakeText,
-    'project\s*\(\s*fuse\s+VERSION\s+([0-9]+(?:\.[0-9]+)*)\b'
-  )
-
-  if (-not $match.Success) {
-    throw "Could not determine the project version from $cmakeListsPath"
-  }
-
-  return $match.Groups[1].Value
+  return (Get-Content (Join-Path $RepoRoot 'src/VERSION') -Raw).Trim()
 }
 
 function Get-WindowsPackageArchitectureLabel {
@@ -614,7 +603,7 @@ function Find-GitWindowsPerl {
 }
 
 function Ensure-PerlInterpreter {
-  # Accept any perl already on PATH (Strawberry, Git, MSYS2, ActivePerl, …)
+  # Accept any perl already on PATH (Strawberry, Git, MSYS2, ActivePerl, â€¦)
   if (Get-Command perl -ErrorAction SilentlyContinue) {
     Write-Host "perl already available"
     return
